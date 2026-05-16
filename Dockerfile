@@ -8,7 +8,10 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
+COPY prisma ./prisma/
+
 RUN npm ci
+RUN npx prisma generate
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -21,11 +24,6 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN apk add --no-cache openssl
-
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-
-# If you are using Prisma, you need to generate the client here
-RUN npx prisma generate
 
 RUN npm run build
 
@@ -52,6 +50,11 @@ RUN chown nextjs:nodejs .next
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+# Copy generated Prisma client
+COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
 
 USER nextjs
 
