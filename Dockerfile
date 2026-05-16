@@ -22,6 +22,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN apk add --no-cache openssl
 
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
 # If you are using Prisma, you need to generate the client here
 RUN npx prisma generate
 
