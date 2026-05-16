@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,8 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Plus, Search, Filter, Eye, MoreHorizontal, AlertTriangle, FileText } from 'lucide-react'
 import { getStatusColor, getStatusLabel, formatCurrency } from '@/lib/utils'
-import { mockClaims } from '@/lib/mock/claims'
-import { mockInsurances } from '@/lib/mock/insurances'
 import { ClaimStatus } from '@/lib/types'
 
 const statuses: ClaimStatus[] = ['RECEIVED', 'PARTS_CHECK', 'PO_ISSUED', 'GOODS_RECEIVED', 'INVOICE_SENT', 'AP_PAID', 'AR_RECEIVED', 'CLOSED']
@@ -20,28 +18,45 @@ export default function ClaimsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [insuranceFilter, setInsuranceFilter] = useState<string>('')
+  const [claims, setClaims] = useState<any[]>([])
+  const [insurances, setInsurances] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/claims').then(res => res.json()),
+      fetch('/api/insurances').then(res => res.json())
+    ]).then(([claimsData, insurancesData]) => {
+      setClaims(claimsData)
+      setInsurances(insurancesData)
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [])
 
   const filtered = useMemo(() => {
-    let list = [...mockClaims]
+    let list = [...claims]
     if (search) {
       const s = search.toLowerCase()
       list = list.filter(c =>
-        c.claimNo.toLowerCase().includes(s) ||
-        c.carPlate.toLowerCase().includes(s) ||
-        c.insuredName.toLowerCase().includes(s)
+        c.claimNo?.toLowerCase().includes(s) ||
+        c.carPlate?.toLowerCase().includes(s) ||
+        c.insuredName?.toLowerCase().includes(s)
       )
     }
     if (statusFilter) list = list.filter(c => c.status === statusFilter)
     if (insuranceFilter) list = list.filter(c => c.insuranceId === insuranceFilter)
     return list
-  }, [search, statusFilter, insuranceFilter])
+  }, [claims, search, statusFilter, insuranceFilter])
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#0f172a]">Claims</h1>
-          <p className="text-sm text-[#94a3b8] mt-1">จัดการ Claim ทั้งหมด ({mockClaims.length} รายการ)</p>
+          <p className="text-sm text-[#94a3b8] mt-1">จัดการ Claim ทั้งหมด ({claims.length} รายการ)</p>
         </div>
         <Link href="/claims/new">
           <Button className="gap-2">
@@ -54,7 +69,7 @@ export default function ClaimsPage() {
       {/* Status Summary */}
       <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
         {statuses.map(status => {
-          const count = mockClaims.filter(c => c.status === status).length
+          const count = claims.filter(c => c.status === status).length
           const { bg, text } = getStatusColor(status)
           const isActive = statusFilter === status
           return (
@@ -89,7 +104,7 @@ export default function ClaimsPage() {
             </div>
             <Select value={insuranceFilter} onChange={e => setInsuranceFilter(e.target.value)} className="w-48">
               <option value="">ทุกบ.ประกัน</option>
-              {mockInsurances.map(ins => (
+              {insurances.map(ins => (
                 <option key={ins.id} value={ins.id}>{ins.name}</option>
               ))}
             </Select>
@@ -122,7 +137,7 @@ export default function ClaimsPage() {
             <TableBody>
               {filtered.map(claim => {
                 const { bg, text } = getStatusColor(claim.status)
-                const hasReturnParts = claim.parts?.some(p => p.requireReturn)
+                const hasReturnParts = claim.parts?.some((p: any) => p.requireReturn)
                 return (
                   <TableRow key={claim.id}>
                     <TableCell>

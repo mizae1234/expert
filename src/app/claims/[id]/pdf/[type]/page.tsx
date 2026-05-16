@@ -1,9 +1,7 @@
 'use client'
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { mockClaims } from '@/lib/mock/claims'
-import { mockQuotations } from '@/lib/mock/quotations'
 import { mockCompanyProfile } from '@/lib/mock/settings'
 import { formatCurrency } from '@/lib/utils'
 
@@ -14,19 +12,34 @@ export default function PDFMockPage() {
   const type = params.type as string
   const qtId = searchParams.get('qtId')
 
-  const claim = useMemo(() => mockClaims.find(c => c.id === claimId), [claimId])
-  const quotation = useMemo(() => mockQuotations.find(q => q.id === qtId), [qtId])
+  const [claim, setClaim] = useState<any>(null)
+  const [quotation, setQuotation] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const company = mockCompanyProfile
 
   useEffect(() => {
+    fetch(`/api/claims/${claimId}`).then(res => res.json()).then(data => {
+      setClaim(data.error ? null : data)
+      if (qtId && data.quotations) {
+        setQuotation(data.quotations.find((q: any) => q.id === qtId))
+      }
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [claimId, qtId])
+
+  useEffect(() => {
     // Auto print when loaded
-    if (claim) {
+    if (claim && !loading) {
       setTimeout(() => {
         window.print()
       }, 500)
     }
-  }, [claim])
+  }, [claim, loading])
 
+  if (loading) return <div className="p-8 text-center animate-pulse">กำลังโหลดเอกสาร...</div>
   if (!claim) return <div className="p-8 text-center">ไม่พบข้อมูล Claim</div>
 
   const renderHeader = (title: string, docNo: string, date: string) => (
@@ -91,7 +104,7 @@ export default function PDFMockPage() {
           </thead>
           <tbody>
             <tr className="bg-gray-50"><td colSpan={6} className="py-1 px-2 font-semibold">รายการค่าแรง</td></tr>
-            {quotation.laborItems.map((l, i) => (
+            {quotation.laborItems.map((l: any, i: number) => (
               <tr key={l.id} className="border-b border-gray-200">
                 <td className="py-2 px-2 text-gray-600">{i + 1}</td>
                 <td className="py-2 px-2">{l.description}</td>
@@ -102,7 +115,7 @@ export default function PDFMockPage() {
               </tr>
             ))}
             <tr className="bg-gray-50"><td colSpan={6} className="py-1 px-2 font-semibold">รายการค่าอะไหล่</td></tr>
-            {quotation.partItems.map((p, i) => (
+            {quotation.partItems.map((p: any, i: number) => (
               <tr key={p.id} className="border-b border-gray-200">
                 <td className="py-2 px-2 text-gray-600">{i + 1}</td>
                 <td className="py-2 px-2">{p.partName} <span className="text-gray-400 text-xs">({p.partNo})</span></td>

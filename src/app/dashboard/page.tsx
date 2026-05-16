@@ -8,8 +8,6 @@ import { FileText, Clock, DollarSign, TrendingUp, ArrowUpRight, ArrowRight } fro
 import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils'
 import { DashboardSummary, ClaimsByStatus, RevenueByInsurance } from '@/lib/types'
 import Link from 'next/link'
-import { mockClaims } from '@/lib/mock/claims'
-import { getMockDashboardSummary, getMockClaimsByStatus, getMockRevenueByInsurance } from '@/lib/mock/dashboard'
 
 const COLORS = ['#1d4ed8', '#3b82f6', '#60a5fa', '#93bbfd', '#bfdbfe', '#dbeafe', '#2563eb', '#1e40af']
 
@@ -17,11 +15,17 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [byStatus, setByStatus] = useState<ClaimsByStatus[]>([])
   const [byInsurance, setByInsurance] = useState<RevenueByInsurance[]>([])
+  const [recentClaims, setRecentClaims] = useState<any[]>([])
 
   useEffect(() => {
-    setSummary(getMockDashboardSummary())
-    setByStatus(getMockClaimsByStatus())
-    setByInsurance(getMockRevenueByInsurance())
+    fetch('/api/dashboard').then(res => res.json()).then(data => {
+      setSummary(data.summary)
+      setByStatus(data.byStatus)
+      setByInsurance(data.byInsurance)
+      setRecentClaims(data.recentClaims)
+    }).catch(err => {
+      console.error(err)
+    })
   }, [])
 
   if (!summary) return <div className="flex items-center justify-center h-64"><div className="animate-pulse-soft text-[#94a3b8]">กำลังโหลด...</div></div>
@@ -34,7 +38,6 @@ export default function DashboardPage() {
   ]
 
   const maxStatusCount = Math.max(...byStatus.map(s => s.count), 1)
-  const recentClaims = mockClaims.slice(0, 10)
 
   return (
     <div className="space-y-6 animate-fade-in">

@@ -1,19 +1,29 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Search, Plus, Filter, Package, AlertTriangle, ArrowRight, History, Settings2 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
-import { mockPartsMaster } from '@/lib/mock/parts-master'
 import { PartMaster } from '@/lib/types'
 
 export default function PartsMasterPage() {
   const [search, setSearch] = useState('')
   const [filterSource, setFilterSource] = useState<'ALL' | 'AUTO' | 'MANUAL'>('ALL')
-  const [parts, setParts] = useState(mockPartsMaster)
+  const [parts, setParts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/parts-master').then(res => res.json()).then(data => {
+      setParts(data)
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [])
 
   const filteredParts = parts.filter(p => {
     if (filterSource !== 'ALL' && p.source !== filterSource) return false
@@ -116,7 +126,11 @@ export default function PartsMasterPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredParts.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-[#94a3b8]">กำลังโหลดข้อมูล...</td>
+                  </tr>
+                ) : filteredParts.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="p-8 text-center text-[#94a3b8]">ไม่พบข้อมูลอะไหล่ที่ค้นหา</td>
                   </tr>

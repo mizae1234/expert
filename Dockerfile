@@ -22,7 +22,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # If you are using Prisma, you need to generate the client here
-# RUN npx prisma generate
+RUN npx prisma generate
 
 RUN npm run build
 

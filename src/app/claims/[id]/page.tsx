@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,9 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FileText, ArrowLeft, History, Wrench, ShieldAlert, Car, PackageOpen, Tag, CheckCircle2, ChevronRight, Download, Plus, AlertTriangle, TrendingUp, CreditCard, Save, Upload, X, Edit2, Package, Truck, Trash2, CircleDot, Ban, XCircle, Clock } from 'lucide-react'
 import { uploadToR2 } from '@/lib/upload'
 import { getStatusColor, getStatusLabel, formatCurrency, getPOStatusLabel, cn } from '@/lib/utils'
-import { mockClaims } from '@/lib/mock/claims'
 import { mockPaymentRequests } from '@/lib/mock/payment-requests'
-import { mockQuotations } from '@/lib/mock/quotations'
 import { ClaimStatus, PaymentRequest, Quotation, InsuranceInvoice, PurchaseOrder } from '@/lib/types'
 
 const STATUS_FLOW: Record<string, string> = {
@@ -39,17 +37,37 @@ const STATUS_FLOW_LABEL: Record<string, string> = {
 
 export default function ClaimDetailPage() {
   const params = useParams()
-  const originalClaim = useMemo(() => mockClaims.find(c => c.id === params.id), [params.id])
-
-  const [claimStatus, setClaimStatus] = useState<ClaimStatus>(originalClaim?.status || 'RECEIVED')
+  
+  const [loading, setLoading] = useState(true)
+  const [originalClaim, setOriginalClaim] = useState<any>(null)
+  
+  const [claimStatus, setClaimStatus] = useState<ClaimStatus>('RECEIVED')
   const [editMode, setEditMode] = useState(false)
-  const [parts, setParts] = useState(originalClaim?.parts || [])
-  const [labors, setLabors] = useState(originalClaim?.labors || [])
-  const [supplierInvoices, setSupplierInvoices] = useState(originalClaim?.supplierInvoices || [])
-  const [garageInvoices, setGarageInvoices] = useState(originalClaim?.garageInvoices || [])
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(originalClaim?.purchaseOrders || [])
-  const [insuranceInvoice, setInsuranceInvoice] = useState<InsuranceInvoice | undefined>(originalClaim?.insuranceInvoice)
-  const [quotations, setQuotations] = useState<Quotation[]>(mockQuotations.filter(q => q.claimId === originalClaim?.id))
+  const [parts, setParts] = useState<any[]>([])
+  const [labors, setLabors] = useState<any[]>([])
+  const [supplierInvoices, setSupplierInvoices] = useState<any[]>([])
+  const [garageInvoices, setGarageInvoices] = useState<any[]>([])
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
+  const [insuranceInvoice, setInsuranceInvoice] = useState<InsuranceInvoice | undefined>()
+  const [quotations, setQuotations] = useState<Quotation[]>([])
+
+  useEffect(() => {
+    fetch(`/api/claims/${params.id}`).then(res => res.json()).then(data => {
+      setOriginalClaim(data)
+      setClaimStatus(data.status || 'RECEIVED')
+      setParts(data.parts || [])
+      setLabors(data.labors || [])
+      setSupplierInvoices(data.supplierInvoices || [])
+      setGarageInvoices(data.garageInvoices || [])
+      setPurchaseOrders(data.purchaseOrders || [])
+      setInsuranceInvoice(data.insuranceInvoice)
+      setQuotations(data.quotations || [])
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [params.id])
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showGarageUploadModal, setShowGarageUploadModal] = useState(false)
@@ -72,6 +90,14 @@ export default function ClaimDetailPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 animate-pulse">
+        <p className="text-[#94a3b8]">กำลังโหลดข้อมูล Claim...</p>
+      </div>
+    )
+  }
+
   if (!originalClaim) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -87,7 +113,7 @@ export default function ClaimDetailPage() {
   const subtotal = partsTotal + laborTotal
   const vat = Math.round(subtotal * 0.07)
   const grand = subtotal + vat
-  const apVendor = claim.supplierInvoices?.reduce((s, inv) => s + inv.totalAmount, 0) || 0
+  const apVendor = claim.supplierInvoices?.reduce((s: number, inv: any) => s + inv.totalAmount, 0) || 0
   const arReceived = claim.insuranceInvoice?.grandTotal || 0
   const grossProfit = arReceived - apVendor
   const margin = arReceived > 0 ? (grossProfit / arReceived) * 100 : 0
@@ -562,7 +588,7 @@ export default function ClaimDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {claim.purchaseOrders?.map(po => (
+                  {claim.purchaseOrders?.map((po: any) => (
                     <Card key={po.id} className="border border-gray-100">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-3">
@@ -601,10 +627,10 @@ export default function ClaimDetailPage() {
         <TabsContent value="supplier-inv">
           <div className="space-y-6">
             {(() => {
-              const poItems = claim.purchaseOrders?.flatMap(po => po.items.map(item => ({ ...item, poId: po.id, poNo: po.poNo, poStatus: po.status }))) || []
-              const allInvItems = supplierInvoices.flatMap(inv => inv.items || [])
-              const allGInvItems = garageInvoices.flatMap(gi => gi.items || [])
-              const totalApproved = parts.reduce((s, p) => s + p.priceApprove * p.quantity, 0) + labors.reduce((s, l) => s + l.priceApprove, 0)
+              const poItems = claim.purchaseOrders?.flatMap((po: any) => po.items.map((item: any) => ({ ...item, poId: po.id, poNo: po.poNo, poStatus: po.status }))) || []
+              const allInvItems = supplierInvoices.flatMap((inv: any) => inv.items || [])
+              const allGInvItems = garageInvoices.flatMap((gi: any) => gi.items || [])
+              const totalApproved = parts.reduce((s: number, p: any) => s + p.priceApprove * p.quantity, 0) + labors.reduce((s: number, l: any) => s + l.priceApprove, 0)
               const totalInvoiced = parts.filter(p => p.paymentStatus === 'INVOICED' || p.paymentStatus === 'PAID').reduce((s, p) => s + p.priceApprove * p.quantity, 0) + labors.filter(l => l.paymentStatus === 'INVOICED' || l.paymentStatus === 'PAID').reduce((s, l) => s + l.priceApprove, 0)
               const totalPaid = parts.filter(p => p.paymentStatus === 'PAID').reduce((s, p) => s + p.priceApprove * p.quantity, 0) + labors.filter(l => l.paymentStatus === 'PAID').reduce((s, l) => s + l.priceApprove, 0)
               const totalPending = totalApproved - totalInvoiced
@@ -628,9 +654,9 @@ export default function ClaimDetailPage() {
                     <TableHead>รายการ</TableHead><TableHead className="text-right">ยอด</TableHead><TableHead className="text-center">PO</TableHead><TableHead className="text-center">Invoice</TableHead><TableHead className="text-center">สถานะ</TableHead>
                   </TableRow></TableHeader><TableBody>
                     {parts.map(p => {
-                      const poi = poItems.find(x => x.partNo === p.partNo)
-                      const inv = allInvItems.find(x => x.claimPartId === p.id)
-                      const invDoc = inv ? supplierInvoices.find(si => si.items?.some(i => i.id === inv.id)) : null
+                      const poi = poItems.find((x: any) => x.partNo === p.partNo)
+                      const inv = allInvItems.find((x: any) => x.claimPartId === p.id)
+                      const invDoc = inv ? supplierInvoices.find((si: any) => si.items?.some((i: any) => i.id === inv.id)) : null
                       return (<TableRow key={p.id} className={p.paymentStatus === 'PAID' ? 'bg-green-50/30' : ''}>
                         <TableCell><span className="font-medium">{p.partName}</span><span className="text-xs text-[#94a3b8] ml-2">{p.partNo}</span></TableCell>
                         <TableCell className="text-right font-semibold">฿{formatCurrency(p.priceApprove)}</TableCell>
@@ -654,8 +680,8 @@ export default function ClaimDetailPage() {
                     <TableHead>รายการ</TableHead><TableHead className="text-right">ยอด</TableHead><TableHead className="text-center">Garage Invoice</TableHead><TableHead className="text-center">สถานะ</TableHead>
                   </TableRow></TableHeader><TableBody>
                     {labors.map(l => {
-                      const gItem = allGInvItems.find(gi => gi.claimLaborId === l.id)
-                      const gDoc = gItem ? garageInvoices.find(g => g.items?.some(i => i.id === gItem.id)) : null
+                      const gItem = allGInvItems.find((gi: any) => gi.claimLaborId === l.id)
+                      const gDoc = gItem ? garageInvoices.find((g: any) => g.items?.some((i: any) => i.id === gItem.id)) : null
                       return (<TableRow key={l.id} className={l.paymentStatus === 'PAID' ? 'bg-green-50/30' : ''}>
                         <TableCell className="font-medium">{l.description}</TableCell>
                         <TableCell className="text-right font-semibold">฿{formatCurrency(l.priceApprove)}</TableCell>
@@ -995,7 +1021,7 @@ export default function ClaimDetailPage() {
             <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="w-5 h-5 text-[#1d4ed8]" />Timeline</CardTitle></CardHeader>
             <CardContent>
               <div className="relative pl-8 space-y-6">
-                {claim.statusLogs?.map((log, i) => {
+                {claim.statusLogs?.map((log: any, i: number) => {
                   const isLast = i === (claim.statusLogs?.length || 0) - 1
                   const logColor = getStatusColor(log.toStatus)
                   return (

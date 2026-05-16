@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,11 +9,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Eye, Package, Wrench } from 'lucide-react'
-import { mockVendors } from '@/lib/mock/vendors'
 
 export default function VendorsPage() {
   const [search, setSearch] = useState('')
   const [showMissingPeakOnly, setShowMissingPeakOnly] = useState(false)
+  const [mockVendors, setMockVendors] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/vendors').then(res => res.json()).then(data => {
+      setMockVendors(data)
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [])
   
   const filterVendor = (v: any) => {
     if (search !== '' && !v.name.toLowerCase().includes(search.toLowerCase())) return false

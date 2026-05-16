@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CheckCircle2, XCircle, Clock, AlertTriangle, FileText, Save } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import { mockPaymentRequests } from '@/lib/mock/payment-requests'
 import { PaymentRequest } from '@/lib/types'
 
 const statusColor = (s: string) => {
@@ -22,7 +21,18 @@ const typeLabel = (t: string) => t === 'AP_VENDOR' ? 'AP Vendor' : t === 'AP_GAR
 const typeBadge = (t: string) => t === 'AR' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
 
 export default function PaymentsPage() {
-  const [requests, setRequests] = useState<PaymentRequest[]>(mockPaymentRequests)
+  const [requests, setRequests] = useState<PaymentRequest[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/payments').then(res => res.json()).then(data => {
+      setRequests(data)
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [])
   const [activeModal, setActiveModal] = useState<{ type: 'approve' | 'reject' | 'bill'; pr: PaymentRequest } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [approveNote, setApproveNote] = useState('')
@@ -140,7 +150,13 @@ export default function PaymentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : requests).map(renderRow)}
+                    {loading ? (
+                      <TableRow><TableCell colSpan={10} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
+                    ) : (tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : requests).length === 0 ? (
+                      <TableRow><TableCell colSpan={10} className="text-center py-8 text-[#94a3b8]">ไม่พบข้อมูล</TableCell></TableRow>
+                    ) : (
+                      (tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : requests).map(renderRow)
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,18 +8,29 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, Building2 } from 'lucide-react'
-import { mockInsurances } from '@/lib/mock/insurances'
-import { mockClaims } from '@/lib/mock/claims'
 import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils'
 
 export default function InsuranceDetailPage() {
   const params = useParams()
-  const insurance = useMemo(() => mockInsurances.find(i => i.id === params.id), [params.id])
-  const claims = useMemo(() => mockClaims.filter(c => c.insuranceId === params.id), [params.id])
+  const [insurance, setInsurance] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
+  useEffect(() => {
+    fetch(`/api/insurances/${params.id}`).then(res => res.json()).then(data => {
+      setInsurance(data.error ? null : data)
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [params.id])
+
+  if (loading) return <div className="text-center py-12 text-[#94a3b8] animate-pulse">กำลังโหลดข้อมูล...</div>
   if (!insurance) return <div className="text-center py-12 text-[#94a3b8]">ไม่พบข้อมูล</div>
+  
+  const claims = insurance.claims || []
 
-  const totalRevenue = claims.filter(c => c.insuranceInvoice).reduce((s, c) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
+  const totalRevenue = claims.filter((c: any) => c.insuranceInvoice).reduce((s: number, c: any) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -106,7 +117,7 @@ export default function InsuranceDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {claims.map(c => {
+              {claims.map((c: any) => {
                 const sc = getStatusColor(c.status)
                 return (
                   <TableRow key={c.id}>

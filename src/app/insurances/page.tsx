@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,20 +8,31 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Eye, Building2 } from 'lucide-react'
-import { mockInsurances } from '@/lib/mock/insurances'
-import { mockClaims } from '@/lib/mock/claims'
 import { formatCurrency } from '@/lib/utils'
 
 export default function InsurancesPage() {
   const [search, setSearch] = useState('')
-  const filtered = mockInsurances.filter(ins => search === '' || ins.name.toLowerCase().includes(search.toLowerCase()))
+  const [insurances, setInsurances] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/insurances').then(res => res.json()).then(data => {
+      setInsurances(data)
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [])
+
+  const filtered = insurances.filter(ins => search === '' || ins.name.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#0f172a]">บริษัทประกัน</h1>
-          <p className="text-sm text-[#94a3b8] mt-1">จัดการข้อมูลบริษัทประกันภัย ({mockInsurances.length} บริษัท)</p>
+          <p className="text-sm text-[#94a3b8] mt-1">จัดการข้อมูลบริษัทประกันภัย ({insurances.length} บริษัท)</p>
         </div>
         <Button><Plus className="w-4 h-4 mr-2" />เพิ่มบริษัทประกัน</Button>
       </div>
@@ -33,9 +44,11 @@ export default function InsurancesPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {mockInsurances.map(ins => {
-          const claims = mockClaims.filter(c => c.insuranceId === ins.id)
-          const revenue = claims.filter(c => c.insuranceInvoice).reduce((s, c) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
+        {loading ? (
+          <div className="col-span-4 text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</div>
+        ) : insurances.map(ins => {
+          const claims = ins.claims || []
+          const revenue = claims.filter((c: any) => c.insuranceInvoice).reduce((s: number, c: any) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
           return (
             <Card key={ins.id} className="hover:shadow-md transition-all duration-300 cursor-pointer">
               <CardContent className="p-4">
@@ -74,8 +87,10 @@ export default function InsurancesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(ins => {
-                const claimCount = mockClaims.filter(c => c.insuranceId === ins.id).length
+              {loading ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
+              ) : filtered.map(ins => {
+                const claimCount = ins.claims?.length || 0
                 return (
                   <TableRow key={ins.id}>
                     <TableCell className="font-semibold">{ins.name}</TableCell>

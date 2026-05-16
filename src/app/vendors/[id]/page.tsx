@@ -1,18 +1,29 @@
 "use client"
 
-import { useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Phone, MapPin, Building2 } from 'lucide-react'
-import { mockVendors } from '@/lib/mock/vendors'
 
 export default function VendorDetailPage() {
   const params = useParams()
-  const vendor = useMemo(() => mockVendors.find(v => v.id === params.id), [params.id])
+  const [vendor, setVendor] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
+  useEffect(() => {
+    fetch(`/api/vendors/${params.id}`).then(res => res.json()).then(data => {
+      setVendor(data.error ? null : data)
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [params.id])
+
+  if (loading) return <div className="text-center py-12 text-[#94a3b8] animate-pulse">กำลังโหลดข้อมูล Vendor...</div>
   if (!vendor) return <div className="text-center py-12 text-[#94a3b8]">ไม่พบ Vendor</div>
 
   return (

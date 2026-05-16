@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Receipt, Search, Download, Eye, DollarSign, AlertTriangle, CheckCircle2, Clock, FileText } from 'lucide-react'
-import { getMockARInvoices } from '@/lib/mock/invoices'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -16,7 +15,18 @@ type ARTab = 'all' | 'draft' | 'sent' | 'overdue' | 'paid' | 'cancelled'
 export default function InvoicesPage() {
   const [tab, setTab] = useState<ARTab>('all')
   const [search, setSearch] = useState('')
-  const allInvoices = useMemo(() => getMockARInvoices(), [])
+  const [allInvoices, setAllInvoices] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/invoices').then(res => res.json()).then(data => {
+      setAllInvoices(data)
+      setLoading(false)
+    }).catch(err => {
+      console.error(err)
+      setLoading(false)
+    })
+  }, [])
 
   const today = new Date()
 
@@ -138,7 +148,9 @@ export default function InvoicesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <TableRow><TableCell colSpan={9} className="text-center py-12 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
+              ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={9} className="text-center py-12 text-[#94a3b8]"><Receipt className="w-10 h-10 mx-auto mb-2 opacity-30" /><p>ไม่พบข้อมูล</p></TableCell></TableRow>
               ) : filtered.map(inv => (
                 <TableRow key={inv.id} className={`hover:bg-blue-50/30 cursor-pointer ${inv.displayStatus === 'OVERDUE' ? 'bg-red-50/30' : ''}`}>

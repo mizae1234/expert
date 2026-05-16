@@ -1,39 +1,26 @@
 "use client"
-
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { TrendingUp, Clock, Users, BarChart3 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import { mockClaims } from '@/lib/mock/claims'
-import { mockInsurances } from '@/lib/mock/insurances'
-import { mockVendors } from '@/lib/mock/vendors'
 
 export default function ReportsPage() {
-  // P&L by Month
-  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
-  const pnlByMonth = months.map((month, i) => {
-    const claims = mockClaims.filter(c => new Date(c.createdAt).getMonth() === i)
-    const ar = claims.filter(c => c.insuranceInvoice).reduce((s, c) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
-    const ap = claims.reduce((s, c) => s + (c.supplierInvoices?.reduce((ss, inv) => ss + inv.totalAmount, 0) || 0), 0)
-    return { month, ar, ap, profit: ar - ap, margin: ar > 0 ? ((ar - ap) / ar) * 100 : 0, claims: claims.length }
-  })
+  const [data, setData] = useState<{ pnlByMonth: any[], arAging: any[], apOutstanding: any[], vendorPerf: any[] } | null>(null)
 
-  // AR Aging
-  const arAging = mockInsurances.map(ins => {
-    const claims = mockClaims.filter(c => c.insuranceId === ins.id && c.insuranceInvoice && c.insuranceInvoice.status !== 'PAID')
-    const total = claims.reduce((s, c) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
-    return { insurance: ins.name, count: claims.length, total, avgDays: claims.length > 0 ? 30 + Math.floor(Math.random() * 30) : 0 }
-  }).filter(a => a.count > 0)
+  useEffect(() => {
+    fetch('/api/reports').then(res => res.json()).then(resData => {
+      setData(resData)
+    }).catch(err => {
+      console.error(err)
+    })
+  }, [])
 
-  // AP Outstanding
-  const apOutstanding = mockVendors.filter(v => v.vendorType === 'PARTS').map(v => {
-    const total = mockClaims.reduce((s, c) => {
-      return s + (c.supplierInvoices?.filter(inv => inv.vendorId === v.id && !inv.apPayment).reduce((ss, inv) => ss + inv.totalAmount, 0) || 0)
-    }, 0)
-    return { vendor: v.name, total, invoices: Math.floor(Math.random() * 5) + 1 }
-  }).filter(a => a.total > 0)
+  if (!data) return <div className="p-8 text-center text-[#94a3b8]">กำลังโหลดรายงาน...</div>
+
+  const { pnlByMonth, arAging, apOutstanding, vendorPerf } = data
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -194,7 +181,7 @@ export default function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockVendors.map(v => (
+                  {vendorPerf.map(v => (
                     <TableRow key={v.id}>
                       <TableCell className="font-medium">{v.name}</TableCell>
                       <TableCell>
