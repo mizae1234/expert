@@ -1,0 +1,58 @@
+import { Quotation } from '@/lib/types'
+
+export const mockQuotations: Quotation[] = [
+  {
+    id: 'qt-001',
+    quotationNo: 'QT-2026-0001',
+    claimId: 'claim-009',
+    quotationDate: '2025-03-15T00:00:00Z',
+    validUntil: '2025-04-14T00:00:00Z',
+    laborItems: [
+      { id: 'ql-001', description: 'ซ่อมพ่นสีกันชนหลัง', damageLevel: 'หนัก', discountPct: 0, unitPrice: 5525, totalPrice: 5525 },
+      { id: 'ql-002', description: 'ซ่อมบังโคลนหลังขวา', damageLevel: 'เบา', discountPct: 0, unitPrice: 2500, totalPrice: 2500 },
+      { id: 'ql-003', description: 'ขัดสี-เคลือบเงา', damageLevel: undefined, discountPct: 0, unitPrice: 2425, totalPrice: 2425 },
+    ],
+    partItems: [
+      { id: 'qp-001', partNo: '7106013CFC0100', partName: 'ชายล่างกันชนหลัง', quantity: 1, unitPrice: 8847.28, discountPct: 0, totalPrice: 8847.28 },
+      { id: 'qp-002', partNo: '8155113K120', partName: 'ไฟทับทิมข้างขวา', quantity: 1, unitPrice: 1863.87, discountPct: 0, totalPrice: 1863.87 },
+      { id: 'qp-003', partNo: '7511013CFD0100', partName: 'คิ้วกันชนหลัง', quantity: 1, unitPrice: 5401.05, discountPct: 0, totalPrice: 5401.05 },
+      { id: 'qp-004', partNo: '5215213M00', partName: 'กันชนหลัง', quantity: 1, unitPrice: 7857.80, discountPct: 0, totalPrice: 7857.80 },
+    ],
+    laborTotal: 10450,
+    partsTotal: 23970,
+    subtotal: 34420,
+    vatAmount: 2409.40,
+    grandTotal: 36829.40,
+    note: 'ราคาอะไหล่อ้างอิงราคาศูนย์',
+    status: 'APPROVED',
+    approvedAt: '2025-03-18T00:00:00Z',
+    approvedBy: 'คุณสมศักดิ์ (ธนชาตประกันภัย)',
+    createdBy: 'Admin',
+    createdAt: '2025-03-15T00:00:00Z',
+  },
+  {
+    id: 'qt-002',
+    quotationNo: 'QT-2026-0002',
+    claimId: 'claim-016',
+    quotationDate: '2025-04-22T00:00:00Z',
+    validUntil: '2025-05-22T00:00:00Z',
+    laborItems: [
+      { id: 'ql-010', description: 'ซ่อมพ่นสีฝากระโปรงหน้า', damageLevel: 'หนัก', discountPct: 0, unitPrice: 2375, totalPrice: 2375 },
+    ],
+    partItems: [
+      { id: 'qp-010', partNo: '5211160A70', partName: 'กันชนหน้า', quantity: 1, unitPrice: 12500, discountPct: 0, totalPrice: 12500 },
+      { id: 'qp-011', partNo: '5215160B00', partName: 'ไฟหน้าขวา', quantity: 1, unitPrice: 4925, discountPct: 0, totalPrice: 4925 },
+    ],
+    laborTotal: 2375,
+    partsTotal: 17425,
+    subtotal: 19800,
+    vatAmount: 1386,
+    grandTotal: 21186,
+    note: undefined,
+    status: 'APPROVED',
+    approvedAt: '2025-04-25T00:00:00Z',
+    approvedBy: 'คุณวิชัย (สินมั่นคงประกันภัย)',
+    createdBy: 'Admin',
+    createdAt: '2025-04-22T00:00:00Z',
+  },
+]

@@ -1,0 +1,557 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Claim {
+  id                String           @id @default(cuid())
+  claimNo           String           @unique
+  receiveNo         String
+  transactionNo     String
+  insuranceId       String
+  insurance         Insurance        @relation(fields: [insuranceId], references: [id])
+  garageId          String
+  garage            Garage           @relation(fields: [garageId], references: [id])
+  carPlate          String
+  carBrand          String
+  carModel          String
+  carVin            String
+  province          String
+  insuredName       String
+  status            ClaimStatus      @default(RECEIVED)
+  createdAt         DateTime         @default(now())
+  sentAt            DateTime?
+  parts             ClaimPart[]
+  labors            ClaimLabor[]
+  purchaseOrders    PurchaseOrder[]
+  supplierInvoices  SupplierInvoice[]
+  garageInvoices    GarageInvoice[]
+  insuranceInvoice  InsuranceInvoice?
+  statusLogs        ClaimStatusLog[]
+  extractionLogs    ExtractionLog[]
+  paymentRequests   PaymentRequest[]
+  quotations        Quotation[]
+}
+
+enum ClaimStatus {
+  RECEIVED
+  PARTS_CHECK
+  PO_ISSUED
+  GOODS_RECEIVED
+  INVOICE_SENT
+  AP_PAID
+  AR_RECEIVED
+  CLOSED
+}
+
+model ClaimPart {
+  id            String  @id @default(cuid())
+  claimId       String
+  claim         Claim   @relation(fields: [claimId], references: [id])
+  partNo        String
+  partName      String
+  priceFullAmt  Float
+  quantity      Int
+  damageType    String
+  discountPct   Float
+  priceOffer    Float
+  priceApprove  Float
+  supplier      String
+  requireReturn Boolean @default(false)
+  round         Int     @default(1)
+  status        String  @default("approved")
+  paymentStatus PartPaymentStatus @default(PENDING)
+  partMasterId  String?
+  partMaster    PartMaster? @relation(fields: [partMasterId], references: [id])
+  supplierInvoiceItems SupplierInvoiceItem[]
+}
+
+enum PartPaymentStatus {
+  PENDING
+  INVOICED
+  PR_SENT
+  PAID
+}
+
+enum PartMasterSource {
+  AUTO
+  MANUAL
+}
+
+model PartMaster {
+  id            String   @id @default(cuid())
+  partNo        String   @unique
+  partName      String
+  partNameAlt   String[] // ชื่อสะกดอื่นที่เคยพบ (เก็บไว้ match)
+  category      String?  // เช่น กันชน, ไฟ, กระจก
+  unit          String   @default("ชิ้น")
+  standardPrice Float?   // ราคากลางอ้างอิง
+  isActive      Boolean  @default(true)
+  source        PartMasterSource @default(AUTO) // AUTO=จาก Claim, MANUAL=key เอง
+  createdFrom   String?  // claim_id แรกที่พบ Part นี้
+  usageCount    Int      @default(1) // ใช้กี่ Claim แล้ว
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  vendorPrices  PartVendorPrice[]
+  claimParts    ClaimPart[]
+}
+
+model PartVendorPrice {
+  id          String      @id @default(cuid())
+  partNo      String
+  part        PartMaster  @relation(fields: [partNo], references: [partNo])
+  vendorId    String
+  vendor      Vendor      @relation(fields: [vendorId], references: [id])
+  brand       String      // OEM / เทียม / ยี่ห้อ
+  price       Float
+  lastSeenAt  DateTime    @default(now()) // ราคาล่าสุดที่เห็น
+  isPreferred Boolean     @default(false) // Vendor ที่ใช้ประจำ
+}
+
+model ClaimLabor {
+  id           String  @id @default(cuid())
+  claimId      String
+  claim        Claim   @relation(fields: [claimId], references: [id])
+  description  String
+  damageLevel  String
+  discountPct  Float
+  priceOffer   Float
+  priceApprove Float
+  round        Int     @default(1)
+  status       String  @default("approved")
+  paymentStatus LaborPaymentStatus @default(PENDING)
+  garageInvoiceItems GarageInvoiceItem[]
+}
+
+enum LaborPaymentStatus {
+  PENDING
+  INVOICED
+  PR_SENT
+  PAID
+}
+
+model PurchaseOrder {
+  id            String        @id @default(cuid())
+  claimId       String
+  claim         Claim         @relation(fields: [claimId], references: [id])
+  vendorId      String
+  vendor        Vendor        @relation(fields: [vendorId], references: [id])
+  poNo          String        @unique
+  poType        POType
+  deliveryMode  DeliveryMode
+  totalAmount   Float
+  status        POStatus      @default(DRAFT)
+  items         POItem[]
+  goodsReceipt  GoodsReceipt?
+  apPayment     APPayment?
+  createdAt     DateTime      @default(now())
+}
+
+enum POType {
+  PARTS
+  LABOR
+}
+
+enum DeliveryMode {
+  DIRECT_TO_GARAGE
+  SELF_DELIVERY
+}
+
+enum POStatus {
+  DRAFT
+  SENT
+  RECEIVED
+  CANCELLED
+}
+
+model POItem {
+  id          String        @id @default(cuid())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id])
+  partNo      String
+  description String
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+  supplierInvoiceItems SupplierInvoiceItem[]
+}
+
+model SupplierInvoiceItem {
+  id                String          @id @default(cuid())
+  supplierInvoiceId String
+  supplierInvoice   SupplierInvoice @relation(fields: [supplierInvoiceId], references: [id])
+  poItemId          String
+  poItem            POItem          @relation(fields: [poItemId], references: [id])
+  claimPartId       String?
+  claimPart         ClaimPart?      @relation(fields: [claimPartId], references: [id])
+  partNo            String
+  description       String
+  quantity          Int
+  unitPrice         Float
+  totalPrice        Float
+}
+
+model GoodsReceipt {
+  id             String         @id @default(cuid())
+  poId           String         @unique
+  po             PurchaseOrder  @relation(fields: [poId], references: [id])
+  receivedAt     DateTime
+  receivedBy     String
+  note           String?
+  deliveryOrder  DeliveryOrder?
+}
+
+model DeliveryOrder {
+  id             String       @id @default(cuid())
+  goodsReceiptId String       @unique
+  goodsReceipt   GoodsReceipt @relation(fields: [goodsReceiptId], references: [id])
+  garageId       String
+  deliveredAt    DateTime
+  receivedBy     String
+  note           String?
+}
+
+model SupplierInvoice {
+  id          String    @id @default(cuid())
+  claimId     String
+  claim       Claim     @relation(fields: [claimId], references: [id])
+  vendorId    String
+  vendor      Vendor    @relation(fields: [vendorId], references: [id])
+  invoiceNo   String    @unique
+  invoiceDate DateTime
+  subtotal    Float
+  vatAmount   Float
+  totalAmount Float
+  pdfUrl      String?
+  apPayment   APPayment?
+  items           SupplierInvoiceItem[]
+  paymentRequests PaymentRequest[]
+  createdAt       DateTime  @default(now())
+}
+
+model InsuranceInvoice {
+  id          String    @id @default(cuid())
+  claimId     String    @unique
+  claim       Claim     @relation(fields: [claimId], references: [id])
+  invoiceNo   String    @unique
+  invoiceDate DateTime
+  laborTotal  Float
+  partsTotal  Float
+  subtotal    Float
+  vatAmount   Float
+  grandTotal  Float
+  deductible  Float     @default(0)
+  dueDate     DateTime?
+  status      ARStatus  @default(PENDING)
+  cancelledAt DateTime?
+  arPayment       ARPayment?
+  paymentRequests PaymentRequest[]
+  createdAt       DateTime  @default(now())
+}
+
+enum ARStatus {
+  PENDING
+  SENT
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+enum PaymentRequestType {
+  AP_VENDOR
+  AP_GARAGE
+  AR
+}
+
+enum ApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+model PaymentRequest {
+  id                 String              @id @default(cuid())
+  requestType        PaymentRequestType
+  claimId            String
+  claim              Claim               @relation(fields: [claimId], references: [id])
+  supplierInvoiceId  String?
+  supplierInvoice    SupplierInvoice?    @relation(fields: [supplierInvoiceId], references: [id])
+  insuranceInvoiceId String?
+  insuranceInvoice   InsuranceInvoice?   @relation(fields: [insuranceInvoiceId], references: [id])
+  amount             Float
+  whtAmount          Float               @default(0)
+  method             String
+  note               String?
+  status             ApprovalStatus      @default(PENDING_APPROVAL)
+  approvedBy         String?
+  approvedAt         DateTime?
+  rejectReason       String?
+  createdBy          String
+  createdAt          DateTime            @default(now())
+  billReceipt        BillReceipt?
+  apPayment          APPayment?
+  arPayment          ARPayment?
+}
+
+model BillReceipt {
+  id                 String         @id @default(cuid())
+  paymentRequestId   String         @unique
+  paymentRequest     PaymentRequest @relation(fields: [paymentRequestId], references: [id])
+  receivedDate       DateTime
+  physicalInvoiceNo  String
+  invoiceNoMatched   Boolean
+  receivedBy         String
+  systemInvoiceNo    String
+  poNo               String?
+  claimNo            String
+  amount             Float
+  note               String?
+  createdAt          DateTime       @default(now())
+}
+
+model APPayment {
+  id                String           @id @default(cuid())
+  supplierInvoiceId String?          @unique
+  supplierInvoice   SupplierInvoice? @relation(fields: [supplierInvoiceId], references: [id])
+  poId              String?          @unique
+  po                PurchaseOrder?   @relation(fields: [poId], references: [id])
+  paymentRequestId  String?          @unique
+  paymentRequest    PaymentRequest?  @relation(fields: [paymentRequestId], references: [id])
+  payType           APPayType
+  amount            Float
+  whtAmount         Float            @default(0)
+  paidAt            DateTime
+  method            String
+  ref               String?
+}
+
+enum APPayType {
+  VENDOR
+  GARAGE
+}
+
+model ARPayment {
+  id                 String           @id @default(cuid())
+  insuranceInvoiceId String           @unique
+  insuranceInvoice   InsuranceInvoice @relation(fields: [insuranceInvoiceId], references: [id])
+  paymentRequestId   String?          @unique
+  paymentRequest     PaymentRequest?  @relation(fields: [paymentRequestId], references: [id])
+  amount             Float
+  receivedAt         DateTime
+  method             String
+  ref                String?
+}
+
+model Insurance {
+  id             String   @id @default(cuid())
+  name           String
+  branch         String?
+  taxId          String?
+  branchCode     String   @default("00000")
+  isVatRegistered Boolean @default(true)
+  contactPerson  String?
+  peakCustomerId String?
+  claims         Claim[]
+}
+
+model Vendor {
+  id               String            @id @default(cuid())
+  name             String
+  vendorType       VendorType
+  taxId            String?
+  phone            String?
+  zone             String?
+  province         String?
+  paymentTerms     Int               @default(30)
+  isActive         Boolean           @default(true)
+  purchaseOrders   PurchaseOrder[]
+  supplierInvoices SupplierInvoice[]
+  branchCode       String            @default("00000")
+  peakVendorCode   String?
+  isVatRegistered  Boolean           @default(true)
+  whtType          String            @default("53")
+  whtRate          Float             @default(0)
+}
+
+enum VendorType {
+  PARTS
+  GARAGE
+}
+
+model Garage {
+  id              String          @id @default(cuid())
+  name            String
+  zone            String?
+  province        String?
+  address         String?
+  phone           String?
+  claims          Claim[]
+  garageInvoices  GarageInvoice[]
+  taxId           String?
+  branchCode      String          @default("00000")
+  peakVendorCode  String?
+  isVatRegistered Boolean         @default(true)
+  whtType         String          @default("53")
+  whtRate         Float           @default(0)
+}
+
+model GarageInvoice {
+  id            String              @id @default(cuid())
+  claimId       String
+  claim         Claim               @relation(fields: [claimId], references: [id])
+  garageId      String
+  garage        Garage              @relation(fields: [garageId], references: [id])
+  invoiceNo     String              @unique
+  invoiceDate   DateTime
+  items         GarageInvoiceItem[]
+  subtotal      Float
+  vatAmount     Float
+  totalAmount   Float
+  pdfUrl        String?
+  createdAt     DateTime            @default(now())
+}
+
+model GarageInvoiceItem {
+  id              String        @id @default(cuid())
+  garageInvoiceId String
+  garageInvoice   GarageInvoice @relation(fields: [garageInvoiceId], references: [id])
+  claimLaborId    String?
+  claimLabor      ClaimLabor?   @relation(fields: [claimLaborId], references: [id])
+  description     String
+  unitPrice       Float
+  totalPrice      Float
+}
+
+model ClaimStatusLog {
+  id         String   @id @default(cuid())
+  claimId    String
+  claim      Claim    @relation(fields: [claimId], references: [id])
+  fromStatus String?
+  toStatus   String
+  changedBy  String
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model ExtractionLog {
+  id        String   @id @default(cuid())
+  claimId   String
+  claim     Claim    @relation(fields: [claimId], references: [id])
+  fieldName String
+  aiValue   String
+  userValue String
+  editedAt  DateTime @default(now())
+}
+
+model StockMovement {
+  id          String   @id @default(cuid())
+  partNo      String
+  partName    String
+  movementType String
+  quantity    Int
+  claimId     String?
+  vendorId    String?
+  note        String?
+  createdAt   DateTime @default(now())
+}
+
+model StockBalance {
+  id       String @id @default(cuid())
+  partNo   String @unique
+  partName String
+  quantity Int    @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model CompanyProfile {
+  id              String   @id @default(cuid())
+  name            String
+  nameEn          String?
+  taxId           String
+  branchCode      String   @default("00000")
+  branchName      String   @default("สำนักงานใหญ่")
+  address         String
+  subDistrict     String?
+  district        String?
+  province        String?
+  postalCode      String?
+  phone           String?
+  email           String?
+  website         String?
+  logoUrl         String?
+  authorizedName  String?
+  authorizedTitle String?
+  signatureUrl    String?
+  paymentTermDays Int      @default(30)
+  bankName        String?
+  bankAccount     String?
+  bankAccountName String?
+  updatedAt       DateTime @updatedAt
+}
+
+model DocumentSequence {
+  id        String   @id @default(cuid())
+  docType   String   @unique
+  prefix    String
+  lastNo    Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model Quotation {
+  id            String           @id @default(cuid())
+  quotationNo   String           @unique
+  claimId       String
+  claim         Claim            @relation(fields: [claimId], references: [id])
+  quotationDate DateTime         @default(now())
+  validUntil    DateTime
+  laborItems    QuotationLabor[]
+  partItems     QuotationPart[]
+  laborTotal    Float
+  partsTotal    Float
+  subtotal      Float
+  vatAmount     Float
+  grandTotal    Float
+  note          String?
+  status        QuotationStatus  @default(DRAFT)
+  approvedAt    DateTime?
+  approvedBy    String?
+  createdBy     String
+  createdAt     DateTime         @default(now())
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+model QuotationLabor {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id])
+  description String
+  damageLevel String?
+  discountPct Float     @default(0)
+  unitPrice   Float
+  totalPrice  Float
+}
+
+model QuotationPart {
+  id           String    @id @default(cuid())
+  quotationId  String
+  quotation    Quotation @relation(fields: [quotationId], references: [id])
+  partNo       String?
+  partName     String
+  quantity     Int
+  unitPrice    Float
+  discountPct  Float     @default(0)
+  totalPrice   Float
+  partMasterId String?
+}

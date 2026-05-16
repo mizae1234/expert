@@ -1,0 +1,99 @@
+"use client"
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import { Plus, Search, Eye, Building2 } from 'lucide-react'
+import { mockInsurances } from '@/lib/mock/insurances'
+import { mockClaims } from '@/lib/mock/claims'
+import { formatCurrency } from '@/lib/utils'
+
+export default function InsurancesPage() {
+  const [search, setSearch] = useState('')
+  const filtered = mockInsurances.filter(ins => search === '' || ins.name.toLowerCase().includes(search.toLowerCase()))
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#0f172a]">บริษัทประกัน</h1>
+          <p className="text-sm text-[#94a3b8] mt-1">จัดการข้อมูลบริษัทประกันภัย ({mockInsurances.length} บริษัท)</p>
+        </div>
+        <Button><Plus className="w-4 h-4 mr-2" />เพิ่มบริษัทประกัน</Button>
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Input placeholder="ค้นหาชื่อบริษัทประกัน..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {mockInsurances.map(ins => {
+          const claims = mockClaims.filter(c => c.insuranceId === ins.id)
+          const revenue = claims.filter(c => c.insuranceInvoice).reduce((s, c) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
+          return (
+            <Card key={ins.id} className="hover:shadow-md transition-all duration-300 cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1d4ed8] to-[#3b82f6] flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[#0f172a] truncate">{ins.name}</p>
+                    <p className="text-xs text-[#94a3b8]">{ins.branch}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#475569]">{claims.length} claims</span>
+                  <span className="font-semibold text-[#0f172a]">฿{formatCurrency(revenue)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ชื่อบริษัท</TableHead>
+                <TableHead>สาขา</TableHead>
+                <TableHead>เลขผู้เสียภาษี</TableHead>
+                <TableHead>ผู้ติดต่อ</TableHead>
+                <TableHead>PEAK ID</TableHead>
+                <TableHead className="text-center">จำนวน Claim</TableHead>
+                <TableHead className="text-center">จัดการ</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map(ins => {
+                const claimCount = mockClaims.filter(c => c.insuranceId === ins.id).length
+                return (
+                  <TableRow key={ins.id}>
+                    <TableCell className="font-semibold">{ins.name}</TableCell>
+                    <TableCell>{ins.branch}</TableCell>
+                    <TableCell className="font-mono text-xs">{ins.taxId}</TableCell>
+                    <TableCell>{ins.contactPerson}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs">{ins.peakCustomerId}</Badge></TableCell>
+                    <TableCell className="text-center font-semibold">{claimCount}</TableCell>
+                    <TableCell className="text-center">
+                      <Link href={`/insurances/${ins.id}`}><Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="w-4 h-4" /></Button></Link>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
