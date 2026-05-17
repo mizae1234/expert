@@ -8,3 +8,28 @@ export async function GET(request: NextRequest) {
   
   return NextResponse.json(vendors)
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const vendor = await prisma.vendor.create({
+      data: {
+        name: body.name,
+        vendorType: body.vendorType,
+        phone: body.phone,
+        address: body.address,
+        province: body.province,
+        taxId: body.taxId,
+        branchCode: body.branchCode,
+        peakVendorCode: body.peakVendorCode,
+        whtType: body.whtType,
+        whtRate: Number(body.whtRate) || 0,
+        isVatRegistered: Boolean(body.isVatRegistered),
+        paymentTerms: body.paymentTerms || 30
+      }
+    })
+    return NextResponse.json(vendor)
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}

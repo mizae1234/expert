@@ -67,32 +67,77 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json()
 
-  // Generate a claimNo (e.g., CLM-20250001)
-  const count = await prisma.claim.count()
-  const claimNo = `CLM-${new Date().getFullYear()}${String(count + 1).padStart(4, '0')}`
+  // Claim number logic:
+  // - E-Claim: use the number from insurance company (body.claim.claimNo.value)
+  // - Manual:  generate CLM-YY-MM-NNNNNN (per-month sequential)
+  let claimNo = body.claim?.claimNo?.value
+  if (!claimNo) {
+    const now = new Date()
+    const yy = String(now.getFullYear()).slice(2)
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const prefix = `CLM-${yy}-${mm}-`
+    const count = await prisma.claim.count({
+      where: { claimNo: { startsWith: prefix } }
+    })
+    claimNo = `${prefix}${String(count + 1).padStart(6, '0')}`
+  }
 
-  // Default to first garage if not provided (just for testing/migration)
+  // Check for duplicate claim number
+  const existing = await prisma.claim.findUnique({ where: { claimNo } })
+  if (existing) {
+    return NextResponse.json({ error: `เลขที่เคลม ${claimNo} มีอยู่ในระบบแล้ว กรุณาตรวจสอบ` }, { status: 409 })
+  }
+
+  // Ensure insurance and garage exist
+  const defaultInsurance = await prisma.insurance.findFirst()
   const defaultGarage = await prisma.garage.findFirst()
 
-  const newClaim = await prisma.claim.create({
-    data: {
-      claimNo,
-      status: 'RECEIVED',
-      receiveNo: body.receiveNo || '',
-      transactionNo: body.transactionNo || '',
-      insuranceId: body.insuranceId,
-      garageId: body.garageId || defaultGarage?.id || '',
-      carPlate: body.carPlate,
-      carBrand: body.carBrand,
-      carModel: body.carModel,
-      carVin: body.carVin,
-      province: body.province,
-      insuredName: body.insuredName,
-    },
-    include: {
-      insurance: true,
-    }
-  })
-
-  return NextResponse.json(newClaim, { status: 201 })
+  try {
+    const newClaim = await prisma.claim.create({
+      data: {
+        claimNo,
+        status: 'RECEIVED',
+        receiveNo: body.claim?.receiveNo?.value || '',
+        transactionNo: body.claim?.transactionNo?.value || '',
+        insuranceId: defaultInsurance?.id || '',
+        garageId: defaultGarage?.id || '',
+        carPlate: body.car?.plate?.value || '',
+        carBrand: body.car?.brand?.value || '',
+        carModel: body.car?.model?.value || '',
+        carVin: body.car?.vin?.value || '',
+        province: body.car?.province?.value || '',
+        insuredName: body.car?.insuredName?.value || '',
+        parts: {
+          create: (body.parts || []).map((p: any) => ({
+            partNo: p.partNo?.value || '',
+            partName: p.partName?.value || '',
+            priceFullAmt: Number(p.priceFull?.value || 0),
+            quantity: Number(p.quantity?.value || 1),
+            damageType: p.damageType?.value || '',
+            discountPct: Number(p.discountPct?.value || 0),
+            priceOffer: Number(p.priceOffer?.value || 0),
+            priceApprove: Number(p.priceApprove?.value || 0),
+            supplier: p.supplier?.value || '',
+            requireReturn: Boolean(p.requireReturn?.value || false),
+          }))
+        },
+        labors: {
+          create: (body.labors || []).map((l: any) => ({
+            description: l.description?.value || '',
+            damageLevel: l.damageLevel?.value || '',
+            discountPct: Number(l.discountPct?.value || 0),
+            priceOffer: Number(l.priceOffer?.value || 0),
+            priceApprove: Number(l.priceApprove?.value || 0),
+          }))
+        }
+      },
+      include: {
+        insurance: true,
+      }
+    })
+    return NextResponse.json(newClaim, { status: 201 })
+  } catch (error: any) {
+    console.error('Save Claim Error:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }

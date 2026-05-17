@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CheckCircle2, XCircle, Clock, AlertTriangle, FileText, Save } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { formatDate } from '@/lib/date'
 import { PaymentRequest } from '@/lib/types'
 
 const statusColor = (s: string) => {
@@ -21,7 +22,7 @@ const typeLabel = (t: string) => t === 'AP_VENDOR' ? 'AP Vendor' : t === 'AP_GAR
 const typeBadge = (t: string) => t === 'AR' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
 
 export default function PaymentsPage() {
-  const [requests, setRequests] = useState<PaymentRequest[]>([])
+  const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -33,68 +34,96 @@ export default function PaymentsPage() {
       setLoading(false)
     })
   }, [])
-  const [activeModal, setActiveModal] = useState<{ type: 'approve' | 'reject' | 'bill'; pr: PaymentRequest } | null>(null)
+  const [activeModal, setActiveModal] = useState<{ type: 'approve' | 'reject'; pr: any } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [approveNote, setApproveNote] = useState('')
-  const [billForm, setBillForm] = useState({ physicalInvoiceNo: '', receivedBy: '', note: '' })
   const [toast, setToast] = useState<string | null>(null)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
-  const pending = requests.filter(r => r.status === 'PENDING_APPROVAL')
-  const approved = requests.filter(r => r.status === 'APPROVED')
-  const rejected = requests.filter(r => r.status === 'REJECTED')
+  
+  const [searchQuery, setSearchQuery] = useState('')
+  const filteredRequests = requests.filter(r => {
+    const q = searchQuery.toLowerCase()
+    return (
+      (r.claimNo || '').toLowerCase().includes(q) ||
+      (r.carPlate || '').toLowerCase().includes(q) ||
+      (r.vendorName || '').toLowerCase().includes(q) ||
+      (r.garageName || '').toLowerCase().includes(q) ||
+      (r.insuranceName || '').toLowerCase().includes(q) ||
+      (r.invoiceNo || '').toLowerCase().includes(q)
+    )
+  })
 
-  const handleApprove = (pr: PaymentRequest) => {
-    setRequests(prev => prev.map(r => r.id === pr.id ? { ...r, status: 'APPROVED' as const, approvedBy: 'Manager', approvedAt: new Date().toISOString() } : r))
-    setActiveModal(null)
-    showToast(`อนุมัติ ${pr.claimNo} เรียบร้อย`)
+  const pending = filteredRequests.filter(r => r.status === 'PENDING_APPROVAL')
+  const approved = filteredRequests.filter(r => r.status === 'APPROVED')
+  const rejected = filteredRequests.filter(r => r.status === 'REJECTED')
+
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleApprove = async (pr: any) => {
+    try {
+      setIsSaving(true)
+      const res = await fetch(`/api/payments/${pr.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'APPROVED', approvedBy: 'Manager', approvedAt: new Date().toISOString() })
+      })
+      if (!res.ok) throw new Error('Failed to approve')
+      
+      setRequests(prev => prev.map(r => r.id === pr.id ? { ...r, status: 'APPROVED' as const, approvedBy: 'Manager', approvedAt: new Date().toISOString() } : r))
+      setActiveModal(null)
+      showToast(`อนุมัติ ${pr.claimNo} เรียบร้อย`)
+    } catch (err: any) {
+      console.error(err)
+      showToast('❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleReject = (pr: PaymentRequest) => {
+  const handleReject = async (pr: any) => {
     if (!rejectReason.trim()) return
-    setRequests(prev => prev.map(r => r.id === pr.id ? { ...r, status: 'REJECTED' as const, rejectReason, approvedBy: 'Manager' } : r))
-    setActiveModal(null); setRejectReason('')
-    showToast(`ปฏิเสธ ${pr.claimNo}`)
+    try {
+      setIsSaving(true)
+      const res = await fetch(`/api/payments/${pr.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'REJECTED', rejectReason, approvedBy: 'Manager' })
+      })
+      if (!res.ok) throw new Error('Failed to reject')
+      
+      setRequests(prev => prev.map(r => r.id === pr.id ? { ...r, status: 'REJECTED' as const, rejectReason, approvedBy: 'Manager' } : r))
+      setActiveModal(null); setRejectReason('')
+      showToast(`ปฏิเสธ ${pr.claimNo}`)
+    } catch (err: any) {
+      console.error(err)
+      showToast('❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleBillReceipt = (pr: PaymentRequest) => {
-    const sysNo = pr.supplierInvoiceId ? `SINV-${pr.claimNo?.split('CLM-2025')[1]}` : `INV-${pr.claimNo?.split('CLM-2025')[1]}`
-    const matched = billForm.physicalInvoiceNo.trim() === sysNo
-    setRequests(prev => prev.map(r => r.id === pr.id ? {
-      ...r, billReceipt: {
-        id: `br-new-${Date.now()}`, paymentRequestId: pr.id, receivedDate: new Date().toISOString(),
-        physicalInvoiceNo: billForm.physicalInvoiceNo, invoiceNoMatched: matched,
-        receivedBy: billForm.receivedBy, systemInvoiceNo: sysNo,
-        poNo: pr.supplierInvoiceId ? `PO-${pr.claimNo?.split('CLM-2025')[1]}` : undefined,
-        claimNo: pr.claimNo || '', amount: pr.amount, note: billForm.note, createdAt: new Date().toISOString(),
-      }
-    } : r))
-    setActiveModal(null); setBillForm({ physicalInvoiceNo: '', receivedBy: '', note: '' })
-    showToast('บันทึกการรับบิลเรียบร้อย')
-  }
-
-  const renderRow = (pr: PaymentRequest) => (
+  const renderRow = (pr: any) => (
     <TableRow key={pr.id}>
-      <TableCell className="text-xs text-[#94a3b8]">{new Date(pr.createdAt).toLocaleDateString('th-TH')}</TableCell>
+      <TableCell className="text-xs text-[#94a3b8]">{formatDate(pr.createdAt)}</TableCell>
       <TableCell><Badge className={`${typeBadge(pr.requestType)} border-none text-[10px]`}>{typeLabel(pr.requestType)}</Badge></TableCell>
-      <TableCell className="font-semibold text-[#1d4ed8]">{pr.claimNo}</TableCell>
+      <TableCell>
+        <a href={`/claims/${pr.claimId}?tab=supplier-inv`} target="_blank" rel="noreferrer" className="font-semibold text-[#1d4ed8] hover:underline">
+          {pr.claimNo}
+        </a>
+      </TableCell>
       <TableCell className="text-xs">{pr.carPlate}</TableCell>
-      <TableCell className="text-sm">{pr.vendorName || pr.garageName || pr.insuranceName}</TableCell>
+      <TableCell className="text-sm">
+        {pr.vendorName || pr.garageName || pr.insuranceName}
+      </TableCell>
+      <TableCell className="font-mono text-xs">{pr.invoiceNo || '-'}</TableCell>
       <TableCell className="text-right font-semibold">฿{formatCurrency(pr.amount)}</TableCell>
       <TableCell className="text-xs">{pr.createdBy}</TableCell>
-      <TableCell>
-        {pr.billReceipt ? (
-          pr.billReceipt.invoiceNoMatched
-            ? <span className="flex items-center gap-1 text-green-600 text-[10px]"><CheckCircle2 className="w-3 h-3" />บิลตรง</span>
-            : <span className="flex items-center gap-1 text-amber-500 text-[10px]"><AlertTriangle className="w-3 h-3" />บิลไม่ตรง</span>
-        ) : <span className="text-[10px] text-[#94a3b8]">ยังไม่รับบิล</span>}
-      </TableCell>
       <TableCell><Badge className={`${statusColor(pr.status)} border-none text-[10px]`}>{statusLabel(pr.status)}</Badge></TableCell>
       <TableCell>
         <div className="flex gap-1">
           {pr.status === 'PENDING_APPROVAL' && (
             <>
-              {!pr.billReceipt && <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => { setBillForm({ physicalInvoiceNo: '', receivedBy: '', note: '' }); setActiveModal({ type: 'bill', pr }) }}>รับบิล</Button>}
               <Button size="sm" className="h-7 text-[10px] bg-green-600 hover:bg-green-700" onClick={() => { setApproveNote(''); setActiveModal({ type: 'approve', pr }) }}>Approve</Button>
               <Button size="sm" variant="destructive" className="h-7 text-[10px]" onClick={() => { setRejectReason(''); setActiveModal({ type: 'reject', pr }) }}>Reject</Button>
             </>
@@ -107,12 +136,25 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {toast && <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-5 py-3 rounded-lg shadow-xl flex items-center gap-2"><CheckCircle2 className="w-5 h-5" />{toast}</div>}
+      {toast && (
+        <div className={`fixed top-6 right-6 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-4 font-medium flex items-center gap-2 ${toast.includes('❌') || toast.includes('⚠️') ? 'bg-red-600' : 'bg-green-600'}`}>
+          {!toast.includes('❌') && !toast.includes('⚠️') && !toast.includes('✅') && '✅ '}
+          <span>{toast}</span>
+        </div>
+      )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#0f172a]">Payment Requests</h1>
           <p className="text-sm text-[#94a3b8]">จัดการคำขออนุมัติจ่ายเงิน / รับเงิน</p>
+        </div>
+        <div className="w-full md:w-80">
+          <Input 
+            placeholder="ค้นหา ใบเคลม, ทะเบียนรถ, Invoice..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white shadow-sm"
+          />
         </div>
       </div>
 
@@ -135,7 +177,7 @@ export default function PaymentsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="pending">
-        <TabsList><TabsTrigger value="pending">รออนุมัติ ({pending.length})</TabsTrigger><TabsTrigger value="approved">อนุมัติแล้ว ({approved.length})</TabsTrigger><TabsTrigger value="rejected">ถูกปฏิเสธ ({rejected.length})</TabsTrigger><TabsTrigger value="all">ทั้งหมด ({requests.length})</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="pending">รออนุมัติ ({pending.length})</TabsTrigger><TabsTrigger value="approved">อนุมัติแล้ว ({approved.length})</TabsTrigger><TabsTrigger value="rejected">ถูกปฏิเสธ ({rejected.length})</TabsTrigger><TabsTrigger value="all">ทั้งหมด ({filteredRequests.length})</TabsTrigger></TabsList>
         {['pending', 'approved', 'rejected', 'all'].map(tab => (
           <TabsContent key={tab} value={tab}>
             <Card>
@@ -144,18 +186,18 @@ export default function PaymentsPage() {
                   <TableHeader>
                     <TableRow className="bg-[#f8faff]">
                       <TableHead>วันที่</TableHead><TableHead>ประเภท</TableHead><TableHead>Claim No.</TableHead>
-                      <TableHead>ทะเบียน</TableHead><TableHead>ผู้รับเงิน</TableHead>
+                      <TableHead>ทะเบียน</TableHead><TableHead>ผู้รับเงิน</TableHead><TableHead>Invoice No.</TableHead>
                       <TableHead className="text-right">ยอด</TableHead><TableHead>สร้างโดย</TableHead>
-                      <TableHead>บิล</TableHead><TableHead>สถานะ</TableHead><TableHead>Action</TableHead>
+                      <TableHead>สถานะ</TableHead><TableHead>Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       <TableRow><TableCell colSpan={10} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
-                    ) : (tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : requests).length === 0 ? (
+                    ) : (tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : filteredRequests).length === 0 ? (
                       <TableRow><TableCell colSpan={10} className="text-center py-8 text-[#94a3b8]">ไม่พบข้อมูล</TableCell></TableRow>
                     ) : (
-                      (tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : requests).map(renderRow)
+                      (tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : filteredRequests).map(renderRow)
                     )}
                   </TableBody>
                 </Table>
@@ -176,11 +218,14 @@ export default function PaymentsPage() {
                 <div className="flex justify-between"><span className="text-[#94a3b8]">Claim No.</span><span className="font-semibold text-[#1d4ed8]">{activeModal.pr.claimNo}</span></div>
                 <div className="flex justify-between"><span className="text-[#94a3b8]">ทะเบียนรถ</span><span>{activeModal.pr.carPlate}</span></div>
                 <div className="flex justify-between"><span className="text-[#94a3b8]">ผู้รับเงิน</span><span>{activeModal.pr.vendorName || activeModal.pr.garageName || activeModal.pr.insuranceName}</span></div>
-                {activeModal.pr.billReceipt && (
-                  <div className="flex justify-between items-center"><span className="text-[#94a3b8]">บิลกระดาษ</span>
-                    {activeModal.pr.billReceipt.invoiceNoMatched
-                      ? <span className="flex items-center gap-1 text-green-600 text-xs"><CheckCircle2 className="w-3.5 h-3.5" />ตรงกัน ({activeModal.pr.billReceipt.physicalInvoiceNo})</span>
-                      : <span className="flex items-center gap-1 text-amber-500 text-xs"><AlertTriangle className="w-3.5 h-3.5" />ไม่ตรง (ระบบ: {activeModal.pr.billReceipt.systemInvoiceNo} / กระดาษ: {activeModal.pr.billReceipt.physicalInvoiceNo})</span>}
+                {activeModal.pr.invoiceNo && (
+                  <div className="flex justify-between"><span className="text-[#94a3b8]">เลขที่บิล</span><span>{activeModal.pr.invoiceNo}</span></div>
+                )}
+                {activeModal.pr.invoiceUrl && (
+                  <div className="pt-2 pb-1">
+                    <Button variant="outline" size="sm" className="w-full text-xs text-purple-600 border-purple-200" onClick={() => window.open(activeModal.pr.invoiceUrl, '_blank')}>
+                      <FileText className="w-4 h-4 mr-1.5" />ดูเอกสารบิล / Invoice
+                    </Button>
                   </div>
                 )}
                 <hr />
@@ -190,10 +235,12 @@ export default function PaymentsPage() {
                 <div className="flex justify-between"><span className="text-[#94a3b8]">วิธีจ่าย</span><span>{activeModal.pr.method}</span></div>
               </div>
               <div className="space-y-1"><label className="text-xs text-[#94a3b8]">Note (optional)</label><Input value={approveNote} onChange={e => setApproveNote(e.target.value)} placeholder="หมายเหตุเพิ่มเติม" /></div>
-              <div className="flex gap-3 justify-end">
-                <Button variant="outline" onClick={() => setActiveModal(null)}>ยกเลิก</Button>
-                <Button className="bg-green-600 hover:bg-green-700" onClick={() => handleApprove(activeModal.pr)}><CheckCircle2 className="w-4 h-4 mr-1.5" />Approve</Button>
-              </div>
+              <div className="flex gap-3 justify-end mt-6">
+              <Button variant="outline" onClick={() => setActiveModal(null)} disabled={isSaving}>ยกเลิก</Button>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={() => handleApprove(activeModal.pr)} disabled={isSaving}>
+                {isSaving ? 'กำลังบันทึก...' : 'ยืนยันอนุมัติจ่ายเงิน'}
+              </Button>
+            </div>
             </CardContent>
           </Card>
         </div>
@@ -210,39 +257,12 @@ export default function PaymentsPage() {
                 <div className="flex justify-between"><span className="text-[#94a3b8]">ยอด</span><span className="font-bold">฿{formatCurrency(activeModal.pr.amount)}</span></div>
               </div>
               <div className="space-y-1"><label className="text-xs text-red-500 font-medium">เหตุผลที่ปฏิเสธ *</label><Input value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="ระบุเหตุผล..." /></div>
-              <div className="flex gap-3 justify-end">
-                <Button variant="outline" onClick={() => setActiveModal(null)}>ยกเลิก</Button>
-                <Button variant="destructive" disabled={!rejectReason.trim()} onClick={() => handleReject(activeModal.pr)}><XCircle className="w-4 h-4 mr-1.5" />Reject</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Bill Receipt Modal */}
-      {activeModal?.type === 'bill' && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setActiveModal(null)}>
-          <Card className="w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
-            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><FileText className="w-5 h-5" />รับบิล</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-[#f8faff] rounded-lg p-4 space-y-2 text-sm">
-                <p className="text-xs font-medium text-[#94a3b8] uppercase">ข้อมูลในระบบ (read-only)</p>
-                <div className="flex justify-between"><span className="text-[#94a3b8]">Claim No.</span><span className="font-semibold">{activeModal.pr.claimNo}</span></div>
-                <div className="flex justify-between"><span className="text-[#94a3b8]">ผู้รับเงิน</span><span>{activeModal.pr.vendorName || activeModal.pr.garageName || activeModal.pr.insuranceName}</span></div>
-                <div className="flex justify-between"><span className="text-[#94a3b8]">ยอด</span><span className="font-bold">฿{formatCurrency(activeModal.pr.amount)}</span></div>
-              </div>
-              <div className="space-y-3">
-                <p className="text-xs font-medium text-[#94a3b8] uppercase">บิลที่รับจริง (กรอก)</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1"><label className="text-xs text-[#94a3b8]">เลขที่บิลกระดาษ *</label><Input value={billForm.physicalInvoiceNo} onChange={e => setBillForm(p => ({ ...p, physicalInvoiceNo: e.target.value }))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-[#94a3b8]">รับโดย *</label><Input value={billForm.receivedBy} onChange={e => setBillForm(p => ({ ...p, receivedBy: e.target.value }))} /></div>
-                </div>
-                <div className="space-y-1"><label className="text-xs text-[#94a3b8]">หมายเหตุ</label><Input value={billForm.note} onChange={e => setBillForm(p => ({ ...p, note: e.target.value }))} /></div>
-              </div>
-              <div className="flex gap-3 justify-end">
-                <Button variant="outline" onClick={() => setActiveModal(null)}>ยกเลิก</Button>
-                <Button className="bg-[#1d4ed8]" disabled={!billForm.physicalInvoiceNo.trim() || !billForm.receivedBy.trim()} onClick={() => handleBillReceipt(activeModal.pr)}><Save className="w-4 h-4 mr-1.5" />บันทึก</Button>
-              </div>
+              <div className="flex gap-3 justify-end mt-6">
+              <Button variant="outline" onClick={() => setActiveModal(null)} disabled={isSaving}>ยกเลิก</Button>
+              <Button variant="destructive" onClick={() => handleReject(activeModal.pr)} disabled={!rejectReason.trim() || isSaving}>
+                {isSaving ? 'กำลังบันทึก...' : 'ยืนยันการปฏิเสธ'}
+              </Button>
+            </div>
             </CardContent>
           </Card>
         </div>

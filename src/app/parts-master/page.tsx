@@ -11,31 +11,47 @@ import { PartMaster } from '@/lib/types'
 
 export default function PartsMasterPage() {
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filterSource, setFilterSource] = useState<'ALL' | 'AUTO' | 'MANUAL'>('ALL')
   const [parts, setParts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalParts, setTotalParts] = useState(0)
+  const itemsPerPage = 50
 
+  // Debounce search
   useEffect(() => {
-    fetch('/api/parts-master').then(res => res.json()).then(data => {
-      setParts(data)
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setCurrentPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Fetch data with pagination
+  useEffect(() => {
+    setLoading(true)
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      limit: String(itemsPerPage),
+    })
+    if (debouncedSearch) params.set('search', debouncedSearch)
+    
+    fetch(`/api/parts-master?${params}`).then(res => res.json()).then(data => {
+      setParts(data.data || [])
+      setTotalParts(data.total || 0)
+      setTotalPages(data.totalPages || 1)
       setLoading(false)
     }).catch(err => {
       console.error(err)
       setLoading(false)
     })
-  }, [])
+  }, [currentPage, debouncedSearch])
 
-  const filteredParts = parts.filter(p => {
-    if (filterSource !== 'ALL' && p.source !== filterSource) return false
-    if (search) {
-      const q = search.toLowerCase()
-      return p.partNo.toLowerCase().includes(q) || p.partName.toLowerCase().includes(q)
-    }
-    return true
-  })
+  const filteredParts = filterSource === 'ALL' ? parts : parts.filter(p => p.source === filterSource)
 
-  // Group stats
-  const totalParts = parts.length
+  // Stats from current page (approximate)
   const autoParts = parts.filter(p => p.source === 'AUTO').length
   const missingPrice = parts.filter(p => !p.standardPrice).length
 
@@ -184,14 +200,27 @@ export default function PartsMasterPage() {
             </table>
           </div>
           
-          {filteredParts.length > 0 && (
+          {parts.length > 0 && (
             <div className="p-4 border-t border-gray-100 flex items-center justify-between text-sm text-[#475569] bg-white rounded-b-xl">
-              <div>แสดง {filteredParts.length} จาก {parts.length} รายการ</div>
+              <div>แสดงหน้า {currentPage} จาก {totalPages} ({totalParts} รายการ)</div>
               <div className="flex gap-1">
-                <Button variant="outline" size="sm" disabled>ก่อนหน้า</Button>
-                <Button variant="outline" size="sm" className="bg-[#f8faff] text-[#1d4ed8] border-[#1d4ed8]">1</Button>
-                <Button variant="outline" size="sm">2</Button>
-                <Button variant="outline" size="sm">ถัดไป</Button>
+                <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>ก่อนหน้า</Button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum: number
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+                  return (
+                    <Button key={pageNum} variant="outline" size="sm" className={currentPage === pageNum ? 'bg-[#f8faff] text-[#1d4ed8] border-[#1d4ed8]' : ''} onClick={() => setCurrentPage(pageNum)}>{pageNum}</Button>
+                  )
+                })}
+                <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>ถัดไป</Button>
               </div>
             </div>
           )}

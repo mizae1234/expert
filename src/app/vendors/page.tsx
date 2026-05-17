@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Eye, Package, Wrench } from 'lucide-react'
+import { Plus, Search, Eye, Package, Wrench, X } from 'lucide-react'
 
 export default function VendorsPage() {
   const [search, setSearch] = useState('')
@@ -16,7 +16,7 @@ export default function VendorsPage() {
   const [mockVendors, setMockVendors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchVendors = () => {
     fetch('/api/vendors').then(res => res.json()).then(data => {
       setMockVendors(data)
       setLoading(false)
@@ -24,6 +24,10 @@ export default function VendorsPage() {
       console.error(err)
       setLoading(false)
     })
+  }
+
+  useEffect(() => {
+    fetchVendors()
   }, [])
   
   const filterVendor = (v: any) => {
@@ -42,7 +46,7 @@ export default function VendorsPage() {
           <h1 className="text-2xl font-bold text-[#0f172a]">Vendors</h1>
           <p className="text-sm text-[#94a3b8] mt-1">จัดการผู้จำหน่ายอะไหล่และอู่ ({mockVendors.length} ราย)</p>
         </div>
-        <Button><Plus className="w-4 h-4 mr-2" />เพิ่ม Vendor</Button>
+        <Link href="/vendors/new"><Button><Plus className="w-4 h-4 mr-2" />เพิ่ม Vendor</Button></Link>
       </div>
 
       <div className="flex items-center gap-4">

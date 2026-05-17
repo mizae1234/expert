@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FileText, Clock, DollarSign, TrendingUp, ArrowUpRight, ArrowRight } from 'lucide-react'
-import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils'
+import { formatCurrency, getStatusColor, getStatusLabel, formatDate } from '@/lib/utils'
 import { DashboardSummary, ClaimsByStatus, RevenueByInsurance } from '@/lib/types'
 import Link from 'next/link'
 
@@ -172,7 +172,7 @@ export default function DashboardPage() {
                     <TableCell className="text-[#475569]">{claim.insurance?.name}</TableCell>
                     <TableCell className="text-[#475569]">{claim.garage?.name}</TableCell>
                     <TableCell className="text-[#475569] text-sm">
-                      {new Date(claim.createdAt).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}
+                      {formatDate(claim.createdAt)}
                     </TableCell>
                     <TableCell>
                       <span className={`status-badge ${bg} ${text}`}>

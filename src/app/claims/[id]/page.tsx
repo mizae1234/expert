@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,11 +9,12 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { FileText, ArrowLeft, History, Wrench, ShieldAlert, Car, PackageOpen, Tag, CheckCircle2, ChevronRight, Download, Plus, AlertTriangle, TrendingUp, CreditCard, Save, Upload, X, Edit2, Package, Truck, Trash2, CircleDot, Ban, XCircle, Clock } from 'lucide-react'
+import { FileText, ArrowLeft, History, Wrench, ShieldAlert, Car, PackageOpen, Tag, CheckCircle2, ChevronRight, Download, Plus, AlertTriangle, TrendingUp, CreditCard, Save, Upload, X, Edit2, Package, Truck, Trash2, CircleDot, Ban, XCircle, Clock, ShoppingCart } from 'lucide-react'
 import { uploadToR2 } from '@/lib/upload'
 import { getStatusColor, getStatusLabel, formatCurrency, getPOStatusLabel, cn } from '@/lib/utils'
-import { mockPaymentRequests } from '@/lib/mock/payment-requests'
 import { ClaimStatus, PaymentRequest, Quotation, InsuranceInvoice, PurchaseOrder } from '@/lib/types'
+import { formatDate } from '@/lib/date'
+import { ClaimInfoTab, PnLTab, TimelineTab, PaymentsTab, InsuranceInvoiceTab, ExpensesTab, DocumentsTab } from './tabs'
 
 const STATUS_FLOW: Record<string, string> = {
   RECEIVED: 'PARTS_CHECK',
@@ -37,9 +38,14 @@ const STATUS_FLOW_LABEL: Record<string, string> = {
 
 export default function ClaimDetailPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const tabParam = searchParams.get('tab') || 'info'
   
   const [loading, setLoading] = useState(true)
   const [originalClaim, setOriginalClaim] = useState<any>(null)
+  const [partsMaster, setPartsMaster] = useState<any[]>([])
   
   const [claimStatus, setClaimStatus] = useState<ClaimStatus>('RECEIVED')
   const [editMode, setEditMode] = useState(false)
@@ -51,8 +57,10 @@ export default function ClaimDetailPage() {
   const [insuranceInvoice, setInsuranceInvoice] = useState<InsuranceInvoice | undefined>()
   const [quotations, setQuotations] = useState<Quotation[]>([])
 
-  useEffect(() => {
-    fetch(`/api/claims/${params.id}`).then(res => res.json()).then(data => {
+  const refreshClaim = async () => {
+    try {
+      const res = await fetch(`/api/claims/${params.id}`)
+      const data = await res.json()
       setOriginalClaim(data)
       setClaimStatus(data.status || 'RECEIVED')
       setParts(data.parts || [])
@@ -62,6 +70,37 @@ export default function ClaimDetailPage() {
       setPurchaseOrders(data.purchaseOrders || [])
       setInsuranceInvoice(data.insuranceInvoice)
       setQuotations(data.quotations || [])
+      setClaimPRs(data.paymentRequests || [])
+    } catch (err) {
+      console.error('Failed to refresh claim data:', err)
+    }
+  }
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/claims/${params.id}`).then(res => res.json()),
+      fetch('/api/vendors').then(res => res.json()).catch(() => []),
+      fetch('/api/parts-master?all=true').then(res => res.json()).catch(() => []),
+    ]).then(([data, vData, pmData]) => {
+      setOriginalClaim(data)
+      setClaimStatus(data.status || 'RECEIVED')
+      setParts(data.parts || [])
+      setLabors(data.labors || [])
+      setSupplierInvoices(data.supplierInvoices || [])
+      setGarageInvoices(data.garageInvoices || [])
+      setPurchaseOrders(data.purchaseOrders || [])
+      setInsuranceInvoice(data.insuranceInvoice)
+      setQuotations(data.quotations || [])
+      setClaimPRs(data.paymentRequests || [])
+      
+      setVendors(vData)
+      if (vData.length > 0) {
+        setPoVendorId(vData[0].id)
+        setPoVendorName(vData[0].name)
+      }
+      
+      if (Array.isArray(pmData)) setPartsMaster(pmData)
+      
       setLoading(false)
     }).catch(err => {
       console.error(err)
@@ -72,21 +111,46 @@ export default function ClaimDetailPage() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showGarageUploadModal, setShowGarageUploadModal] = useState(false)
   const [isUploadingFile, setIsUploadingFile] = useState(false)
+  const [uploadedFile, setUploadedFile] = useState<{ name: string, url: string, type: string, file?: File } | null>(null)
+  const [uploadedGarageFile, setUploadedGarageFile] = useState<{ name: string, url: string, type: string, file?: File } | null>(null)
   const [uploadMapSelections, setUploadMapSelections] = useState<Record<string, boolean>>({})
+  const [customInvoiceNo, setCustomInvoiceNo] = useState('')
   const [garageUploadSelections, setGarageUploadSelections] = useState<Record<string, boolean>>({})
   const [showCreatePRModal, setShowCreatePRModal] = useState(false)
   const [prInvoiceSelections, setPrInvoiceSelections] = useState<Record<string, boolean>>({})
   const [prMethod, setPrMethod] = useState('โอนเงิน')
   const [prNote, setPrNote] = useState('')
   const [claimPRs, setClaimPRs] = useState<PaymentRequest[]>([])
+  const [vendors, setVendors] = useState<any[]>([])
   const [toast, setToast] = useState<string | null>(null)
   const [showCreateQuotationModal, setShowCreateQuotationModal] = useState(false)
+  const [errorModalMsg, setErrorModalMsg] = useState<string | null>(null)
+  const [showCreatePOModal, setShowCreatePOModal] = useState(false)
+  const [editPOId, setEditPOId] = useState<string | null>(null)
+  const [confirmCancelPOId, setConfirmCancelPOId] = useState<string | null>(null)
+  const [poModalParts, setPoModalParts] = useState<any[]>([])
+  const [poModalLabors, setPoModalLabors] = useState<any[]>([])
+  const [poVendorId, setPoVendorId] = useState<string>('')
+  const [poVendorName, setPoVendorName] = useState<string>('')
+  const [poDeliveryAddress, setPoDeliveryAddress] = useState<string>('')
+  
+  const [qtParts, setQtParts] = useState<any[]>([])
+  const [qtLabors, setQtLabors] = useState<any[]>([])
+  const [qtCustomVat, setQtCustomVat] = useState<string>('')
+  const [qtCustomGrand, setQtCustomGrand] = useState<string>('')
+  
   const [showSupplementModal, setShowSupplementModal] = useState(false)
+  const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
+  const [showReceiveARModal, setShowReceiveARModal] = useState(false)
+  const [pendingPaymentRequest, setPendingPaymentRequest] = useState<{ type: 'AP_VENDOR' | 'AP_GARAGE', invoiceId: string, amount: number } | null>(null)
+  const [rejectPRId, setRejectPRId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null)
   const [qtDate, setQtDate] = useState(new Date().toISOString().split('T')[0])
   const [qtValidUntil, setQtValidUntil] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
   const [qtNote, setQtNote] = useState('')
   const [supplementReason, setSupplementReason] = useState('')
+  const [arReceiveDate, setArReceiveDate] = useState(new Date().toISOString().split('T')[0])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
@@ -120,112 +184,259 @@ export default function ClaimDetailPage() {
   const nextStatus = STATUS_FLOW[claimStatus]
   const nextLabel = STATUS_FLOW_LABEL[claimStatus]
 
+  const globalPoItems = claim.purchaseOrders?.filter((po: any) => po.status !== 'CANCELLED').flatMap((po: any) => po.items.map((item: any) => ({ ...item, poId: po.id, poNo: po.poNo, poStatus: po.status }))) || []
+  const getPartAmt = (p: any) => {
+    const poi = globalPoItems.find((x: any) => x.partNo === p.partNo)
+    return poi ? (poi.unitPrice * (poi.quantity || 1)) : (p.priceApprove * p.quantity)
+  }
+  const getLaborAmt = (l: any) => {
+    const pol = globalPoItems.find((x: any) => x.description?.includes(l.description))
+    return pol ? pol.unitPrice : l.priceApprove
+  }
+
+  // Shared props for extracted tab components
+  const tabProps = {
+    claim, parts, labors, setParts, setLabors,
+    supplierInvoices, setSupplierInvoices,
+    garageInvoices, setGarageInvoices,
+    purchaseOrders, setPurchaseOrders,
+    insuranceInvoice, setInsuranceInvoice,
+    quotations, setQuotations,
+    editMode, partsTotal, laborTotal, subtotal, vat, grand,
+    arReceived, apVendor, grossProfit, margin,
+    showToast, setErrorModalMsg, setConfirmModal, refreshClaim, vendors,
+  }
+
   // ─── Action Handlers ───
-  const handleCreatePO = () => {
-    const approvedParts = parts.filter(p => p.status === 'approved')
-    if (approvedParts.length === 0) { showToast('ไม่มีรายการอะไหล่ที่อนุมัติแล้ว'); return }
-    const poNo = `PO-${new Date().getFullYear()}-${String(purchaseOrders.length + 1).padStart(4, '0')}`
-    const poItems = approvedParts.map((p, i) => ({
-      id: `poi-${Date.now()}-${i}`,
-      poId: `po-${Date.now()}`,
+  const submitCreatePO = async () => {
+    const selectedParts = poModalParts.filter(p => p.selected)
+    const selectedLabors = poModalLabors.filter(l => l.selected)
+    if (selectedParts.length === 0 && selectedLabors.length === 0) { showToast('กรุณาเลือกรายการอย่างน้อย 1 รายการ'); return }
+    const poNo = editPOId ? purchaseOrders.find(p => p.id === editPOId)?.poNo : undefined // let server generate
+    
+    const partItems = selectedParts.map(p => ({
       partNo: p.partNo,
       description: p.partName,
-      quantity: p.quantity,
-      unitPrice: p.priceApprove,
-      totalPrice: p.priceApprove * p.quantity,
+      quantity: Number(p.quantity) || 1,
+      unitPrice: Number(p.priceApprove) || 0,
+      totalPrice: (Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)
     }))
-    const total = poItems.reduce((s, i) => s + i.totalPrice, 0)
-    const newPO: PurchaseOrder = {
-      id: `po-${Date.now()}`,
-      claimId: claim.id,
-      vendorId: 'ven-p01',
-      vendor: claim.purchaseOrders?.[0]?.vendor || { id: 'ven-p01', name: 'Supplier A', vendorType: 'PARTS', paymentTerms: 30, isActive: true },
+    const laborItems = selectedLabors.map(l => ({
+      partNo: '',
+      description: `[ค่าแรง] ${l.description}`,
+      quantity: 1,
+      unitPrice: Number(l.priceApprove) || 0,
+      totalPrice: Number(l.priceApprove) || 0
+    }))
+
+    const payload = {
       poNo,
-      poType: 'PARTS',
-      deliveryMode: 'DIRECT_TO_GARAGE',
-      totalAmount: total,
-      status: 'DRAFT',
-      items: poItems,
-      createdAt: new Date().toISOString(),
+      vendorId: poVendorId,
+      deliveryAddress: poDeliveryAddress,
+      items: [...partItems, ...laborItems]
     }
-    setPurchaseOrders(prev => [...prev, newPO])
-    showToast(`สร้าง ${poNo} สำเร็จ (${approvedParts.length} รายการ, ยอด ฿${formatCurrency(total)})`)
+
+    try {
+      const url = editPOId ? `/api/claims/${claim.id}/pos/${editPOId}` : `/api/claims/${claim.id}/pos`
+      const method = editPOId ? 'PUT' : 'POST'
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to save PO')
+      }
+      const savedPO = await res.json()
+      if (!savedPO.vendor) savedPO.vendor = { id: poVendorId, name: poVendorName }
+      
+      if (editPOId) {
+        setPurchaseOrders(prev => prev.map(p => p.id === editPOId ? savedPO : p))
+        showToast(`แก้ไข ${poNo} สำเร็จ`)
+      } else {
+        setPurchaseOrders(prev => [...prev, savedPO])
+        showToast(`สร้าง ${poNo} สำเร็จ (${selectedParts.length} รายการ)`)
+      }
+      setShowCreatePOModal(false)
+    } catch (err: any) {
+      setErrorModalMsg(`เกิดข้อผิดพลาดในการ${editPOId ? 'แก้ไข' : 'สร้าง'} PO: ${err.message}`)
+    }
   }
 
-  const handleCreateInsuranceInvoice = () => {
-    const sub = partsTotal + laborTotal
-    const vatAmt = Math.round(sub * 0.07)
-    const invNo = `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`
-    const newInv: InsuranceInvoice = {
-      id: `inv-${Date.now()}`,
-      claimId: claim.id,
-      invoiceNo: invNo,
-      invoiceDate: new Date().toISOString(),
-      laborTotal,
-      partsTotal,
-      subtotal: sub,
-      vatAmount: vatAmt,
-      grandTotal: sub + vatAmt,
-      deductible: 0,
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'SENT',
-      createdAt: new Date().toISOString(),
+  const handleCancelPO = async () => {
+    if (!confirmCancelPOId) return
+    try {
+      const res = await fetch(`/api/claims/${claim.id}/pos/${confirmCancelPOId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' })
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to cancel PO')
+      }
+      const updatedPO = await res.json()
+      setPurchaseOrders(prev => prev.map(p => p.id === confirmCancelPOId ? updatedPO : p))
+      showToast('ยกเลิกใบสั่งซื้อสำเร็จ')
+      setConfirmCancelPOId(null)
+    } catch (err: any) {
+      setErrorModalMsg(`เกิดข้อผิดพลาดในการยกเลิก PO: ${err.message}`)
     }
-    setInsuranceInvoice(newInv)
-    showToast(`สร้างใบวางบิลประกัน ${invNo} ยอด ฿${formatCurrency(sub + vatAmt)}`)
   }
 
-  const handleCreateQuotation = () => {
-    const qtNo = `QT-${new Date().getFullYear()}-${String(quotations.length + 1).padStart(4, '0')}`
-    const sub = partsTotal + laborTotal
-    const vatAmt = Math.round(sub * 0.07)
-    const newQt: Quotation = {
-      id: `qt-${Date.now()}`,
+  const handleCreateInsuranceInvoice = async () => {
+    try {
+      const sub = partsTotal + laborTotal
+      const vatAmt = Math.round(sub * 0.07)
+      
+      const res = await fetch(`/api/claims/${claim.id}/insurance-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          laborTotal,
+          partsTotal,
+          subtotal: sub,
+          vatAmount: vatAmt,
+          grandTotal: sub + vatAmt
+        })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to create insurance invoice')
+      }
+
+      const newInv = await res.json()
+      setInsuranceInvoice(newInv)
+      showToast(`สร้างใบวางบิลประกัน ${newInv.invoiceNo} เรียบร้อยแล้ว`)
+    } catch (err: any) {
+      setErrorModalMsg(`เกิดข้อผิดพลาด: ${err.message}`)
+    }
+  }
+
+  const handleDeleteInsuranceInvoice = async () => {
+    try {
+      const res = await fetch(`/api/claims/${claim.id}/insurance-invoice`, {
+        method: 'DELETE'
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to delete insurance invoice')
+      }
+      setInsuranceInvoice(undefined)
+      showToast('ยกเลิกใบวางบิลสำเร็จ คุณสามารถแก้ไขรายการแล้วสร้างใหม่ได้')
+    } catch (err: any) {
+      setErrorModalMsg(`เกิดข้อผิดพลาดในการยกเลิกใบวางบิล: ${err.message}`)
+    }
+  }
+
+  const handleCreatePaymentRequest = async (type: 'AP_VENDOR' | 'AP_GARAGE', invoiceId: string, amount: number) => {
+    try {
+      const res = await fetch(`/api/payment-requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestType: type,
+          claimId: claim.id,
+          supplierInvoiceId: type === 'AP_VENDOR' ? invoiceId : undefined,
+          garageInvoiceId: type === 'AP_GARAGE' ? invoiceId : undefined,
+          amount,
+        })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to create payment request')
+      }
+
+      showToast('สร้างคำขอเบิกจ่ายเงินเรียบร้อย กรุณารอการเงินอนุมัติ')
+      await refreshClaim()
+    } catch (err: any) {
+      setErrorModalMsg(`เกิดข้อผิดพลาดในการสร้างคำขอเบิกเงิน: ${err.message}`)
+    }
+  }
+
+  const handleCreateQuotation = async () => {
+    const qtNo = `QT-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`
+    
+    const laborTot = qtLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
+    const partTot = qtParts.filter(p => p.selected).reduce((sum, p) => sum + ((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)), 0)
+    const sub = partTot + laborTot
+    const vatAmt = qtCustomVat !== '' ? Number(qtCustomVat) : Math.round(sub * 0.07)
+    const grand = qtCustomGrand !== '' ? Number(qtCustomGrand) : (sub + vatAmt)
+    
+    const payload = {
       quotationNo: qtNo,
-      claimId: claim.id,
       quotationDate: new Date(qtDate).toISOString(),
       validUntil: new Date(qtValidUntil).toISOString(),
-      laborItems: labors.map((l, i) => ({ id: `ql-${Date.now()}-${i}`, description: l.description, damageLevel: l.damageLevel, discountPct: l.discountPct, unitPrice: l.priceApprove, totalPrice: l.priceApprove })),
-      partItems: parts.map((p, i) => ({ id: `qp-${Date.now()}-${i}`, partNo: p.partNo, partName: p.partName, quantity: p.quantity, unitPrice: p.priceApprove, discountPct: p.discountPct, totalPrice: p.priceApprove * p.quantity })),
-      laborTotal,
-      partsTotal,
+      laborItems: qtLabors.filter(l => l.selected).map(l => ({ description: l.description, damageLevel: l.damageLevel, discountPct: l.discountPct, unitPrice: l.priceApprove, totalPrice: l.priceApprove })),
+      partItems: qtParts.filter(p => p.selected).map(p => ({ partNo: p.partNo, partName: p.partName, quantity: p.quantity, unitPrice: p.priceApprove, discountPct: p.discountPct, totalPrice: p.priceApprove * p.quantity })),
+      laborTotal: laborTot,
+      partsTotal: partTot,
       subtotal: sub,
       vatAmount: vatAmt,
-      grandTotal: sub + vatAmt,
+      grandTotal: grand,
       note: qtNote || undefined,
       status: 'DRAFT',
       createdBy: 'Admin',
-      createdAt: new Date().toISOString(),
     }
-    setQuotations(prev => [...prev, newQt])
-    setShowCreateQuotationModal(false)
-    setQtNote('')
-    showToast(`สร้างใบเสนอราคา ${qtNo} สำเร็จ`)
+
+    try {
+      const res = await fetch(`/api/claims/${claim.id}/quotations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) throw new Error('Failed to create quotation')
+      const newQt = await res.json()
+      setQuotations(prev => [...prev, newQt])
+      setShowCreateQuotationModal(false)
+      setQtNote('')
+      showToast(`สร้างใบเสนอราคา ${qtNo} สำเร็จ`)
+    } catch (err) {
+      setErrorModalMsg('เกิดข้อผิดพลาดในการสร้างใบเสนอราคา')
+    }
   }
 
-  const handleSendQuotation = (qtId: string) => {
-    setQuotations(prev => prev.map(q => q.id === qtId ? { ...q, status: 'SENT' as const } : q))
-    showToast('ส่งใบเสนอราคาให้ประกันแล้ว')
+  const handleSendQuotation = async (qtId: string) => {
+    try {
+      const res = await fetch(`/api/claims/${claim.id}/quotations`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: qtId, status: 'SENT' })
+      })
+      if (res.ok) {
+        setQuotations(prev => prev.map(q => q.id === qtId ? { ...q, status: 'SENT' as const } : q))
+        showToast('ส่งใบเสนอราคาให้ประกันแล้ว')
+      } else {
+        // Fallback: update local state even if API doesn't support PUT yet
+        setQuotations(prev => prev.map(q => q.id === qtId ? { ...q, status: 'SENT' as const } : q))
+        showToast('ส่งใบเสนอราคาให้ประกันแล้ว')
+      }
+    } catch {
+      setQuotations(prev => prev.map(q => q.id === qtId ? { ...q, status: 'SENT' as const } : q))
+      showToast('ส่งใบเสนอราคาให้ประกันแล้ว')
+    }
   }
 
-  const handleCreateSupplement = () => {
+  const handleCreateSupplement = async () => {
     if (!selectedQuotationId) return
     const oldQt = quotations.find(q => q.id === selectedQuotationId)
     if (!oldQt) return
-    // Mark old as SUPERSEDED
-    setQuotations(prev => prev.map(q => q.id === selectedQuotationId ? { ...q, status: 'SUPERSEDED' as const } : q))
+    
     // Create new supplement from current parts/labors
     const sub = partsTotal + laborTotal
     const vatAmt = Math.round(sub * 0.07)
     const supNo = `${oldQt.quotationNo}-S${quotations.filter(q => q.quotationNo.startsWith(oldQt.quotationNo)).length}`
-    const newQt: Quotation = {
-      id: `qt-sup-${Date.now()}`,
+    
+    const payload = {
       quotationNo: supNo,
-      claimId: claim.id,
       quotationDate: new Date().toISOString(),
       validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      laborItems: labors.map((l, i) => ({ id: `ql-s-${Date.now()}-${i}`, description: l.description, damageLevel: l.damageLevel, discountPct: l.discountPct, unitPrice: l.priceApprove, totalPrice: l.priceApprove })),
-      partItems: parts.map((p, i) => ({ id: `qp-s-${Date.now()}-${i}`, partNo: p.partNo, partName: p.partName, quantity: p.quantity, unitPrice: p.priceApprove, discountPct: p.discountPct, totalPrice: p.priceApprove * p.quantity })),
+      laborItems: labors.map((l, i) => ({ description: l.description, damageLevel: l.damageLevel, discountPct: l.discountPct, unitPrice: l.priceApprove, totalPrice: l.priceApprove })),
+      partItems: parts.map((p, i) => ({ partNo: p.partNo, partName: p.partName, quantity: p.quantity, unitPrice: p.priceApprove, discountPct: p.discountPct, totalPrice: p.priceApprove * p.quantity })),
       laborTotal,
       partsTotal,
       subtotal: sub,
@@ -233,23 +444,62 @@ export default function ClaimDetailPage() {
       grandTotal: sub + vatAmt,
       note: supplementReason || 'มีรายการซ่อมเพิ่มเติม',
       status: 'DRAFT',
-      createdBy: 'Admin',
-      createdAt: new Date().toISOString(),
+      createdBy: 'Admin'
     }
-    setQuotations(prev => [...prev, newQt])
-    setShowSupplementModal(false)
-    setSupplementReason('')
-    showToast(`สร้าง Supplement ${supNo} สำเร็จ`)
+
+    try {
+      const res = await fetch(`/api/claims/${claim.id}/quotations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) throw new Error('Failed to create supplement quotation')
+      const newQt = await res.json()
+      
+      // Update old quotation to SUPERSEDED in DB
+      await fetch(`/api/claims/${claim.id}/quotations`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedQuotationId, status: 'SUPERSEDED' })
+      }).catch(() => {}) // Best effort
+      setQuotations(prev => prev.map(q => q.id === selectedQuotationId ? { ...q, status: 'SUPERSEDED' as const } : q).concat(newQt))
+      
+      setShowSupplementModal(false)
+      setSupplementReason('')
+      showToast(`สร้าง Supplement ${supNo} สำเร็จ`)
+    } catch (err) {
+      setErrorModalMsg('เกิดข้อผิดพลาดในการสร้าง Supplement')
+    }
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-5 py-3 rounded-lg shadow-xl flex items-center gap-2 animate-fade-in">
-          <CheckCircle2 className="w-5 h-5" />{toast}
+        <div className={`fixed top-6 right-6 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-4 font-medium flex items-center gap-2 ${toast.includes('❌') || toast.includes('⚠️') ? 'bg-red-600' : 'bg-green-600'}`}>
+          {!toast.includes('❌') && !toast.includes('⚠️') && !toast.includes('✅') && '✅ '}
+          <span>{toast}</span>
         </div>
       )}
+
+      {/* Datalists for Autocomplete */}
+      <datalist id="parts-list">
+        {partsMaster.filter(p => p.category !== 'LABOR').map(p => <option key={p.partNo} value={p.partName} />)}
+      </datalist>
+      <datalist id="part-no-list">
+        {partsMaster.filter(p => p.category !== 'LABOR').map(p => <option key={p.partNo} value={p.partNo} />)}
+      </datalist>
+      <datalist id="labors-list">
+        {partsMaster.filter(p => p.category === 'LABOR').map(p => <option key={p.partNo} value={p.partName} />)}
+      </datalist>
+      <datalist id="damage-type-list">
+        <option value="เปลี่ยน" />
+        <option value="ซ่อม" />
+      </datalist>
+      <datalist id="damage-level-list">
+        <option value="เบา" />
+        <option value="ปานกลาง" />
+        <option value="หนัก" />
+      </datalist>
 
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -273,7 +523,24 @@ export default function ClaimDetailPage() {
               <Button variant="outline" size="sm" onClick={() => { setParts(originalClaim.parts || []); setLabors(originalClaim.labors || []); setEditMode(false) }}>
                 <X className="w-4 h-4 mr-1.5" />ยกเลิก
               </Button>
-              <Button size="sm" onClick={() => { setEditMode(false); showToast('บันทึกข้อมูลเรียบร้อย') }}>
+              <Button size="sm" onClick={async () => { 
+                try {
+                  const res = await fetch(`/api/claims/${claim.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parts, labors })
+                  })
+                  if (!res.ok) throw new Error('Failed to save')
+                  const updatedData = await res.json()
+                  setOriginalClaim(updatedData)
+                  setParts(updatedData.parts || [])
+                  setLabors(updatedData.labors || [])
+                  setEditMode(false)
+                  showToast('บันทึกข้อมูลเรียบร้อย')
+                } catch (err) {
+                  setErrorModalMsg('เกิดข้อผิดพลาดในการบันทึก')
+                }
+              }}>
                 <Save className="w-4 h-4 mr-1.5" />บันทึก
               </Button>
             </>
@@ -285,6 +552,26 @@ export default function ClaimDetailPage() {
               {nextStatus && (
                 <Button size="sm" className="bg-[#1d4ed8] hover:bg-[#1e40af]" onClick={() => setShowStatusModal(true)}>
                   <ChevronRight className="w-4 h-4 mr-1.5" />{nextLabel}
+                </Button>
+              )}
+              {claimStatus !== 'CLOSED' && claimStatus !== 'CANCELLED' && (
+                <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => setConfirmModal({
+                  title: 'ยกเลิกใบเคลม',
+                  message: `ยืนยันยกเลิกเคลม ${claim.claimNo}? เคลมที่ยกเลิกจะไม่ถูกนับในรายงานรายรับ-รายจ่าย`,
+                  onConfirm: async () => {
+                    try {
+                      await fetch(`/api/claims/${claim.id}/status`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'CANCELLED', note: 'ยกเลิกเคลม' })
+                      })
+                      showToast('ยกเลิกเคลมเรียบร้อยแล้ว')
+                      setConfirmModal(null)
+                      await refreshClaim()
+                    } catch { setErrorModalMsg('เกิดข้อผิดพลาด') }
+                  }
+                })}>
+                  <Ban className="w-4 h-4 mr-1" />ยกเลิกเคลม
                 </Button>
               )}
             </>
@@ -312,7 +599,20 @@ export default function ClaimDetailPage() {
               <p className="text-sm text-[#475569] text-center">ต้องการเปลี่ยนสถานะเป็น &quot;{getStatusLabel(nextStatus)}&quot; ใช่หรือไม่?</p>
               <div className="flex gap-3 justify-end">
                 <Button variant="outline" onClick={() => setShowStatusModal(false)}>ยกเลิก</Button>
-                <Button className="bg-[#1d4ed8]" onClick={() => { setClaimStatus(nextStatus as ClaimStatus); setShowStatusModal(false); showToast(`เปลี่ยนสถานะเป็น "${getStatusLabel(nextStatus)}" แล้ว`) }}>
+                <Button className="bg-[#1d4ed8]" onClick={async () => { 
+                  try {
+                    await fetch(`/api/claims/${claim.id}/status`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ status: nextStatus as string })
+                    })
+                    setClaimStatus(nextStatus as ClaimStatus); 
+                    setShowStatusModal(false); 
+                    showToast(`เปลี่ยนสถานะเป็น "${getStatusLabel(nextStatus)}" แล้ว`) 
+                  } catch (err) {
+                    setErrorModalMsg('เกิดข้อผิดพลาดในการเปลี่ยนสถานะ')
+                  }
+                }}>
                   ยืนยัน
                 </Button>
               </div>
@@ -341,13 +641,15 @@ export default function ClaimDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="info" className="space-y-4">
+      <Tabs value={tabParam} onValueChange={(v) => router.replace(`${pathname}?tab=${v}`, { scroll: false })} className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="info">ข้อมูล Claim</TabsTrigger>
           <TabsTrigger value="parts">อะไหล่/ค่าแรง</TabsTrigger>
           <TabsTrigger value="po">Purchase Orders</TabsTrigger>
           <TabsTrigger value="supplier-inv">ใบเปิดสินค้า</TabsTrigger>
           <TabsTrigger value="insurance-inv">วางบิลประกัน</TabsTrigger>
+          <TabsTrigger value="expenses">ค่าใช้จ่ายเพิ่ม</TabsTrigger>
+          <TabsTrigger value="documents">เอกสารแนบ</TabsTrigger>
           <TabsTrigger value="payments">การชำระเงิน</TabsTrigger>
           <TabsTrigger value="pnl">P&L</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -355,44 +657,7 @@ export default function ClaimDetailPage() {
 
         {/* Tab 1: Claim Info */}
         <TabsContent value="info">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader><CardTitle className="text-base">ข้อมูล Claim</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  ['Claim No.', claim.claimNo],
-                  ['Receive No.', claim.receiveNo],
-                  ['Transaction No.', claim.transactionNo],
-                  ['บ.ประกัน', claim.insurance?.name || ''],
-                  ['อู่', claim.garage?.name || ''],
-                  ['วันที่รับ', new Date(claim.createdAt).toLocaleDateString('th-TH')],
-                ].map(([label, val]) => (
-                  <div key={label} className="flex justify-between py-2 border-b border-gray-50">
-                    <span className="text-sm text-[#475569]">{label}</span>
-                    <span className="text-sm font-medium text-[#0f172a]">{val}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-base">ข้อมูลรถยนต์</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  ['ทะเบียน', claim.carPlate],
-                  ['จังหวัด', claim.province],
-                  ['ยี่ห้อ', claim.carBrand],
-                  ['รุ่น', claim.carModel],
-                  ['VIN', claim.carVin],
-                  ['ผู้เอาประกัน', claim.insuredName],
-                ].map(([label, val]) => (
-                  <div key={label} className="flex justify-between py-2 border-b border-gray-50">
-                    <span className="text-sm text-[#475569]">{label}</span>
-                    <span className="text-sm font-medium text-[#0f172a]">{val}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+          <ClaimInfoTab {...tabProps} />
         </TabsContent>
 
         {/* Tab 2: Parts & Labor */}
@@ -427,14 +692,14 @@ export default function ClaimDetailPage() {
                   <TableBody>
                     {parts.map((part, idx) => (
                       <TableRow key={part.id}>
-                        <TableCell>{editMode ? <Input className="h-8 w-28 font-mono text-xs" value={part.partNo} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], partNo: e.target.value }; setParts(n) }} /> : <span className="font-mono text-xs">{part.partNo}</span>}</TableCell>
-                        <TableCell>{editMode ? <Input className="h-8 w-32" value={part.partName} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], partName: e.target.value }; setParts(n) }} /> : <span className="font-medium">{part.partName}</span>}</TableCell>
-                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 w-24 text-right" value={part.priceFullAmt} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], priceFullAmt: +e.target.value }; setParts(n) }} /> : formatCurrency(part.priceFullAmt)}</TableCell>
-                        <TableCell className="text-center">{editMode ? <Input type="number" className="h-8 w-14 text-center" value={part.quantity} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], quantity: +e.target.value }; setParts(n) }} /> : part.quantity}</TableCell>
-                        <TableCell>{editMode ? <Input className="h-8 w-20" value={part.damageType} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], damageType: e.target.value }; setParts(n) }} /> : <Badge variant="outline" className="text-[10px]">{part.damageType}</Badge>}</TableCell>
-                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 w-16 text-right" value={part.discountPct} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], discountPct: +e.target.value }; setParts(n) }} /> : `${part.discountPct}%`}</TableCell>
-                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 w-24 text-right font-semibold" value={part.priceApprove} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], priceApprove: +e.target.value }; setParts(n) }} /> : <span className="font-semibold">{formatCurrency(part.priceApprove)}</span>}</TableCell>
-                        <TableCell>{editMode ? <Input className="h-8 w-24" value={part.supplier} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], supplier: e.target.value }; setParts(n) }} /> : <span className="text-xs text-[#475569]">{part.supplier}</span>}</TableCell>
+                        <TableCell>{editMode ? <Input list="part-no-list" className="h-8 min-w-[120px] font-mono text-xs" value={part.partNo} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], partNo: e.target.value }; setParts(n) }} /> : <span className="font-mono text-xs">{part.partNo}</span>}</TableCell>
+                        <TableCell>{editMode ? <Input list="parts-list" className="h-8 min-w-[200px]" value={part.partName} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], partName: e.target.value }; setParts(n) }} /> : <span className="font-medium">{part.partName}</span>}</TableCell>
+                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[100px] text-right" value={part.priceFullAmt || ''} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], priceFullAmt: +e.target.value }; setParts(n) }} /> : formatCurrency(part.priceFullAmt)}</TableCell>
+                        <TableCell className="text-center">{editMode ? <Input type="number" className="h-8 min-w-[60px] text-center" value={part.quantity || ''} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], quantity: +e.target.value }; setParts(n) }} /> : part.quantity}</TableCell>
+                        <TableCell>{editMode ? <Input list="damage-type-list" className="h-8 min-w-[80px]" value={part.damageType} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], damageType: e.target.value }; setParts(n) }} /> : <Badge variant="outline" className="text-[10px]">{part.damageType}</Badge>}</TableCell>
+                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[70px] text-right" value={part.discountPct || ''} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], discountPct: +e.target.value }; setParts(n) }} /> : `${part.discountPct}%`}</TableCell>
+                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[100px] text-right font-semibold" value={part.priceApprove || ''} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], priceApprove: +e.target.value }; setParts(n) }} /> : <span className="font-semibold">{formatCurrency(part.priceApprove)}</span>}</TableCell>
+                        <TableCell>{editMode ? <Input className="h-8 min-w-[120px]" value={part.supplier} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], supplier: e.target.value }; setParts(n) }} /> : <span className="text-xs text-[#475569]">{part.supplier}</span>}</TableCell>
                         <TableCell className="text-center">
                           {editMode ? (
                             <input type="checkbox" checked={part.requireReturn} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], requireReturn: e.target.checked }; setParts(n) }} className="w-4 h-4" />
@@ -483,11 +748,11 @@ export default function ClaimDetailPage() {
                   <TableBody>
                     {labors.map((labor, idx) => (
                       <TableRow key={labor.id}>
-                        <TableCell>{editMode ? <Input className="h-8 w-full" value={labor.description} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], description: e.target.value }; setLabors(n) }} /> : <span className="font-medium">{labor.description}</span>}</TableCell>
-                        <TableCell>{editMode ? <Input className="h-8 w-24" value={labor.damageLevel} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], damageLevel: e.target.value }; setLabors(n) }} /> : <Badge variant="outline" className="text-[10px]">{labor.damageLevel}</Badge>}</TableCell>
-                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 w-16 text-right" value={labor.discountPct} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], discountPct: +e.target.value }; setLabors(n) }} /> : `${labor.discountPct}%`}</TableCell>
-                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 w-24 text-right" value={labor.priceOffer} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], priceOffer: +e.target.value }; setLabors(n) }} /> : formatCurrency(labor.priceOffer)}</TableCell>
-                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 w-24 text-right font-semibold" value={labor.priceApprove} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], priceApprove: +e.target.value }; setLabors(n) }} /> : <span className="font-semibold">{formatCurrency(labor.priceApprove)}</span>}</TableCell>
+                        <TableCell>{editMode ? <Input list="labors-list" className="h-8 min-w-[200px]" value={labor.description} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], description: e.target.value }; setLabors(n) }} /> : <span className="font-medium">{labor.description}</span>}</TableCell>
+                        <TableCell>{editMode ? <Input list="damage-level-list" className="h-8 min-w-[100px]" value={labor.damageLevel} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], damageLevel: e.target.value }; setLabors(n) }} /> : <Badge variant="outline" className="text-[10px]">{labor.damageLevel}</Badge>}</TableCell>
+                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[70px] text-right" value={labor.discountPct || ''} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], discountPct: +e.target.value }; setLabors(n) }} /> : `${labor.discountPct}%`}</TableCell>
+                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[100px] text-right" value={labor.priceOffer || ''} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], priceOffer: +e.target.value }; setLabors(n) }} /> : formatCurrency(labor.priceOffer)}</TableCell>
+                        <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[100px] text-right font-semibold" value={labor.priceApprove || ''} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], priceApprove: +e.target.value }; setLabors(n) }} /> : <span className="font-semibold">{formatCurrency(labor.priceApprove)}</span>}</TableCell>
                         {editMode && (
                           <TableCell>
                             <button onClick={() => setLabors(labors.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500">
@@ -507,7 +772,13 @@ export default function ClaimDetailPage() {
           <Card className="mt-6">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2"><FileText className="w-5 h-5 text-[#1d4ed8]" />ใบเสนอราคา (Quotation)</CardTitle>
-              <Button size="sm" className="bg-[#1d4ed8]" onClick={() => setShowCreateQuotationModal(true)}>
+              <Button size="sm" className="bg-[#1d4ed8]" onClick={() => {
+                setQtParts(parts.map(p => ({ ...p, selected: true })))
+                setQtLabors(labors.map(l => ({ ...l, selected: true })))
+                setQtCustomVat('')
+                setQtCustomGrand('')
+                setShowCreateQuotationModal(true)
+              }}>
                 <Plus className="w-4 h-4 mr-1" />ออกใบเสนอราคา
               </Button>
             </CardHeader>
@@ -550,8 +821,8 @@ export default function ClaimDetailPage() {
                           </div>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          <div><span className="text-[#94a3b8] text-xs">วันที่</span><p className="font-medium">{new Date(qt.quotationDate).toLocaleDateString('th-TH')}</p></div>
-                          <div><span className="text-[#94a3b8] text-xs">หมดอายุ</span><p className="font-medium">{new Date(qt.validUntil).toLocaleDateString('th-TH')}</p></div>
+                          <div><span className="text-[#94a3b8] text-xs">วันที่</span><p className="font-medium">{formatDate(qt.quotationDate)}</p></div>
+                          <div><span className="text-[#94a3b8] text-xs">หมดอายุ</span><p className="font-medium">{formatDate(qt.validUntil)}</p></div>
                           <div><span className="text-[#94a3b8] text-xs">ค่าแรง ({qt.laborItems.length} รายการ)</span><p className="font-medium">฿{formatCurrency(qt.laborTotal)}</p></div>
                           <div><span className="text-[#94a3b8] text-xs">อะไหล่ ({qt.partItems.length} รายการ)</span><p className="font-medium">฿{formatCurrency(qt.partsTotal)}</p></div>
                         </div>
@@ -575,7 +846,13 @@ export default function ClaimDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Purchase Orders</CardTitle>
-              <Button variant="outline" size="sm" disabled={claim.status !== 'PARTS_CHECK'} onClick={handleCreatePO}>
+              <Button variant="outline" size="sm" onClick={() => {
+                setEditPOId(null)
+                setPoDeliveryAddress(claim.garage?.name ? `${claim.garage.name}\n${claim.garage.address || ''} ${claim.garage.province || ''}`.trim() : '')
+                setPoModalParts(parts.map(p => ({ ...p, selected: p.status === 'approved' })))
+                setPoModalLabors(labors.map(l => ({ ...l, selected: false })))
+                setShowCreatePOModal(true)
+              }}>
                 <Plus className="w-4 h-4 mr-1" />สร้าง PO
               </Button>
             </CardHeader>
@@ -584,22 +861,63 @@ export default function ClaimDetailPage() {
                 <div className="text-center py-12 text-[#94a3b8]">
                   <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>ยังไม่มี PO</p>
-                  {claim.status !== 'PARTS_CHECK' && <p className="text-xs mt-1">ต้องเปลี่ยน status เป็น ตรวจสอบอะไหล่ ก่อนถึงจะสร้าง PO ได้</p>}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {claim.purchaseOrders?.map((po: any) => (
+                  {[...(claim.purchaseOrders || [])].sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).map((po: any) => (
                     <Card key={po.id} className="border border-gray-100">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <h4 className="font-semibold text-[#0f172a]">{po.poNo}</h4>
                             <Badge variant="outline" className="text-[10px]">{po.poType}</Badge>
-                            <Badge className={po.status === 'RECEIVED' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}>
-                              {getPOStatusLabel(po.status)}
+                            <Badge className={po.status === 'RECEIVED' ? 'bg-green-100 text-green-700' : po.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}>
+                              {po.status === 'CANCELLED' ? 'ยกเลิก' : getPOStatusLabel(po.status)}
                             </Badge>
                           </div>
-                          <span className="text-lg font-bold text-[#0f172a]">฿{formatCurrency(po.totalAmount)}</span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-lg font-bold text-[#0f172a]">฿{formatCurrency(po.totalAmount)}</span>
+                            <span className="text-[10px] text-gray-500">(รวม VAT 7% แล้ว)</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            {po.status === 'DRAFT' && (
+                              <div className="flex items-center gap-1 border-l pl-4 border-gray-200">
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-blue-600" onClick={() => {
+                                  setEditPOId(po.id)
+                                  setPoVendorId(po.vendorId)
+                                  setPoVendorName(po.vendor?.name || '')
+                                  setPoDeliveryAddress(po.deliveryAddress || '')
+                                  setPoModalParts(parts.map((p: any) => {
+                                    const existingPoItem = po.items.find((pi: any) => pi.partNo === p.partNo || pi.description === p.partName)
+                                    if (existingPoItem) {
+                                      return { ...p, selected: true, partName: existingPoItem.description, quantity: existingPoItem.quantity, priceApprove: existingPoItem.unitPrice }
+                                    }
+                                    return { ...p, selected: false }
+                                  }))
+                                  setPoModalLabors(labors.map((l: any) => {
+                                    const existingPoItem = po.items.find((pi: any) => pi.description === `[ค่าแรง] ${l.description}`)
+                                    if (existingPoItem) {
+                                      return { ...l, selected: true, description: existingPoItem.description.replace('[ค่าแรง] ', ''), priceApprove: existingPoItem.unitPrice }
+                                    }
+                                    return { ...l, selected: false }
+                                  }))
+                                  setShowCreatePOModal(true)
+                                }}>
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-red-600" onClick={() => setConfirmCancelPOId(po.id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            )}
+                            {po.status !== 'DRAFT' && po.status !== 'CANCELLED' && (
+                              <div className="flex items-center gap-1 border-l pl-4 border-gray-200">
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-red-600" onClick={() => setConfirmCancelPOId(po.id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="text-sm text-[#475569] flex items-center gap-4">
                           <span>Vendor: {po.vendor?.name}</span>
@@ -614,6 +932,46 @@ export default function ClaimDetailPage() {
                             </>
                           )}
                         </div>
+                        {po.status !== 'CANCELLED' && (
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                            {po.status === 'DRAFT' && (
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs h-7" onClick={async () => {
+                                try {
+                                  const res = await fetch(`/api/claims/${claim.id}/pos/${po.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'SENT' }) })
+                                  if (!res.ok) throw new Error()
+                                  const updated = await res.json()
+                                  setPurchaseOrders(prev => prev.map(p => p.id === po.id ? updated : p))
+                                  showToast(`${po.poNo} อนุมัติแล้ว`)
+                                } catch { setErrorModalMsg('เกิดข้อผิดพลาด') }
+                              }}>
+                                <CheckCircle2 className="w-3 h-3 mr-1" />อนุมัติ / ส่ง PO
+                              </Button>
+                            )}
+                            {po.status === 'SENT' && (
+                              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-xs h-7" onClick={async () => {
+                                try {
+                                  const res = await fetch(`/api/claims/${claim.id}/pos/${po.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'RECEIVED' }) })
+                                  if (!res.ok) throw new Error()
+                                  const updated = await res.json()
+                                  setPurchaseOrders(prev => prev.map(p => p.id === po.id ? updated : p))
+                                  showToast(`${po.poNo} รับอะไหล่แล้ว`)
+                                } catch { setErrorModalMsg('เกิดข้อผิดพลาด') }
+                              }}>
+                                <Package className="w-3 h-3 mr-1" />รับอะไหล่แล้ว
+                              </Button>
+                            )}
+                            <Link href={`/claims/${claim.id}/pdf/purchase-order?poId=${po.id}`} target="_blank">
+                              <Button variant="outline" size="sm" className="text-xs h-7">
+                                <Download className="w-3 h-3 mr-1" />ดาวน์โหลด PO
+                              </Button>
+                            </Link>
+                            <Link href={`/claims/${claim.id}/pdf/delivery-note?poId=${po.id}`} target="_blank">
+                              <Button variant="outline" size="sm" className="text-xs h-7">
+                                <Truck className="w-3 h-3 mr-1" />ใบส่งของ
+                              </Button>
+                            </Link>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -627,12 +985,12 @@ export default function ClaimDetailPage() {
         <TabsContent value="supplier-inv">
           <div className="space-y-6">
             {(() => {
-              const poItems = claim.purchaseOrders?.flatMap((po: any) => po.items.map((item: any) => ({ ...item, poId: po.id, poNo: po.poNo, poStatus: po.status }))) || []
+              const poItems = globalPoItems
               const allInvItems = supplierInvoices.flatMap((inv: any) => inv.items || [])
               const allGInvItems = garageInvoices.flatMap((gi: any) => gi.items || [])
-              const totalApproved = parts.reduce((s: number, p: any) => s + p.priceApprove * p.quantity, 0) + labors.reduce((s: number, l: any) => s + l.priceApprove, 0)
-              const totalInvoiced = parts.filter(p => p.paymentStatus === 'INVOICED' || p.paymentStatus === 'PAID').reduce((s, p) => s + p.priceApprove * p.quantity, 0) + labors.filter(l => l.paymentStatus === 'INVOICED' || l.paymentStatus === 'PAID').reduce((s, l) => s + l.priceApprove, 0)
-              const totalPaid = parts.filter(p => p.paymentStatus === 'PAID').reduce((s, p) => s + p.priceApprove * p.quantity, 0) + labors.filter(l => l.paymentStatus === 'PAID').reduce((s, l) => s + l.priceApprove, 0)
+              const totalApproved = parts.reduce((s: number, p: any) => s + getPartAmt(p), 0) + labors.reduce((s: number, l: any) => s + getLaborAmt(l), 0)
+              const totalInvoiced = parts.filter(p => p.paymentStatus === 'INVOICED' || p.paymentStatus === 'PAID').reduce((s, p) => s + getPartAmt(p), 0) + labors.filter(l => l.paymentStatus === 'INVOICED' || l.paymentStatus === 'PAID').reduce((s, l) => s + getLaborAmt(l), 0)
+              const totalPaid = parts.filter(p => p.paymentStatus === 'PAID').reduce((s, p) => s + getPartAmt(p), 0) + labors.filter(l => l.paymentStatus === 'PAID').reduce((s, l) => s + getLaborAmt(l), 0)
               const totalPending = totalApproved - totalInvoiced
               return (<>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -641,166 +999,351 @@ export default function ClaimDetailPage() {
                   <Card className="bg-amber-50"><CardContent className="p-3 text-center"><p className="text-xs text-[#475569]">รอ Invoice</p><p className="text-lg font-bold text-amber-600">฿{formatCurrency(totalPending)}</p></CardContent></Card>
                   <Card className="bg-purple-50"><CardContent className="p-3 text-center"><p className="text-xs text-[#475569]">จ่ายแล้ว</p><p className="text-lg font-bold text-purple-700">฿{formatCurrency(totalPaid)}</p></CardContent></Card>
                 </div>
-                {/* Parts Table */}
+                {/* Combined Parts and Labors Table */}
                 <Card><CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">รายการอะไหล่</CardTitle>
-                  <Button variant="outline" size="sm" disabled={!claim.purchaseOrders?.length} onClick={() => {
+                  <CardTitle className="text-base">รายการอะไหล่และค่าแรง</CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => {
                     const sel: Record<string, boolean> = {}
                     parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').forEach(p => { sel[p.id] = true })
+                    labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').forEach(l => { sel[l.id] = true })
                     setUploadMapSelections(sel); setShowUploadModal(true)
-                  }}><Upload className="w-4 h-4 mr-1" />อัพโหลด Supplier Invoice</Button>
+                  }}><Upload className="w-4 h-4 mr-1" />อัพโหลด Invoice</Button>
                 </CardHeader><CardContent>
                   <Table><TableHeader><TableRow className="bg-[#f8faff]">
-                    <TableHead>รายการ</TableHead><TableHead className="text-right">ยอด</TableHead><TableHead className="text-center">PO</TableHead><TableHead className="text-center">Invoice</TableHead><TableHead className="text-center">สถานะ</TableHead>
+                    <TableHead>ประเภท</TableHead><TableHead>รายการ</TableHead><TableHead className="text-right">ยอดอนุมัติ</TableHead><TableHead className="text-right">ยอด PO</TableHead><TableHead className="text-center">PO / เอกสารอ้างอิง</TableHead><TableHead className="text-center">Invoice</TableHead><TableHead className="text-center">สถานะ</TableHead>
                   </TableRow></TableHeader><TableBody>
                     {parts.map(p => {
                       const poi = poItems.find((x: any) => x.partNo === p.partNo)
                       const inv = allInvItems.find((x: any) => x.claimPartId === p.id)
                       const invDoc = inv ? supplierInvoices.find((si: any) => si.items?.some((i: any) => i.id === inv.id)) : null
                       return (<TableRow key={p.id} className={p.paymentStatus === 'PAID' ? 'bg-green-50/30' : ''}>
+                        <TableCell><Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700">อะไหล่</Badge></TableCell>
                         <TableCell><span className="font-medium">{p.partName}</span><span className="text-xs text-[#94a3b8] ml-2">{p.partNo}</span></TableCell>
-                        <TableCell className="text-right font-semibold">฿{formatCurrency(p.priceApprove)}</TableCell>
-                        <TableCell className="text-center">{poi ? <span className="text-xs text-green-600 flex items-center justify-center gap-0.5"><CheckCircle2 className="w-3.5 h-3.5" />{poi.poNo}</span> : <span className="text-xs text-[#94a3b8]">—</span>}</TableCell>
+                        <TableCell className="text-right text-sm text-[#94a3b8]">฿{formatCurrency(p.priceApprove)}</TableCell>
+                        <TableCell className="text-right font-semibold">{poi ? `฿${formatCurrency(poi.unitPrice * poi.quantity)}` : <span className="text-xs text-[#94a3b8]">—</span>}</TableCell>
+                        <TableCell className="text-center">{poi ? <span className={`text-xs flex items-center justify-center gap-0.5 ${poi.poStatus === 'RECEIVED' ? 'text-green-600' : 'text-blue-600'}`}><CheckCircle2 className="w-3.5 h-3.5" />{poi.poNo}</span> : <span className="text-xs text-[#94a3b8]">—</span>}</TableCell>
                         <TableCell className="text-center">{invDoc ? <span className="text-xs text-green-600 flex items-center justify-center gap-0.5"><CheckCircle2 className="w-3.5 h-3.5" />{invDoc.invoiceNo}</span> : <span className="text-xs text-amber-500">⏳ รอ</span>}</TableCell>
                         <TableCell className="text-center"><Badge className={`border-none text-[10px] ${p.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : p.paymentStatus === 'INVOICED' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{p.paymentStatus === 'PAID' ? 'จ่ายแล้ว' : p.paymentStatus === 'INVOICED' ? 'มี Invoice' : 'รอ Invoice'}</Badge></TableCell>
                       </TableRow>)
                     })}
-                  </TableBody></Table>
-                </CardContent></Card>
-                {/* Labors Table */}
-                <Card><CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">ค่าแรง</CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const sel: Record<string, boolean> = {}
-                    labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').forEach(l => { sel[l.id] = true })
-                    setGarageUploadSelections(sel); setShowGarageUploadModal(true)
-                  }}><Upload className="w-4 h-4 mr-1" />อัพโหลด Garage Invoice</Button>
-                </CardHeader><CardContent>
-                  <Table><TableHeader><TableRow className="bg-[#f8faff]">
-                    <TableHead>รายการ</TableHead><TableHead className="text-right">ยอด</TableHead><TableHead className="text-center">Garage Invoice</TableHead><TableHead className="text-center">สถานะ</TableHead>
-                  </TableRow></TableHeader><TableBody>
                     {labors.map(l => {
+                      // Check garage invoices (old) AND supplier invoices (unified) for labor
                       const gItem = allGInvItems.find((gi: any) => gi.claimLaborId === l.id)
                       const gDoc = gItem ? garageInvoices.find((g: any) => g.items?.some((i: any) => i.id === gItem.id)) : null
+                      // Also check supplier invoices for unified invoices containing labors
+                      const sItem = !gDoc ? allInvItems.find((si: any) => si.claimLaborId === l.id || (si.description && si.description.includes(l.description))) : null
+                      const sDoc = sItem ? supplierInvoices.find((si: any) => si.items?.some((i: any) => i.id === sItem.id)) : null
+                      const invoiceDoc = gDoc || sDoc
+                      // Check if labor is in a PO
+                      const poLabor = poItems.find((x: any) => x.description?.includes(l.description))
                       return (<TableRow key={l.id} className={l.paymentStatus === 'PAID' ? 'bg-green-50/30' : ''}>
+                        <TableCell><Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700">ค่าแรง</Badge></TableCell>
                         <TableCell className="font-medium">{l.description}</TableCell>
-                        <TableCell className="text-right font-semibold">฿{formatCurrency(l.priceApprove)}</TableCell>
-                        <TableCell className="text-center">{gDoc ? <span className="text-xs text-green-600 flex items-center justify-center gap-0.5"><CheckCircle2 className="w-3.5 h-3.5" />{gDoc.invoiceNo}</span> : <span className="text-xs text-amber-500">⏳ รอ</span>}</TableCell>
+                        <TableCell className="text-right text-sm text-[#94a3b8]">฿{formatCurrency(l.priceApprove)}</TableCell>
+                        <TableCell className="text-right font-semibold">{poLabor ? `฿${formatCurrency(poLabor.unitPrice * (poLabor.quantity || 1))}` : <span className="text-xs text-[#94a3b8]">—</span>}</TableCell>
+                        <TableCell className="text-center">{poLabor ? <span className="text-xs text-blue-600 flex items-center justify-center gap-0.5"><CheckCircle2 className="w-3.5 h-3.5" />{poLabor.poNo}</span> : <span className="text-xs text-[#94a3b8]">—</span>}</TableCell>
+                        <TableCell className="text-center">{invoiceDoc ? <span className="text-xs text-green-600 flex items-center justify-center gap-0.5"><CheckCircle2 className="w-3.5 h-3.5" />{invoiceDoc.invoiceNo}</span> : <span className="text-xs text-amber-500">⏳ รอ</span>}</TableCell>
                         <TableCell className="text-center"><Badge className={`border-none text-[10px] ${l.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : l.paymentStatus === 'INVOICED' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{l.paymentStatus === 'PAID' ? 'จ่ายแล้ว' : l.paymentStatus === 'INVOICED' ? 'มี Invoice' : 'รอ Invoice'}</Badge></TableCell>
                       </TableRow>)
                     })}
                   </TableBody></Table>
                 </CardContent></Card>
+                {/* Attachments Section */}
+                {(() => {
+                  const getCleanName = (url: string) => {
+                    const rawName = url.split('/').pop() || 'เอกสาร'
+                    return rawName.includes('_') ? rawName.substring(rawName.indexOf('_') + 1) : rawName
+                  }
+                  const allAttachments = [
+                    ...supplierInvoices.filter((si: any) => si.attachmentUrl || si.pdfUrl).map((si: any) => ({ id: si.id, name: si.attachmentName || (si.pdfUrl ? getCleanName(si.pdfUrl) : 'เอกสาร'), url: si.attachmentUrl || si.pdfUrl || null, invoiceNo: si.invoiceNo, type: 'Supplier Invoice' })),
+                    ...garageInvoices.filter((gi: any) => gi.attachmentUrl || gi.pdfUrl).map((gi: any) => ({ id: gi.id, name: gi.attachmentName || (gi.pdfUrl ? getCleanName(gi.pdfUrl) : 'เอกสาร'), url: gi.attachmentUrl || gi.pdfUrl || null, invoiceNo: gi.invoiceNo, type: 'Garage Invoice' }))
+                  ]
+                  return (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2"><FileText className="w-5 h-5 text-purple-500" />เอกสารแนบ</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {allAttachments.length === 0 ? (
+                          <div className="text-center py-6 text-[#94a3b8]">
+                            <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                            <p className="text-sm">ยังไม่มีเอกสารแนบ</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {allAttachments.map((att, i) => (
+                              <div key={att.id + '-' + i} className="flex items-center justify-between p-3 bg-[#f8faff] rounded-lg border border-gray-100 hover:border-purple-200 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  {att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                    <img src={att.url} alt="" className="w-10 h-10 object-cover rounded border" />
+                                  ) : (
+                                    <div className="w-10 h-10 bg-red-50 rounded border flex items-center justify-center"><FileText className="w-5 h-5 text-red-500" /></div>
+                                  )}
+                                  <div>
+                                    <p className="text-sm font-medium text-[#0f172a]">{att.name}</p>
+                                    <p className="text-xs text-[#94a3b8]">{att.type} • {att.invoiceNo}</p>
+                                  </div>
+                                </div>
+                                <Button variant="outline" size="sm" className="h-7 text-xs text-purple-600 border-purple-200" onClick={() => { 
+                                  if (att.url && (att.url.startsWith('http') || att.url.startsWith('blob:'))) {
+                                    window.open(att.url, '_blank');
+                                  } else {
+                                    showToast('ไฟล์นี้ถูกแนบในระบบเก่า หรือยังไม่ได้อัพโหลดเข้า Cloud Storage')
+                                  }
+                                }}>
+                                  <Download className="w-3 h-3 mr-1" />{(att.url && (att.url.startsWith('http') || att.url.startsWith('blob:'))) ? 'เปิดดู' : 'มีไฟล์แนบ'}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })()}
+
+                {/* ─── ใบแจ้งหนี้ & ขอเบิกเงิน ─── */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2"><CreditCard className="w-5 h-5 text-[#1d4ed8]" />ใบแจ้งหนี้ / ขอเบิกจ่ายเงิน</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {(() => {
+                        const allInvoices = [
+                          ...supplierInvoices.map((si: any) => ({ ...si, _type: 'SUPPLIER', name: si.vendor?.name || 'Vendor' })),
+                          ...garageInvoices.map((gi: any) => ({ ...gi, _type: 'GARAGE', name: gi.garageName || 'อู่' }))
+                        ].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+
+                        if (allInvoices.length === 0) {
+                          return <p className="text-sm text-[#94a3b8] text-center py-3">ยังไม่มีใบแจ้งหนี้</p>
+                        }
+
+                        return allInvoices.map(inv => {
+                          const pr = claim.paymentRequests?.find((p: any) => p.supplierInvoiceId === inv.id || p.garageInvoiceId === inv.id)
+                          const hasParts = inv.items?.some((i: any) => i.claimPartId)
+                          const hasLabors = inv.items?.some((i: any) => i.claimLaborId || i.description?.startsWith('[ค่าแรง]'))
+                          const typeLabel = hasParts && hasLabors ? 'อะไหล่+ค่าแรง' : inv._type === 'SUPPLIER' ? 'อะไหล่' : 'ค่าแรง'
+                          const badgeColor = hasParts && hasLabors ? 'bg-purple-50 text-purple-700' : inv._type === 'SUPPLIER' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'
+                          return (
+                            <div key={inv.id} className="p-3 bg-[#f8faff] rounded-lg border border-gray-100 hover:border-[#1d4ed8]/30 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className={`text-[10px] ${badgeColor}`}>{typeLabel}</Badge>
+                                    <span className="text-sm font-medium">{inv.invoiceNo}</span>
+                                  </div>
+                                  <div className="text-xs text-[#94a3b8] mt-1">{inv.name} • {inv.items?.length || 0} รายการ</div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="font-semibold text-sm">฿{formatCurrency(inv.totalAmount)}</span>
+                                  <Badge className={`border-none text-[10px] ${inv.apPayment ? 'bg-green-100 text-green-700' : pr?.status === 'APPROVED' ? 'bg-green-100 text-green-700' : pr?.status === 'PENDING_APPROVAL' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{inv.apPayment ? 'จ่ายแล้ว' : pr?.status === 'APPROVED' ? 'อนุมัติแล้ว' : pr?.status === 'PENDING_APPROVAL' ? 'รออนุมัติ' : 'รอเบิกจ่าย'}</Badge>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+                                {(inv.attachmentUrl || inv.pdfUrl) && (
+                                  <Button variant="outline" size="sm" className="h-7 text-xs text-purple-600 border-purple-200" onClick={() => { 
+                                    const u = inv.attachmentUrl || inv.pdfUrl; 
+                                    if (u && (u.startsWith('http') || u.startsWith('blob:'))) window.open(u, '_blank'); 
+                                    else showToast('ไฟล์ถูกเก็บในระบบเก่า หรือยังไม่อัพโหลด') 
+                                  }}><FileText className="w-3 h-3 mr-1" />ดูเอกสารแนบ</Button>
+                                )}
+                                {!pr && !inv.apPayment && (
+                                  <Button variant="outline" size="sm" className="h-7 text-xs text-[#1d4ed8] border-[#1d4ed8] hover:bg-blue-50" onClick={() => setPendingPaymentRequest({ type: inv._type === 'SUPPLIER' ? 'AP_VENDOR' : 'AP_GARAGE', invoiceId: inv.id, amount: inv.totalAmount })}><CreditCard className="w-3 h-3 mr-1" />ขอเบิกเงิน</Button>
+                                )}
+                                {pr?.status === 'REJECTED' && (
+                                  <Badge className="border-none text-[10px] bg-red-100 text-red-700">ถูกปฏิเสธ: {pr.rejectReason}</Badge>
+                                )}
+                                {!inv.apPayment && !pr && (
+                                  <Button variant="outline" size="sm" className="h-7 text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={() => {
+                                    setConfirmModal({
+                                      title: `ลบ Invoice "${inv.invoiceNo}"`,
+                                      message: 'รายการที่เกี่ยวข้องจะถูก reset กลับเป็น "รอ Invoice"',
+                                      onConfirm: async () => {
+                                        try {
+                                          const endpoint = inv._type === 'SUPPLIER' ? 'supplier-invoices' : 'garage-invoices'
+                                          const res = await fetch(`/api/claims/${claim.id}/${endpoint}?invoiceId=${inv.id}`, { method: 'DELETE' })
+                                          if (!res.ok) throw new Error('ลบไม่สำเร็จ')
+                                          showToast(`ลบ ${inv.invoiceNo} เรียบร้อย`)
+                                          await refreshClaim()
+                                        } catch (err: any) {
+                                          setErrorModalMsg(err.message)
+                                        }
+                                      }
+                                    })
+                                  }}><Trash2 className="w-3 h-3 mr-1" />ลบ Invoice</Button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
               </>)
             })()}
           </div>
-          {/* Upload Supplier Invoice Modal */}
+          {/* Combined Upload Invoice Modal */}
           {showUploadModal && (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowUploadModal(false)}>
               <Card className="w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Upload className="w-5 h-5" />อัพโหลด Supplier Invoice</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Upload className="w-5 h-5" />อัพโหลด Invoice</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <label className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-[#1d4ed8] transition-colors cursor-pointer block relative">
                     <input 
                       type="file" 
                       className="hidden" 
                       accept="application/pdf, image/png, image/jpeg" 
-                      disabled={isUploadingFile}
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
-                        try {
-                          setIsUploadingFile(true)
-                          const url = await uploadToR2(file, `claims/${claim.id}/supplier_invoices`)
-                          showToast('อัปโหลดไฟล์เข้าระบบสำเร็จ')
-                        } catch (err) {
-                          alert('Upload failed')
-                        } finally {
-                          setIsUploadingFile(false)
-                        }
+                        const url = URL.createObjectURL(file)
+                        setUploadedFile({ name: file.name, url, type: file.type, file })
                       }} 
                     />
-                    {isUploadingFile ? (
-                      <div className="text-sm text-[#94a3b8] flex items-center justify-center gap-2"><Upload className="w-4 h-4 animate-bounce" /> กำลังอัปโหลด...</div>
+                    {uploadedFile ? (
+                      <div className="flex items-center gap-3 justify-center">
+                        {uploadedFile.type.startsWith('image/') ? (
+                          <img src={uploadedFile.url} alt="preview" className="w-16 h-16 object-cover rounded border" />
+                        ) : (
+                          <div className="w-16 h-16 bg-red-50 rounded border flex items-center justify-center"><FileText className="w-8 h-8 text-red-500" /></div>
+                        )}
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-[#0f172a]">{uploadedFile.name}</p>
+                          <p className="text-xs text-green-600">แนบไฟล์เรียบร้อย • คลิกเพื่อเปลี่ยนไฟล์</p>
+                        </div>
+                      </div>
                     ) : (
-                      <><Upload className="w-8 h-8 mx-auto mb-2 text-[#94a3b8]" /><p className="text-sm text-[#475569]">คลิกหรือลากไฟล์ PDF/Image มาวาง</p></>
+                      <>
+                        <Upload className="w-8 h-8 mx-auto mb-2 text-[#94a3b8]" />
+                        <p className="text-sm text-[#475569]">คลิกเพื่อแนบไฟล์ PDF/Image</p>
+                      </>
                     )}
                   </label>
+                  <div>
+                    <label className="text-sm font-medium text-[#475569]">เลขที่ใบวางบิล (Invoice No.)</label>
+                    <Input className="mt-1" placeholder="ใส่เลขที่จริงจากผู้จัดจำหน่าย หรือเว้นว่างระบบสร้างให้อัตโนมัติ" value={customInvoiceNo} onChange={e => setCustomInvoiceNo(e.target.value)} />
+                  </div>
                   <div><h4 className="text-sm font-semibold mb-2">Invoice นี้ cover รายการไหนบ้าง?</h4>
-                    <Table><TableHeader><TableRow className="bg-[#f8faff]"><TableHead className="w-10"></TableHead><TableHead className="text-xs">รายการ</TableHead><TableHead className="text-xs">Part No.</TableHead><TableHead className="text-xs text-right">ราคา</TableHead></TableRow></TableHeader>
-                      <TableBody>{parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').map(p => (
-                        <TableRow key={p.id} className={uploadMapSelections[p.id] ? 'bg-blue-50/50' : ''}>
-                          <TableCell><input type="checkbox" checked={!!uploadMapSelections[p.id]} onChange={e => setUploadMapSelections(prev => ({ ...prev, [p.id]: e.target.checked }))} className="w-4 h-4" /></TableCell>
-                          <TableCell className="font-medium">{p.partName}</TableCell><TableCell className="font-mono text-xs">{p.partNo}</TableCell><TableCell className="text-right font-semibold">฿{formatCurrency(p.priceApprove)}</TableCell>
-                        </TableRow>))}</TableBody></Table>
+                    <Table><TableHeader><TableRow className="bg-[#f8faff]"><TableHead className="w-10"></TableHead><TableHead className="text-xs">ประเภท</TableHead><TableHead className="text-xs">รายการ</TableHead><TableHead className="text-xs text-right">ราคา</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').map(p => (
+                          <TableRow key={p.id} className={uploadMapSelections[p.id] ? 'bg-blue-50/50' : ''}>
+                            <TableCell><input type="checkbox" checked={!!uploadMapSelections[p.id]} onChange={e => setUploadMapSelections(prev => ({ ...prev, [p.id]: e.target.checked }))} className="w-4 h-4" /></TableCell>
+                            <TableCell><Badge variant="outline" className="text-[10px]">อะไหล่</Badge></TableCell>
+                            <TableCell className="font-medium">{p.partName} <span className="text-xs text-[#94a3b8] font-mono">{p.partNo}</span></TableCell>
+                            <TableCell className="text-right font-semibold">฿{formatCurrency(getPartAmt(p))}</TableCell>
+                          </TableRow>
+                        ))}
+                        {labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').map(l => (
+                          <TableRow key={l.id} className={uploadMapSelections[l.id] ? 'bg-blue-50/50' : ''}>
+                            <TableCell><input type="checkbox" checked={!!uploadMapSelections[l.id]} onChange={e => setUploadMapSelections(prev => ({ ...prev, [l.id]: e.target.checked }))} className="w-4 h-4" /></TableCell>
+                            <TableCell><Badge variant="outline" className="text-[10px]">ค่าแรง</Badge></TableCell>
+                            <TableCell className="font-medium">{l.description}</TableCell>
+                            <TableCell className="text-right font-semibold">฿{formatCurrency(getLaborAmt(l))}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody></Table>
+                      <div className="flex flex-col items-end gap-1 mt-4 p-4 bg-gray-50 rounded-lg">
+                        {(() => {
+                           const sub = parts.filter(p => uploadMapSelections[p.id]).reduce((s, p) => s + getPartAmt(p), 0) + labors.filter(l => uploadMapSelections[l.id]).reduce((s, l) => s + getLaborAmt(l), 0)
+                           const vat = Math.round(sub * 0.07)
+                           return (
+                             <>
+                               <div className="flex justify-between w-48 text-sm text-gray-500"><span>มูลค่าก่อนภาษี:</span><span>฿{formatCurrency(sub)}</span></div>
+                               <div className="flex justify-between w-48 text-sm text-gray-500"><span>VAT 7%:</span><span>฿{formatCurrency(vat)}</span></div>
+                               <div className="flex justify-between w-48 text-base font-bold text-blue-700 pt-2 border-t mt-1"><span>รวมทั้งสิ้น:</span><span>฿{formatCurrency(sub + vat)}</span></div>
+                             </>
+                           )
+                        })()}
+                      </div>
                   </div>
                   <div className="flex gap-3 justify-end">
                     <Button variant="outline" onClick={() => setShowUploadModal(false)}>ยกเลิก</Button>
-                    <Button className="bg-[#1d4ed8]" onClick={() => {
-                      const sel = parts.filter(p => uploadMapSelections[p.id]); if (!sel.length) return
-                      const invId = `sinv-new-${Date.now()}`
-                      const items = sel.map((p, i) => ({ id: `sinv-item-${Date.now()}-${i}`, supplierInvoiceId: invId, poItemId: `poi-${p.id}`, claimPartId: p.id, partNo: p.partNo, description: p.partName, quantity: p.quantity, unitPrice: p.priceApprove, totalPrice: p.priceApprove * p.quantity }))
-                      const sub = items.reduce((s, i) => s + i.totalPrice, 0); const vat = Math.round(sub * 0.07)
-                      setSupplierInvoices([...supplierInvoices, { id: invId, claimId: claim.id, vendorId: 'ven-p01', vendor: claim.purchaseOrders?.[0]?.vendor, invoiceNo: `SINV-NEW-${String(supplierInvoices.length + 1).padStart(3, '0')}`, invoiceDate: new Date().toISOString(), subtotal: sub, vatAmount: vat, totalAmount: sub + vat, items, createdAt: new Date().toISOString() }])
-                      setParts(parts.map(p => uploadMapSelections[p.id] ? { ...p, paymentStatus: 'INVOICED' as const } : p))
-                      setShowUploadModal(false); showToast('บันทึก Supplier Invoice เรียบร้อย')
-                    }}><Save className="w-4 h-4 mr-1.5" />ยืนยัน</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          {/* Upload Garage Invoice Modal */}
-          {showGarageUploadModal && (
-            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowGarageUploadModal(false)}>
-              <Card className="w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Upload className="w-5 h-5" />อัพโหลด Garage Invoice</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <label className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-[#1d4ed8] transition-colors cursor-pointer block relative">
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept="application/pdf, image/png, image/jpeg" 
-                      disabled={isUploadingFile}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-                        try {
-                          setIsUploadingFile(true)
-                          const url = await uploadToR2(file, `claims/${claim.id}/garage_invoices`)
-                          showToast('อัปโหลดไฟล์เข้าระบบสำเร็จ')
-                        } catch (err) {
-                          alert('Upload failed')
-                        } finally {
-                          setIsUploadingFile(false)
+                    <Button className="bg-[#1d4ed8]" disabled={isUploadingFile} onClick={async () => {
+                      const selParts = parts.filter(p => uploadMapSelections[p.id])
+                      const selLabors = labors.filter(l => uploadMapSelections[l.id])
+                      if (!selParts.length && !selLabors.length) { showToast('กรุณาเลือกอย่างน้อย 1 รายการ'); return }
+                      
+                      try {
+                        setIsUploadingFile(true)
+                        let pdfUrlToSave = null
+                        if (uploadedFile?.file) {
+                          pdfUrlToSave = await uploadToR2(uploadedFile.file, `claims/${claim.id}/invoices`)
                         }
-                      }} 
-                    />
-                    {isUploadingFile ? (
-                      <div className="text-sm text-[#94a3b8] flex items-center justify-center gap-2"><Upload className="w-4 h-4 animate-bounce" /> กำลังอัปโหลด...</div>
-                    ) : (
-                      <><Upload className="w-8 h-8 mx-auto mb-2 text-[#94a3b8]" /><p className="text-sm text-[#475569]">คลิกหรือลากไฟล์ PDF/Image มาวาง</p></>
-                    )}
-                  </label>
-                  <div><h4 className="text-sm font-semibold mb-2">Invoice นี้ cover ค่าแรงไหนบ้าง?</h4>
-                    <Table><TableHeader><TableRow className="bg-[#f8faff]"><TableHead className="w-10"></TableHead><TableHead className="text-xs">รายการ</TableHead><TableHead className="text-xs text-right">ราคา</TableHead></TableRow></TableHeader>
-                      <TableBody>{labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').map(l => (
-                        <TableRow key={l.id} className={garageUploadSelections[l.id] ? 'bg-blue-50/50' : ''}>
-                          <TableCell><input type="checkbox" checked={!!garageUploadSelections[l.id]} onChange={e => setGarageUploadSelections(prev => ({ ...prev, [l.id]: e.target.checked }))} className="w-4 h-4" /></TableCell>
-                          <TableCell className="font-medium">{l.description}</TableCell><TableCell className="text-right font-semibold">฿{formatCurrency(l.priceApprove)}</TableCell>
-                        </TableRow>))}</TableBody></Table>
-                  </div>
-                  <div className="flex gap-3 justify-end">
-                    <Button variant="outline" onClick={() => setShowGarageUploadModal(false)}>ยกเลิก</Button>
-                    <Button className="bg-[#1d4ed8]" onClick={() => {
-                      const sel = labors.filter(l => garageUploadSelections[l.id]); if (!sel.length) return
-                      const gId = `ginv-new-${Date.now()}`
-                      const items = sel.map((l, i) => ({ id: `ginv-item-${Date.now()}-${i}`, garageInvoiceId: gId, claimLaborId: l.id, description: l.description, unitPrice: l.priceApprove, totalPrice: l.priceApprove }))
-                      const sub = items.reduce((s, i) => s + i.totalPrice, 0); const vat = Math.round(sub * 0.07)
-                      setGarageInvoices([...garageInvoices, { id: gId, claimId: claim.id, garageId: claim.garageId, garageName: claim.garage?.name, invoiceNo: `GINV-NEW-${String(garageInvoices.length + 1).padStart(3, '0')}`, invoiceDate: new Date().toISOString(), items, subtotal: sub, vatAmount: vat, totalAmount: sub + vat, createdAt: new Date().toISOString() }])
-                      setLabors(labors.map(l => garageUploadSelections[l.id] ? { ...l, paymentStatus: 'INVOICED' as const } : l))
-                      setShowGarageUploadModal(false); showToast('บันทึก Garage Invoice เรียบร้อย')
-                    }}><Save className="w-4 h-4 mr-1.5" />ยืนยัน</Button>
+                        
+                        let hasError = false
+                        
+                        // Invoice number — user-provided or auto-generated by server
+                        const invoiceNo = customInvoiceNo.trim() || undefined
+
+                        // Build combined items list (parts + labors in ONE invoice)
+                        const validPOs = claim.purchaseOrders?.filter((po: any) => po.status !== 'CANCELLED') || []
+                        const firstVendorId = validPOs[0]?.vendorId || vendors[0]?.id || claim.garageId || 'ven-p01'
+
+                        const partItems = selParts.map(p => {
+                          const poItem = validPOs.flatMap((po: any) => po.items).find((pi: any) => pi.partNo === p.partNo)
+                          const unitPrice = poItem ? poItem.unitPrice : p.priceApprove
+                          return {
+                            poItemId: poItem?.id || validPOs[0]?.items?.[0]?.id,
+                            claimPartId: p.id,
+                            partNo: p.partNo,
+                            description: p.partName,
+                            quantity: p.quantity,
+                            unitPrice: unitPrice,
+                            totalPrice: unitPrice * p.quantity
+                          }
+                        })
+                        const laborItems = selLabors.map(l => {
+                          const poLabor = validPOs.flatMap((po: any) => po.items).find((pi: any) => pi.description?.includes(l.description))
+                          const unitPrice = poLabor ? poLabor.unitPrice : l.priceApprove
+                          return {
+                            claimPartId: null,
+                            claimLaborId: l.id,
+                            partNo: '',
+                            description: `[ค่าแรง] ${l.description}`,
+                            quantity: 1,
+                            unitPrice: unitPrice,
+                            totalPrice: unitPrice
+                          }
+                        })
+
+                        const allItems = [...partItems, ...laborItems]
+
+                        // Create ONE supplier invoice with all items
+                        const res = await fetch(`/api/claims/${claim.id}/supplier-invoices`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            vendorId: firstVendorId,
+                            invoiceNo,
+                            items: allItems,
+                            pdfUrl: pdfUrlToSave,
+                            laborIds: selLabors.map(l => l.id) // pass labor IDs to mark as INVOICED
+                          })
+                        })
+                        if (!res.ok) hasError = true
+                        else {
+                          const newInv = await res.json()
+                          newInv.attachmentUrl = uploadedFile?.url || null
+                          newInv.attachmentName = uploadedFile?.name || null
+                          setSupplierInvoices(prev => [...prev, newInv])
+                          if (selParts.length > 0) setParts(prev => prev.map(p => uploadMapSelections[p.id] ? { ...p, paymentStatus: 'INVOICED' as const } : p))
+                          if (selLabors.length > 0) setLabors(prev => prev.map(l => uploadMapSelections[l.id] ? { ...l, paymentStatus: 'INVOICED' as const } : l))
+                        }
+
+                        if (hasError) throw new Error('เกิดข้อผิดพลาดในการบันทึกข้อมูลบางส่วน')
+
+                        setShowUploadModal(false); setUploadedFile(null); showToast('บันทึก Invoice เรียบร้อย')
+                      } catch (err: any) {
+                        setErrorModalMsg(`เกิดข้อผิดพลาด: ${err.message}`)
+                      } finally {
+                        setIsUploadingFile(false)
+                      }
+                    }}>
+                      {isUploadingFile ? <span className="flex items-center"><span className="w-4 h-4 mr-1.5 border-2 border-t-white border-white/30 rounded-full animate-spin"></span>อัพโหลด...</span> : <span className="flex items-center"><Save className="w-4 h-4 mr-1.5" />ยืนยัน</span>}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -810,287 +1353,237 @@ export default function ClaimDetailPage() {
 
         {/* Tab 5: Insurance Invoice — AR/AP แยกชัดเจน */}
         <TabsContent value="insurance-inv">
-          <div className="space-y-6">
-            {/* ─── Section AR: วางบิลประกัน ─── */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-600" />AR — วางบิลประกัน</CardTitle>
-                <div className="flex items-center gap-2">
-                  {claim.insuranceInvoice && (
-                    <>
-                      <Button variant="outline" size="sm" onClick={() => window.open(`/api/claims/${claim.id}/peak-export?template=ar-invoice`)}><Download className="w-3.5 h-3.5 mr-1" />ตั้งลูกหนี้</Button>
-                      {claim.insuranceInvoice.arPayment && (
-                        <Button variant="outline" size="sm" className="text-green-600 border-green-200" onClick={() => window.open(`/api/claims/${claim.id}/peak-export?template=ar-receipt`)}><Download className="w-3.5 h-3.5 mr-1" />รับชำระ</Button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!claim.insuranceInvoice ? (
-                  <div className="space-y-4">
-                    {/* Gate check: status >= PARTS_CHECK */}
-                    {(() => {
-                      const statusFlow = ['RECEIVED', 'PARTS_CHECK', 'PO_ISSUED', 'GOODS_RECEIVED', 'INVOICE_SENT', 'AP_PAID', 'AR_RECEIVED', 'CLOSED']
-                      const idx = statusFlow.indexOf(claim.status)
-                      const ready = idx >= 1 // >= PARTS_CHECK
-                      const sub = partsTotal + laborTotal
-                      const vat = Math.round(sub * 0.07)
-                      if (!ready) return (
-                        <div className="text-center py-8 text-[#94a3b8]">
-                          <AlertTriangle className="w-10 h-10 mx-auto mb-2 opacity-40 text-amber-400" />
-                          <p className="font-medium text-amber-600">ยังออก Invoice ไม่ได้</p>
-                          <p className="text-xs mt-1">บ.ประกันยังไม่อนุมัติรายการอะไหล่/ค่าแรง</p>
-                        </div>
-                      )
-                      return (
-                        <div className="space-y-4">
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <p className="text-sm font-medium text-green-700 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />พร้อมออกใบวางบิล</p>
-                            <p className="text-xs text-green-600 mt-1">บ.ประกันอนุมัติรายการแล้ว — ไม่ต้องรอ Supplier Invoice</p>
-                          </div>
-                          <div className="bg-[#f8faff] rounded-lg p-4 space-y-2">
-                            {[['ค่าอะไหล่', partsTotal], ['ค่าแรง', laborTotal], ['Subtotal', sub], ['VAT 7%', vat], ['Grand Total', sub + vat]].map(([l, v]) => (
-                              <div key={String(l)} className="flex justify-between"><span className="text-sm text-[#475569]">{l}</span><span className={`text-sm font-semibold ${l === 'Grand Total' ? 'text-[#1d4ed8] text-base' : 'text-[#0f172a]'}`}>฿{formatCurrency(v as number)}</span></div>
-                            ))}
-                          </div>
-                          <Button className="bg-[#1d4ed8] w-full" onClick={handleCreateInsuranceInvoice}><Plus className="w-4 h-4 mr-1" />สร้างใบวางบิลประกัน</Button>
-                        </div>
-                      )
-                    })()}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <Badge className={`border-none ${claim.insuranceInvoice.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>{claim.insuranceInvoice.status === 'PAID' ? 'รับชำระแล้ว' : 'ส่งวางบิลแล้ว'}</Badge>
-                    </div>
-                    {[
-                      ['เลขที่ใบวางบิล', claim.insuranceInvoice.invoiceNo],
-                      ['วันที่', new Date(claim.insuranceInvoice.invoiceDate).toLocaleDateString('th-TH')],
-                      ['ค่าแรง', `฿${formatCurrency(claim.insuranceInvoice.laborTotal)}`],
-                      ['ค่าอะไหล่', `฿${formatCurrency(claim.insuranceInvoice.partsTotal)}`],
-                      ['Subtotal', `฿${formatCurrency(claim.insuranceInvoice.subtotal)}`],
-                      ['VAT 7%', `฿${formatCurrency(claim.insuranceInvoice.vatAmount)}`],
-                      ['Grand Total', `฿${formatCurrency(claim.insuranceInvoice.grandTotal)}`],
-                    ].map(([label, val]) => (
-                      <div key={label} className="flex justify-between py-2 border-b border-gray-50">
-                        <span className="text-sm text-[#475569]">{label}</span>
-                        <span className="text-sm font-semibold text-[#0f172a]">{val}</span>
-                      </div>
-                    ))}
-                    <div className="flex justify-end pt-2">
-                      <Button variant="outline" size="sm" onClick={() => window.open(`/claims/${claim.id}/pdf/insurance-invoice`)}><Download className="w-4 h-4 mr-1" />โหลด PDF</Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <InsuranceInvoiceTab {...tabProps} handleCreateInsuranceInvoice={handleCreateInsuranceInvoice} handleDeleteInsuranceInvoice={handleDeleteInsuranceInvoice} setConfirmModal={setConfirmModal} setShowReceiveARModal={setShowReceiveARModal} />
+        </TabsContent>
 
-            {/* ─── Section AP: สถานะการจ่าย Vendor/อู่ ─── */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><CreditCard className="w-5 h-5 text-red-500" />AP — สถานะการจ่าย Vendor / อู่</CardTitle>
-                <p className="text-xs text-[#94a3b8] mt-1">ทำงานอิสระจาก AR — ไม่ block การออก Insurance Invoice</p>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {/* Supplier Invoices */}
-                  {supplierInvoices.length > 0 ? supplierInvoices.map(si => (
-                    <div key={si.id} className="p-3 bg-[#f8faff] rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div><span className="text-sm font-medium">{si.invoiceNo}</span><span className="text-xs text-[#94a3b8] ml-2">{si.vendor?.name || 'Vendor'}</span></div>
-                        <div className="flex items-center gap-3"><span className="font-semibold text-sm">฿{formatCurrency(si.totalAmount)}</span>
-                          <Badge className={`border-none text-[10px] ${si.apPayment ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{si.apPayment ? 'จ่ายแล้ว' : 'รอจ่าย'}</Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => window.open(`/api/claims/${claim.id}/peak-export?template=ap-purchase`)}><Download className="w-3 h-3 mr-1" />ตั้งเจ้าหนี้</Button>
-                        {si.apPayment && <Button variant="outline" size="sm" className="h-7 text-xs text-green-600 border-green-200" onClick={() => window.open(`/api/claims/${claim.id}/peak-export?template=ap-expense`)}><Download className="w-3 h-3 mr-1" />จ่ายเงิน</Button>}
-                      </div>
-                    </div>
-                  )) : <p className="text-sm text-[#94a3b8] text-center py-4">ยังไม่มี Supplier Invoice</p>}
-                  {/* Garage Invoices */}
-                  {garageInvoices.length > 0 && garageInvoices.map(gi => (
-                    <div key={gi.id} className="p-3 bg-[#f8faff] rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div><span className="text-sm font-medium">{gi.invoiceNo}</span><span className="text-xs text-[#94a3b8] ml-2">{gi.garageName || 'อู่'}</span></div>
-                        <div className="flex items-center gap-3"><span className="font-semibold text-sm">฿{formatCurrency(gi.totalAmount)}</span>
-                          <Badge className={`border-none text-[10px] ${gi.apPayment ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{gi.apPayment ? 'จ่ายแล้ว' : 'รอจ่าย'}</Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => window.open(`/api/claims/${claim.id}/peak-export?template=ap-purchase`)}><Download className="w-3 h-3 mr-1" />ตั้งเจ้าหนี้</Button>
-                        {gi.apPayment && <Button variant="outline" size="sm" className="h-7 text-xs text-green-600 border-green-200" onClick={() => window.open(`/api/claims/${claim.id}/peak-export?template=ap-expense`)}><Download className="w-3 h-3 mr-1" />จ่ายเงิน</Button>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Tab: Expenses */}
+        <TabsContent value="expenses">
+          <ExpensesTab {...tabProps} />
+        </TabsContent>
+
+        {/* Tab: Documents */}
+        <TabsContent value="documents">
+          <DocumentsTab {...tabProps} />
         </TabsContent>
 
         {/* Tab 6: Payments */}
         <TabsContent value="payments">
-          <div className="space-y-4">
-            {(() => {
-              const claimPRs = mockPaymentRequests.filter(pr => pr.claimId === claim.id)
-              if (claimPRs.length === 0) return (
-                <Card>
-                  <CardContent className="p-0">
-                    <div className="text-center py-12 text-[#94a3b8]">
-                      <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                      <p>ยังไม่มี Payment Request</p>
-                      <p className="text-xs mt-1">สร้างคำขอจ่ายเงินจากแท็บ &quot;ใบเปิดสินค้า&quot;</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-              return claimPRs.map(pr => (
-                <Card key={pr.id} className={`border ${pr.status === 'APPROVED' ? 'border-green-200' : pr.status === 'REJECTED' ? 'border-red-200' : 'border-amber-200'}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Badge className={`border-none text-[10px] ${pr.requestType === 'AR' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                          {pr.requestType === 'AP_VENDOR' ? 'AP Vendor' : pr.requestType === 'AP_GARAGE' ? 'AP อู่' : 'AR ประกัน'}
-                        </Badge>
-                        <span className="font-medium text-sm">{pr.vendorName || pr.garageName || pr.insuranceName}</span>
-                      </div>
-                      <Badge className={`border-none text-[10px] ${pr.status === 'APPROVED' ? 'bg-green-100 text-green-700' : pr.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {pr.status === 'APPROVED' ? 'อนุมัติแล้ว' : pr.status === 'REJECTED' ? 'ถูกปฏิเสธ' : 'รออนุมัติ'}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 text-sm mb-2">
-                      <div><span className="text-[#94a3b8] text-xs block">ยอด</span><span className="font-bold text-[#0f172a]">฿{formatCurrency(pr.amount)}</span></div>
-                      <div><span className="text-[#94a3b8] text-xs block">วิธีจ่าย</span><span>{pr.method}</span></div>
-                      <div><span className="text-[#94a3b8] text-xs block">สร้างโดย</span><span>{pr.createdBy}</span></div>
-                    </div>
-                    {pr.billReceipt && (
-                      <div className="bg-gray-50 rounded p-2 text-xs flex items-center gap-2 mt-2">
-                        {pr.billReceipt.invoiceNoMatched
-                          ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /><span className="text-green-600">บิลกระดาษตรงกัน ({pr.billReceipt.physicalInvoiceNo})</span></>
-                          : <><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /><span className="text-amber-600">บิลไม่ตรง — ระบบ: {pr.billReceipt.systemInvoiceNo} / กระดาษ: {pr.billReceipt.physicalInvoiceNo}</span></>}
-                      </div>
-                    )}
-                    {pr.status === 'REJECTED' && pr.rejectReason && (
-                      <div className="bg-red-50 rounded p-2 text-xs text-red-600 mt-2 flex items-center gap-1.5">
-                        <XCircle className="w-3.5 h-3.5" />เหตุผล: {pr.rejectReason}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            })()}
-          </div>
+          <PaymentsTab {...tabProps} setRejectPRId={setRejectPRId} setRejectReason={setRejectReason} />
         </TabsContent>
 
         {/* Tab 7: P&L */}
         <TabsContent value="pnl">
-          <Card>
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[#1d4ed8]" />P&L Summary</CardTitle></CardHeader>
-            <CardContent>
-              <div className="max-w-md mx-auto space-y-4">
-                {[
-                  { label: 'AR Received (รับจากประกัน)', value: arReceived, color: 'text-green-600' },
-                  { label: 'AP Vendor (จ่าย Supplier)', value: apVendor, color: 'text-red-500' },
-                  { label: 'AP Garage (จ่ายอู่)', value: 0, color: 'text-red-500' },
-                ].map(item => (
-                  <div key={item.label} className="flex justify-between py-3 border-b border-gray-50">
-                    <span className="text-sm text-[#475569]">{item.label}</span>
-                    <span className={`font-semibold ${item.color}`}>฿{formatCurrency(item.value)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between py-3 border-t-2 border-[#1d4ed8]">
-                  <span className="font-semibold text-[#0f172a]">Gross Profit</span>
-                  <span className={`text-xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    ฿{formatCurrency(grossProfit)}
-                  </span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-sm text-[#475569]">Margin</span>
-                  <span className="font-semibold text-[#0f172a]">{margin.toFixed(1)}%</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <PnLTab {...tabProps} />
         </TabsContent>
 
         {/* Tab 8: Timeline */}
         <TabsContent value="timeline">
-          <Card>
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="w-5 h-5 text-[#1d4ed8]" />Timeline</CardTitle></CardHeader>
-            <CardContent>
-              <div className="relative pl-8 space-y-6">
-                {claim.statusLogs?.map((log: any, i: number) => {
-                  const isLast = i === (claim.statusLogs?.length || 0) - 1
-                  const logColor = getStatusColor(log.toStatus)
-                  return (
-                    <div key={log.id} className="relative">
-                      {/* Line */}
-                      {!isLast && <div className="absolute left-[-20px] top-8 w-0.5 h-full bg-gray-200" />}
-                      {/* Dot */}
-                      <div className={`absolute left-[-24px] top-1 w-3 h-3 rounded-full border-2 border-white shadow ${logColor.bg}`} />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className={`status-badge ${logColor.bg} ${logColor.text}`}>{getStatusLabel(log.toStatus)}</span>
-                          {log.fromStatus && (
-                            <span className="text-xs text-[#94a3b8]">← {getStatusLabel(log.fromStatus)}</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-[#94a3b8] mt-1">
-                          {new Date(log.createdAt).toLocaleString('th-TH')} • {log.changedBy}
-                        </p>
-                        {log.note && <p className="text-sm text-[#475569] mt-1">{log.note}</p>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <TimelineTab {...tabProps} />
         </TabsContent>
       </Tabs>
 
       {/* ─── Create Quotation Modal ─── */}
-      {showCreateQuotationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b flex justify-between items-center bg-[#f8faff]">
-              <h3 className="font-semibold text-lg text-[#0f172a] flex items-center gap-2"><FileText className="w-5 h-5 text-[#1d4ed8]" />ออกใบเสนอราคา (Quotation)</h3>
-              <Button variant="ghost" size="icon" onClick={() => setShowCreateQuotationModal(false)} className="h-8 w-8 text-[#94a3b8] hover:text-[#0f172a]"><X className="w-4 h-4" /></Button>
-            </div>
-            <div className="p-4 overflow-y-auto flex-1">
-              <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-sm text-blue-700">
-                  ระบบจะดึงรายการอะไหล่ ({parts.length} รายการ) และค่าแรง ({labors.length} รายการ) ปัจจุบันมาสร้างเป็นใบเสนอราคาฉบับใหม่
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-[#475569]">วันที่เสนอราคา</label>
-                  <Input type="date" className="mt-1" value={qtDate} onChange={e => setQtDate(e.target.value)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-[#475569]">วันหมดอายุ</label>
-                  <Input type="date" className="mt-1" value={qtValidUntil} onChange={e => setQtValidUntil(e.target.value)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-[#475569]">หมายเหตุ (แสดงในใบเสนอราคา)</label>
-                  <Input placeholder="เช่น ราคาอะไหล่อ้างอิงราคาศูนย์" className="mt-1" value={qtNote} onChange={e => setQtNote(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                  <div><span className="text-xs text-[#94a3b8]">รวมค่าแรง</span><p className="font-semibold">฿{formatCurrency(laborTotal)}</p></div>
-                  <div><span className="text-xs text-[#94a3b8]">รวมค่าอะไหล่</span><p className="font-semibold">฿{formatCurrency(partsTotal)}</p></div>
-                  <div><span className="text-xs text-[#94a3b8]">VAT 7%</span><p className="font-semibold">฿{formatCurrency(vat)}</p></div>
-                  <div><span className="text-xs text-[#94a3b8]">ยอดรวมทั้งสิ้น</span><p className="font-bold text-[#1d4ed8] text-lg">฿{formatCurrency(grand)}</p></div>
+      {showCreateQuotationModal && (() => {
+        const laborTot = qtLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
+        const partTot = qtParts.filter(p => p.selected).reduce((sum, p) => sum + ((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)), 0)
+        const sub = partTot + laborTot
+        const vatAmt = qtCustomVat !== '' ? Number(qtCustomVat) : Math.round(sub * 0.07)
+        const grand = qtCustomGrand !== '' ? Number(qtCustomGrand) : (sub + vatAmt)
+        
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="p-4 border-b flex justify-between items-center bg-[#f8faff]">
+                <h3 className="font-semibold text-lg text-[#0f172a] flex items-center gap-2"><FileText className="w-5 h-5 text-[#1d4ed8]" />ออกใบเสนอราคา (Quotation)</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowCreateQuotationModal(false)} className="h-8 w-8 text-[#94a3b8] hover:text-[#0f172a]"><X className="w-4 h-4" /></Button>
+              </div>
+              <div className="p-4 overflow-y-auto flex-1">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-[#475569]">วันที่เสนอราคา</label>
+                      <Input type="date" className="mt-1" value={qtDate} onChange={e => setQtDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-[#475569]">วันหมดอายุ</label>
+                      <Input type="date" className="mt-1" value={qtValidUntil} onChange={e => setQtValidUntil(e.target.value)} />
+                    </div>
+                  </div>
+                  
+                  {/* Items Selection Table */}
+                  <div className="border rounded-lg overflow-hidden mt-4">
+                    <Table>
+                      <TableHeader className="bg-gray-50">
+                        <TableRow>
+                          <TableHead className="w-10"></TableHead>
+                          <TableHead>รายการ</TableHead>
+                          <TableHead className="w-20 text-center">จำนวน</TableHead>
+                          <TableHead className="w-32 text-right">ราคา/หน่วย</TableHead>
+                          <TableHead className="w-32 text-right">รวม</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow className="bg-blue-50/30"><TableCell colSpan={5} className="font-semibold text-sm">รายการค่าแรง</TableCell></TableRow>
+                        {qtLabors.map((l, i) => (
+                          <TableRow key={l.id}>
+                            <TableCell><input type="checkbox" checked={l.selected} onChange={e => { const n = [...qtLabors]; n[i].selected = e.target.checked; setQtLabors(n) }} className="w-4 h-4" /></TableCell>
+                            <TableCell><Input className="h-8 text-sm" value={l.description} onChange={e => { const n = [...qtLabors]; n[i].description = e.target.value; setQtLabors(n) }} /></TableCell>
+                            <TableCell className="text-center">1</TableCell>
+                            <TableCell><Input type="number" className="h-8 text-sm text-right" value={l.priceApprove || ''} onChange={e => { const n = [...qtLabors]; n[i].priceApprove = Number(e.target.value); setQtLabors(n) }} /></TableCell>
+                            <TableCell className="text-right font-medium text-sm pt-3">฿{formatCurrency(Number(l.priceApprove) || 0)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-blue-50/30"><TableCell colSpan={5} className="font-semibold text-sm">รายการอะไหล่</TableCell></TableRow>
+                        {qtParts.map((p, i) => (
+                          <TableRow key={p.id}>
+                            <TableCell><input type="checkbox" checked={p.selected} onChange={e => { const n = [...qtParts]; n[i].selected = e.target.checked; setQtParts(n) }} className="w-4 h-4" /></TableCell>
+                            <TableCell><Input className="h-8 text-sm" value={p.partName} onChange={e => { const n = [...qtParts]; n[i].partName = e.target.value; setQtParts(n) }} /></TableCell>
+                            <TableCell><Input type="number" className="h-8 text-sm text-center" value={p.quantity || ''} onChange={e => { const n = [...qtParts]; n[i].quantity = Number(e.target.value); setQtParts(n) }} /></TableCell>
+                            <TableCell><Input type="number" className="h-8 text-sm text-right" value={p.priceApprove || ''} onChange={e => { const n = [...qtParts]; n[i].priceApprove = Number(e.target.value); setQtParts(n) }} /></TableCell>
+                            <TableCell className="text-right font-medium text-sm pt-3">฿{formatCurrency((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1))}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-[#475569]">หมายเหตุ (แสดงในใบเสนอราคา)</label>
+                    <Input placeholder="เช่น ราคาอะไหล่อ้างอิงราคาศูนย์" className="mt-1" value={qtNote} onChange={e => setQtNote(e.target.value)} />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-4 border-t items-end">
+                    <div><span className="text-xs text-[#94a3b8]">รวมค่าแรง</span><p className="font-semibold">฿{formatCurrency(laborTot)}</p></div>
+                    <div><span className="text-xs text-[#94a3b8]">รวมค่าอะไหล่</span><p className="font-semibold">฿{formatCurrency(partTot)}</p></div>
+                    <div><span className="text-xs text-[#94a3b8]">VAT 7% (แก้ไขได้)</span><Input type="number" placeholder={String(Math.round(sub * 0.07))} className="h-8 mt-1" value={qtCustomVat} onChange={e => setQtCustomVat(e.target.value)} /></div>
+                    <div className="md:col-span-2 text-right"><span className="text-xs text-[#94a3b8]">ยอดรวมทั้งสิ้น (แก้ไขได้)</span>
+                      <div className="flex items-center justify-end gap-2 mt-1">
+                        <span className="font-bold text-[#1d4ed8] text-lg">฿</span>
+                        <Input type="number" placeholder={String(sub + vatAmt)} className="h-10 w-40 text-right font-bold text-[#1d4ed8] text-lg" value={qtCustomGrand} onChange={e => setQtCustomGrand(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="p-4 border-t flex justify-end gap-2 bg-gray-50">
-              <Button variant="outline" onClick={() => setShowCreateQuotationModal(false)}>ยกเลิก</Button>
-              <Button className="bg-[#1d4ed8]" onClick={handleCreateQuotation}>สร้างใบเสนอราคา</Button>
+              <div className="p-4 border-t flex justify-end gap-2 bg-gray-50">
+                <Button variant="outline" onClick={() => setShowCreateQuotationModal(false)}>ยกเลิก</Button>
+                <Button className="bg-[#1d4ed8]" onClick={handleCreateQuotation}>ยืนยันสร้างใบเสนอราคา</Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
+
+      {/* ─── Create PO Modal ─── */}
+      {showCreatePOModal && (() => {
+        const poTot = poModalParts.filter(p => p.selected).reduce((sum, p) => sum + ((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)), 0) + poModalLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="p-4 border-b flex justify-between items-center bg-[#f8faff]">
+                <h3 className="font-semibold text-lg text-[#0f172a] flex items-center gap-2"><ShoppingCart className="w-5 h-5 text-blue-600" />{editPOId ? 'แก้ไขใบสั่งซื้อ' : 'สร้างใบสั่งซื้อ'} (PO)</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowCreatePOModal(false)} className="h-8 w-8 text-[#94a3b8] hover:text-[#0f172a]"><X className="w-4 h-4" /></Button>
+              </div>
+              <div className="p-4 overflow-y-auto flex-1">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-[#475569]">เลือกผู้จัดจำหน่าย (Vendor)</label>
+                      <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1" value={poVendorId} onChange={e => {
+                        setPoVendorId(e.target.value)
+                        setPoVendorName(e.target.options[e.target.selectedIndex].text)
+                      }}>
+                        {vendors.map(v => (
+                          <option key={v.id} value={v.id}>{v.name}</option>
+                        ))}
+                        {vendors.length === 0 && <option value="">ไม่มีข้อมูล Vendor</option>}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-[#475569]">ที่อยู่สำหรับจัดส่ง (ใบส่งของ)</label>
+                      <textarea className="flex min-h-[40px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1" rows={2} value={poDeliveryAddress} onChange={e => setPoDeliveryAddress(e.target.value)} placeholder="พิมพ์ชื่ออู่ / ศูนย์บริการ / ที่อยู่จัดส่ง"></textarea>
+                    </div>
+                  </div>
+                  
+                  <div className="border rounded-lg overflow-hidden mt-4">
+                    <Table>
+                      <TableHeader className="bg-gray-50">
+                        <TableRow>
+                          <TableHead className="w-10"></TableHead>
+                          <TableHead>รายการอะไหล่</TableHead>
+                          <TableHead className="w-20 text-center">จำนวน</TableHead>
+                          <TableHead className="w-32 text-right">ราคา/หน่วย</TableHead>
+                          <TableHead className="w-32 text-right">รวม</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {poModalParts.map((p, i) => (
+                          <TableRow key={p.id}>
+                            <TableCell><input type="checkbox" checked={p.selected} onChange={e => { const n = [...poModalParts]; n[i].selected = e.target.checked; setPoModalParts(n) }} className="w-4 h-4" /></TableCell>
+                            <TableCell><Input className="h-8 text-sm" value={p.partName} onChange={e => { const n = [...poModalParts]; n[i].partName = e.target.value; setPoModalParts(n) }} /></TableCell>
+                            <TableCell><Input type="number" className="h-8 text-sm text-center" value={p.quantity || ''} onChange={e => { const n = [...poModalParts]; n[i].quantity = Number(e.target.value); setPoModalParts(n) }} /></TableCell>
+                            <TableCell><Input type="number" className="h-8 text-sm text-right" value={p.priceApprove || ''} onChange={e => { const n = [...poModalParts]; n[i].priceApprove = Number(e.target.value); setPoModalParts(n) }} /></TableCell>
+                            <TableCell className="text-right font-medium text-sm pt-3">฿{formatCurrency((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1))}</TableCell>
+                          </TableRow>
+                        ))}
+                        {poModalParts.length === 0 && (
+                          <TableRow><TableCell colSpan={5} className="text-center py-4 text-gray-500">ไม่มีรายการอะไหล่</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Labor items */}
+                  <div className="border rounded-lg overflow-hidden mt-4">
+                    <div className="bg-amber-50 px-4 py-2 border-b">
+                      <h4 className="text-sm font-semibold text-amber-800">ค่าแรง</h4>
+                    </div>
+                    <Table>
+                      <TableHeader className="bg-gray-50">
+                        <TableRow>
+                          <TableHead className="w-10"></TableHead>
+                          <TableHead>รายการค่าแรง</TableHead>
+                          <TableHead className="w-32 text-right">ราคา</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {poModalLabors.map((l: any, i: number) => (
+                          <TableRow key={l.id}>
+                            <TableCell><input type="checkbox" checked={l.selected} onChange={e => { const n = [...poModalLabors]; n[i].selected = e.target.checked; setPoModalLabors(n) }} className="w-4 h-4" /></TableCell>
+                            <TableCell><Input className="h-8 text-sm" value={l.description} onChange={e => { const n = [...poModalLabors]; n[i].description = e.target.value; setPoModalLabors(n) }} /></TableCell>
+                            <TableCell className="text-right"><Input type="number" className="h-8 text-sm text-right w-28 ml-auto" value={l.priceApprove || ''} onChange={e => { const n = [...poModalLabors]; n[i].priceApprove = Number(e.target.value); setPoModalLabors(n) }} /></TableCell>
+                          </TableRow>
+                        ))}
+                        {poModalLabors.length === 0 && (
+                          <TableRow><TableCell colSpan={3} className="text-center py-4 text-gray-500">ไม่มีรายการค่าแรง</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  
+                  <div className="flex justify-end pt-4 border-t">
+                    <div className="flex flex-col items-end gap-1 w-64 bg-gray-50 p-4 rounded-lg">
+                      <div className="flex justify-between w-full text-sm text-gray-500">
+                        <span>ยอดรวมก่อน VAT:</span><span>฿{formatCurrency(poTot)}</span>
+                      </div>
+                      <div className="flex justify-between w-full text-sm text-gray-500">
+                        <span>VAT 7%:</span><span>฿{formatCurrency(Math.round(poTot * 0.07))}</span>
+                      </div>
+                      <div className="flex justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1">
+                        <span>ยอดรวมทั้งสิ้น:</span><span>฿{formatCurrency(poTot + Math.round(poTot * 0.07))}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 border-t flex justify-end gap-2 bg-gray-50">
+                <Button variant="outline" onClick={() => setShowCreatePOModal(false)}>ยกเลิก</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={submitCreatePO}>{editPOId ? 'บันทึกการแก้ไข PO' : 'ยืนยันสร้าง PO'}</Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ─── Supplement Modal ─── */}
       {showSupplementModal && (
@@ -1112,6 +1605,158 @@ export default function ClaimDetailPage() {
               <Button className="bg-amber-600 hover:bg-amber-700 text-white" onClick={handleCreateSupplement}>ยืนยันเปิด Supplement</Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ─── Cancel PO Confirm Modal ─── */}
+      {confirmCancelPOId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex items-center gap-3 bg-red-50 text-red-700">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="font-semibold">ยกเลิกใบสั่งซื้อ</h3>
+            </div>
+            <div className="p-6 text-center text-[#475569]">
+              คุณต้องการยกเลิกใบสั่งซื้อนี้ใช่หรือไม่? (สถานะจะถูกเปลี่ยนเป็น "ยกเลิก")
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2 bg-gray-50">
+              <Button variant="outline" onClick={() => setConfirmCancelPOId(null)}>ยกเลิก</Button>
+              <Button onClick={handleCancelPO} className="bg-red-600 hover:bg-red-700 text-white">ยืนยันการยกเลิก</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Error Modal ─── */}
+      {errorModalMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex items-center gap-3 bg-red-50 text-red-700">
+              <ShieldAlert className="w-5 h-5" />
+              <h3 className="font-semibold">ข้อผิดพลาด</h3>
+            </div>
+            <div className="p-6 text-center text-[#475569]">
+              {errorModalMsg}
+            </div>
+            <div className="p-4 border-t flex justify-end bg-gray-50">
+              <Button onClick={() => setErrorModalMsg(null)} className="bg-red-600 hover:bg-red-700 text-white w-full">ปิดหน้าต่าง</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Generic Confirm Modal ─── */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex items-center gap-3 bg-amber-50 text-amber-700">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="font-semibold">{confirmModal.title}</h3>
+            </div>
+            <div className="p-6 text-center text-[#475569]">{confirmModal.message}</div>
+            <div className="p-4 border-t flex justify-end gap-2 bg-gray-50">
+              <Button variant="outline" onClick={() => setConfirmModal(null)}>ยกเลิก</Button>
+              <Button className="bg-[#1d4ed8]" onClick={() => { confirmModal.onConfirm(); setConfirmModal(null) }}>ยืนยัน</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Receive AR Payment Modal ─── */}
+      {showReceiveARModal && (() => {
+        const [arReceivedDate, setArReceivedDate] = [arReceiveDate, setArReceiveDate]
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowReceiveARModal(false)}>
+          <Card className="w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-600" />บันทึกรับเงินจากบ.ประกัน</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-700">ยอดรับ: <span className="font-bold text-lg">฿{formatCurrency(claim.insuranceInvoice?.grandTotal || 0)}</span></p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-[#475569]">วันที่รับเงิน</label>
+                <Input type="date" className="mt-1" value={arReceivedDate} onChange={e => setArReceivedDate(e.target.value)} />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => setShowReceiveARModal(false)}>ยกเลิก</Button>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/claims/${claim.id}/insurance-invoice/receive-payment`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ method: 'โอนเงิน', receivedAt: arReceivedDate ? new Date(arReceivedDate).toISOString() : undefined })
+                    })
+                    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+                    setShowReceiveARModal(false)
+                    showToast('บันทึกรับเงินจากบ.ประกันเรียบร้อยแล้ว')
+                    await refreshClaim()
+                  } catch (err: any) { setShowReceiveARModal(false); setErrorModalMsg(`เกิดข้อผิดพลาด: ${err.message}`) }
+                }}><CheckCircle2 className="w-4 h-4 mr-1" />ยืนยันรับเงิน</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        )
+      })()}
+
+      {/* ─── Create Payment Request Modal ─── */}
+      {pendingPaymentRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPendingPaymentRequest(null)}>
+          <Card className="w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-[#1d4ed8]" />สร้างคำขอเบิกจ่ายเงิน</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-[#f8faff] border border-blue-200 rounded-lg p-4">
+                <p className="text-xs text-[#94a3b8]">ประเภท</p>
+                <p className="font-medium text-sm">{pendingPaymentRequest.type === 'AP_VENDOR' ? 'จ่ายเงิน Supplier (ค่าอะไหล่)' : 'จ่ายเงินอู่ (ค่าแรง)'}</p>
+                <p className="text-xs text-[#94a3b8] mt-2">ยอดเงิน</p>
+                <p className="font-bold text-lg text-[#1d4ed8]">฿{formatCurrency(pendingPaymentRequest.amount)}</p>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => setPendingPaymentRequest(null)}>ยกเลิก</Button>
+                <Button className="bg-[#1d4ed8]" onClick={async () => {
+                  await handleCreatePaymentRequest(pendingPaymentRequest.type, pendingPaymentRequest.invoiceId, pendingPaymentRequest.amount)
+                  setPendingPaymentRequest(null)
+                }}><CreditCard className="w-4 h-4 mr-1" />ยืนยันขอเบิกเงิน</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ─── Reject Payment Request Modal ─── */}
+      {rejectPRId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setRejectPRId(null)}>
+          <Card className="w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-red-600"><XCircle className="w-5 h-5" />ปฏิเสธคำขอเบิกเงิน</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-[#475569]">เหตุผลที่ปฏิเสธ</label>
+                <Input className="mt-1" placeholder="ระบุเหตุผล..." value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => setRejectPRId(null)}>ยกเลิก</Button>
+                <Button className="bg-red-600 hover:bg-red-700" disabled={!rejectReason.trim()} onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/payment-requests/${rejectPRId}/reject`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ rejectReason, rejectedBy: 'การเงิน' })
+                    })
+                    if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+                    setRejectPRId(null)
+                    showToast('ปฏิเสธคำขอเบิกเงินเรียบร้อย')
+                    await refreshClaim()
+                  } catch (err: any) { setRejectPRId(null); setErrorModalMsg(`เกิดข้อผิดพลาด: ${err.message}`) }
+                }}><XCircle className="w-4 h-4 mr-1" />ยืนยันปฏิเสธ</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

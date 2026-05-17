@@ -1,44 +1,94 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Building2 } from 'lucide-react'
+import { ArrowLeft, Building2, Save } from 'lucide-react'
 import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils'
+import { formatDate } from '@/lib/date'
+
+const DEFAULT_INSURANCE = {
+  name: '', branch: 'สำนักงานใหญ่', contactPerson: '', taxId: '', branchCode: '00000', isVatRegistered: false, peakCustomerId: ''
+}
 
 export default function InsuranceDetailPage() {
   const params = useParams()
-  const [insurance, setInsurance] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const isNew = params.id === 'new'
+  const [insurance, setInsurance] = useState<any>(isNew ? DEFAULT_INSURANCE : null)
+  const [loading, setLoading] = useState(!isNew)
+  const [isSaving, setIsSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   useEffect(() => {
-    fetch(`/api/insurances/${params.id}`).then(res => res.json()).then(data => {
-      setInsurance(data.error ? null : data)
-      setLoading(false)
-    }).catch(err => {
-      console.error(err)
-      setLoading(false)
-    })
-  }, [params.id])
+    if (!isNew) {
+      fetch(`/api/insurances/${params.id}`).then(res => res.json()).then(data => {
+        setInsurance(data.error ? null : data)
+        setLoading(false)
+      }).catch(err => {
+        console.error(err)
+        setLoading(false)
+      })
+    }
+  }, [params.id, isNew])
 
   if (loading) return <div className="text-center py-12 text-[#94a3b8] animate-pulse">กำลังโหลดข้อมูล...</div>
   if (!insurance) return <div className="text-center py-12 text-[#94a3b8]">ไม่พบข้อมูล</div>
+  
+  const handleSave = async () => {
+    const missing = []
+    if (!insurance.name) missing.push('ชื่อบริษัทประกัน')
+    
+    if (missing.length > 0) {
+      showToast(`⚠️ กรุณากรอกข้อมูลให้ครบถ้วน: ${missing.join(', ')}`)
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      const res = await fetch(isNew ? `/api/insurances` : `/api/insurances/${params.id}`, {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(insurance)
+      })
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Save failed')
+      }
+      showToast('✅ บันทึกข้อมูลเรียบร้อย')
+      if (isNew) {
+        setTimeout(() => router.push('/insurances'), 1500)
+      }
+    } catch (err: any) {
+      console.error(err)
+      showToast(`❌ เกิดข้อผิดพลาด: ${err.message}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
   
   const claims = insurance.claims || []
 
   const totalRevenue = claims.filter((c: any) => c.insuranceInvoice).reduce((s: number, c: any) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in relative">
+      {toast && (
+        <div className={`fixed top-6 right-6 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-4 font-medium flex items-center gap-2 ${toast.includes('❌') || toast.includes('⚠️') ? 'bg-red-600' : 'bg-green-600'}`}>
+          {!toast.includes('❌') && !toast.includes('⚠️') && !toast.includes('✅') && '✅ '}
+          <span>{toast}</span>
+        </div>
+      )}
       <div className="flex items-center gap-4">
         <Link href="/insurances"><Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button></Link>
         <div>
-          <h1 className="text-2xl font-bold text-[#0f172a]">{insurance.name}</h1>
-          <p className="text-sm text-[#94a3b8] mt-1">{insurance.branch}</p>
+          <h1 className="text-2xl font-bold text-[#0f172a]">{isNew ? 'เพิ่มบริษัทประกัน' : (insurance.name || 'บริษัทประกัน')}</h1>
+          {!isNew && <p className="text-sm text-[#94a3b8] mt-1">{insurance.branch}</p>}
         </div>
       </div>
 
@@ -56,21 +106,29 @@ export default function InsuranceDetailPage() {
           <Card>
             <CardHeader><CardTitle className="text-base flex items-center gap-2">ข้อมูลบริษัทและภาษี</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-6">
+              <div className="col-span-2">
+                <label className="text-xs text-[#94a3b8] font-medium">ชื่อบริษัทประกัน <span className="text-red-500">*</span></label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.name || ''} onChange={e => setInsurance({...insurance, name: e.target.value})} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-[#94a3b8] font-medium">สาขา</label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.branch || ''} onChange={e => setInsurance({...insurance, branch: e.target.value})} />
+              </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">ชื่อผู้ติดต่อ</label>
-                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" defaultValue={insurance.contactPerson || ''} />
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.contactPerson || ''} onChange={e => setInsurance({...insurance, contactPerson: e.target.value})} />
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">เลขผู้เสียภาษี 13 หลัก</label>
-                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" defaultValue={insurance.taxId || ''} />
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.taxId || ''} onChange={e => setInsurance({...insurance, taxId: e.target.value})} />
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">รหัสสาขา 5 หลัก</label>
-                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" defaultValue={insurance.branchCode || '00000'} />
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.branchCode || ''} onChange={e => setInsurance({...insurance, branchCode: e.target.value})} />
               </div>
               <div>
-                <label className="text-xs text-[#94a3b8] font-medium">ออกใบกำกับภาษี</label>
-                <select className="w-full mt-1.5 p-2 text-sm border rounded-md">
+                <label className="text-xs text-[#94a3b8] font-medium">จดทะเบียนภาษีมูลค่าเพิ่ม</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={String(insurance.isVatRegistered)} onChange={e => setInsurance({...insurance, isVatRegistered: e.target.value === 'true'})}>
                   <option value="true">Yes</option>
                   <option value="false">No</option>
                 </select>
@@ -92,14 +150,16 @@ export default function InsuranceDetailPage() {
             </CardHeader>
             <CardContent className="pt-4">
               <label className="text-xs text-[#94a3b8] font-medium">PEAK Customer Code</label>
-              <input type="text" placeholder="เช่น C00001" className="w-full mt-1.5 p-2 text-sm border rounded-md font-mono" defaultValue={insurance.peakCustomerId || ''} />
+              <input type="text" placeholder="เช่น C00001" className="w-full mt-1.5 p-2 text-sm border rounded-md font-mono" value={insurance.peakCustomerId || ''} onChange={e => setInsurance({...insurance, peakCustomerId: e.target.value})} />
               <p className="text-[10px] text-gray-500 mt-2">
                 *รหัสลูกค้า/ลูกหนี้ ในระบบบัญชี PEAK จำเป็นต้องระบุเพื่อส่งออกเอกสาร AR
               </p>
             </CardContent>
           </Card>
 
-          <Button className="w-full bg-[#1d4ed8]">บันทึกข้อมูล</Button>
+          <Button className="w-full bg-[#1d4ed8]" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+          </Button>
         </div>
       </div>
 
@@ -124,7 +184,7 @@ export default function InsuranceDetailPage() {
                     <TableCell><Link href={`/claims/${c.id}`} className="text-[#1d4ed8] hover:underline font-semibold">{c.claimNo}</Link></TableCell>
                     <TableCell>{c.carPlate}</TableCell>
                     <TableCell>{c.insuredName}</TableCell>
-                    <TableCell>{new Date(c.createdAt).toLocaleDateString('th-TH')}</TableCell>
+                    <TableCell>{formatDate(c.createdAt)}</TableCell>
                     <TableCell><span className={`status-badge ${sc.bg} ${sc.text}`}>{getStatusLabel(c.status)}</span></TableCell>
                   </TableRow>
                 )

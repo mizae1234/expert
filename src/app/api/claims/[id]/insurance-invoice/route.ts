@@ -1,36 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mockClaims } from '@/lib/mock/claims'
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const claim = mockClaims.find(c => c.id === params.id)
-  if (!claim) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json(claim.insuranceInvoice || null)
-}
+import prisma from '@/lib/prisma'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const claim = mockClaims.find(c => c.id === params.id)
-  if (!claim) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  try {
+    const claim = await prisma.claim.findUnique({
+      where: { id: params.id },
+      include: { parts: true, labors: true }
+    })
+    
+    if (!claim) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  // Validate: all POs must have supplier invoice
-  const pos = claim.purchaseOrders || []
-  if (pos.length === 0) {
-    return NextResponse.json({ error: 'ไม่มี PO ในระบบ' }, { status: 400 })
-  }
+    const body = await request.json()
+    
+    // Check if one already exists
+    const existing = await prisma.insuranceInvoice.findUnique({
+      where: { claimId: params.id }
+    })
+    
+    if (existing) {
+      return NextResponse.json({ error: 'มีใบวางบิลอยู่แล้ว กรุณาลบใบเดิมก่อนสร้างใหม่' }, { status: 400 })
+    }
 
-  const body = await request.json()
-  const newInvoice = {
-    id: `iinv-${Date.now()}`,
-    claimId: params.id,
-    invoiceNo: `INV-${Date.now()}`,
-    status: 'PENDING',
-    createdAt: new Date().toISOString(),
-    ...body,
+    // Generate readable sequential invoice number
+    const year = new Date().getFullYear()
+    const count = await prisma.insuranceInvoice.count({
+      where: { invoiceNo: { startsWith: `INV-${year}-` } }
+    })
+    const seqNo = String(count + 1).padStart(6, '0')
+    const invoiceNo = body.invoiceNo || `INV-${year}-${seqNo}`
+
+    const newInvoice = await prisma.insuranceInvoice.create({
+      data: {
+        claimId: params.id,
+        invoiceNo,
+        invoiceDate: new Date(body.invoiceDate || Date.now()),
+        laborTotal: body.laborTotal,
+        partsTotal: body.partsTotal,
+        subtotal: body.subtotal,
+        vatAmount: body.vatAmount,
+        grandTotal: body.grandTotal,
+        status: 'PENDING'
+      }
+    })
+    
+    return NextResponse.json(newInvoice, { status: 201 })
+  } catch (err: any) {
+    console.error('Create Insurance Invoice Error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
-  return NextResponse.json(newInvoice, { status: 201 })
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const existing = await prisma.insuranceInvoice.findUnique({
+      where: { claimId: params.id }
+    })
+    
+    if (!existing) {
+      return NextResponse.json({ error: 'ไม่พบใบวางบิลที่ต้องการลบ' }, { status: 404 })
+    }
+    
+    await prisma.insuranceInvoice.delete({
+      where: { claimId: params.id }
+    })
+    
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error('Delete Insurance Invoice Error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
 }

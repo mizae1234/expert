@@ -10,6 +10,7 @@ export type ClaimStatus =
   | 'AP_PAID'
   | 'AR_RECEIVED'
   | 'CLOSED'
+  | 'CANCELLED'
 
 export type POType = 'PARTS' | 'LABOR'
 export type DeliveryMode = 'DIRECT_TO_GARAGE' | 'SELF_DELIVERY'

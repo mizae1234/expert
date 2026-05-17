@@ -1,0 +1,8 @@
+export { default as ClaimInfoTab } from './ClaimInfoTab'
+export { default as PnLTab } from './PnLTab'
+export { default as TimelineTab } from './TimelineTab'
+export { default as PaymentsTab } from './PaymentsTab'
+export { default as InsuranceInvoiceTab } from './InsuranceInvoiceTab'
+export { default as ExpensesTab } from './ExpensesTab'
+export { default as DocumentsTab } from './DocumentsTab'
+export type { ClaimTabProps } from './types'

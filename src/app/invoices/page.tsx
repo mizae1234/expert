@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Receipt, Search, Download, Eye, DollarSign, AlertTriangle, CheckCircle2, Clock, FileText } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { formatDate } from '@/lib/date'
 import Link from 'next/link'
 
 type ARTab = 'all' | 'draft' | 'sent' | 'overdue' | 'paid' | 'cancelled'
@@ -17,8 +18,13 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState('')
   const [allInvoices, setAllInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeModal, setActiveModal] = useState<{ type: 'send' | 'pay', inv: any } | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
-  useEffect(() => {
+  const fetchInvoices = () => {
+    setLoading(true)
     fetch('/api/invoices').then(res => res.json()).then(data => {
       setAllInvoices(data)
       setLoading(false)
@@ -26,7 +32,47 @@ export default function InvoicesPage() {
       console.error(err)
       setLoading(false)
     })
+  }
+
+  useEffect(() => {
+    fetchInvoices()
   }, [])
+
+  const handleSend = async (inv: any) => {
+    try {
+      setIsSaving(true)
+      const res = await fetch(`/api/invoices/${inv.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'SENT' })
+      })
+      if (!res.ok) throw new Error('Failed')
+      fetchInvoices()
+      setActiveModal(null)
+    } catch (e) {
+      showToast('❌ เกิดข้อผิดพลาด')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handlePay = async (inv: any) => {
+    try {
+      setIsSaving(true)
+      const res = await fetch(`/api/invoices/${inv.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'PAID' })
+      })
+      if (!res.ok) throw new Error('Failed')
+      fetchInvoices()
+      setActiveModal(null)
+    } catch (e) {
+      showToast('❌ เกิดข้อผิดพลาด')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const today = new Date()
 
@@ -74,7 +120,13 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in relative">
+      {toast && (
+        <div className={`fixed top-6 right-6 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-4 font-medium flex items-center gap-2 ${toast.includes('❌') || toast.includes('⚠️') ? 'bg-red-600' : 'bg-green-600'}`}>
+          {!toast.includes('❌') && !toast.includes('⚠️') && !toast.includes('✅') && '✅ '}
+          <span>{toast}</span>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#0f172a]">ใบแจ้งหนี้ (AR)</h1>
@@ -158,16 +210,18 @@ export default function InvoicesPage() {
                   <TableCell className="text-sm">{inv.claim.insurance.name}</TableCell>
                   <TableCell><Link href={`/claims/${inv.claimId}`} className="text-[#1d4ed8] hover:underline text-sm">{inv.claim.claimNo}</Link></TableCell>
                   <TableCell className="text-sm">{inv.claim.carPlate}</TableCell>
-                  <TableCell className="text-sm">{new Date(inv.invoiceDate).toLocaleDateString('th-TH')}</TableCell>
-                  <TableCell className={`text-sm ${inv.displayStatus === 'OVERDUE' ? 'text-red-600 font-semibold' : ''}`}>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('th-TH') : '—'}</TableCell>
+                  <TableCell className="text-sm">{formatDate(inv.invoiceDate)}</TableCell>
+                  <TableCell className={`text-sm ${inv.displayStatus === 'OVERDUE' ? 'text-red-600 font-semibold' : ''}`}>{inv.dueDate ? formatDate(inv.dueDate) : '—'}</TableCell>
                   <TableCell className="text-right font-semibold">฿{formatCurrency(inv.grandTotal)}</TableCell>
                   <TableCell className="text-center">{statusBadge(inv.displayStatus)}</TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0"><Eye className="w-3.5 h-3.5" /></Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0"><Download className="w-3.5 h-3.5" /></Button>
-                      {inv.displayStatus !== 'PAID' && inv.displayStatus !== 'CANCELLED' && (
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-green-600"><DollarSign className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="ดูข้อมูล" onClick={() => window.location.href = `/claims/${inv.claimId}?tab=insurance-inv`}><Eye className="w-3.5 h-3.5" /></Button>
+                      {inv.displayStatus === 'DRAFT' && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600" title="ส่งใบแจ้งหนี้" onClick={() => setActiveModal({ type: 'send', inv })}><Receipt className="w-3.5 h-3.5" /></Button>
+                      )}
+                      {(inv.displayStatus === 'SENT' || inv.displayStatus === 'OVERDUE') && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-green-600" title="รับชำระเงิน" onClick={() => setActiveModal({ type: 'pay', inv })}><DollarSign className="w-3.5 h-3.5" /></Button>
                       )}
                     </div>
                   </TableCell>
@@ -177,6 +231,37 @@ export default function InvoicesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      {activeModal?.type === 'send' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader><CardTitle className="text-lg text-blue-600">ส่งใบแจ้งหนี้ (วางบิล)</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm mb-4">ยืนยันการส่งใบแจ้งหนี้ <span className="font-bold">{activeModal.inv.invoiceNo}</span> ให้บริษัทประกันภัยใช่หรือไม่? สถานะจะถูกเปลี่ยนเป็น "รอรับชำระ"</p>
+              <div className="flex gap-3 justify-end mt-6">
+                <Button variant="outline" onClick={() => setActiveModal(null)} disabled={isSaving}>ยกเลิก</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => handleSend(activeModal.inv)} disabled={isSaving}>{isSaving ? 'กำลังบันทึก...' : 'ยืนยัน'}</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeModal?.type === 'pay' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader><CardTitle className="text-lg text-green-600">บันทึกรับชำระเงิน</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm mb-4">ยืนยันว่าได้รับเงินค่าใบแจ้งหนี้ <span className="font-bold">{activeModal.inv.invoiceNo}</span> จำนวน <span className="font-bold text-green-600">฿{formatCurrency(activeModal.inv.grandTotal)}</span> แล้วใช่หรือไม่?</p>
+              <div className="flex gap-3 justify-end mt-6">
+                <Button variant="outline" onClick={() => setActiveModal(null)} disabled={isSaving}>ยกเลิก</Button>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={() => handlePay(activeModal.inv)} disabled={isSaving}>{isSaving ? 'กำลังบันทึก...' : 'ยืนยันรับชำระแล้ว'}</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

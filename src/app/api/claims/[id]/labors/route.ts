@@ -1,26 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mockClaims } from '@/lib/mock/claims'
+import prisma from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const claim = mockClaims.find(c => c.id === params.id)
-  if (!claim) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json(claim.labors || [])
+  try {
+    const labors = await prisma.claimLabor.findMany({
+      where: { claimId: params.id }
+    })
+    return NextResponse.json(labors)
+  } catch (error) {
+    console.error('[API] GET /api/claims/[id]/labors error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const body = await request.json()
-  const newLabor = {
-    id: `labor-${Date.now()}`,
-    claimId: params.id,
-    round: 1,
-    status: 'approved',
-    ...body,
+  try {
+    const body = await request.json()
+    const newLabor = await prisma.claimLabor.create({
+      data: {
+        claimId: params.id,
+        description: body.description || '',
+        damageLevel: body.damageLevel || 'ปานกลาง',
+        discountPct: body.discountPct || 0,
+        priceOffer: body.priceOffer || 0,
+        priceApprove: body.priceApprove || 0,
+        round: body.round || 1,
+        status: body.status || 'approved',
+      }
+    })
+    return NextResponse.json(newLabor, { status: 201 })
+  } catch (error) {
+    console.error('[API] POST /api/claims/[id]/labors error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-  return NextResponse.json(newLabor, { status: 201 })
 }

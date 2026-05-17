@@ -1,9 +1,24 @@
 'use client'
 
-import { useMemo, useEffect, useState } from 'react'
+import { useMemo, useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { mockCompanyProfile } from '@/lib/mock/settings'
 import { formatCurrency } from '@/lib/utils'
+import { formatDate } from '@/lib/date'
+
+const DEFAULT_COMPANY = {
+  name: '',
+  nameEn: '',
+  taxId: '',
+  branchCode: '00000',
+  branchName: 'สำนักงานใหญ่',
+  address: '',
+  phone: '',
+  email: '',
+  logoUrl: '',
+  authorizedName: '',
+  authorizedTitle: '',
+  signatureUrl: '',
+}
 
 export default function PDFMockPage() {
   const params = useParams()
@@ -11,17 +26,28 @@ export default function PDFMockPage() {
   const claimId = params.id as string
   const type = params.type as string
   const qtId = searchParams.get('qtId')
+  const poId = searchParams.get('poId')
 
   const [claim, setClaim] = useState<any>(null)
   const [quotation, setQuotation] = useState<any>(null)
+  const [po, setPo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const company = mockCompanyProfile
+  const [company, setCompany] = useState<any>(DEFAULT_COMPANY)
 
   useEffect(() => {
-    fetch(`/api/claims/${claimId}`).then(res => res.json()).then(data => {
+    Promise.all([
+      fetch(`/api/claims/${claimId}`).then(res => res.json()),
+      fetch('/api/settings/company').then(res => res.json()).catch(() => ({}))
+    ]).then(([data, compData]) => {
       setClaim(data.error ? null : data)
       if (qtId && data.quotations) {
         setQuotation(data.quotations.find((q: any) => q.id === qtId))
+      }
+      if (poId && data.purchaseOrders) {
+        setPo(data.purchaseOrders.find((p: any) => p.id === poId))
+      }
+      if (compData && compData.id) {
+        setCompany(compData)
       }
       setLoading(false)
     }).catch(err => {
@@ -30,9 +56,12 @@ export default function PDFMockPage() {
     })
   }, [claimId, qtId])
 
+  const hasPrinted = useRef(false)
+
   useEffect(() => {
-    // Auto print when loaded
-    if (claim && !loading) {
+    // Auto print when loaded — only once
+    if (claim && !loading && !hasPrinted.current) {
+      hasPrinted.current = true
       setTimeout(() => {
         window.print()
       }, 500)
@@ -60,7 +89,7 @@ export default function PDFMockPage() {
           <span className="text-right">เลขที่เอกสาร:</span>
           <span className="font-semibold text-gray-900">{docNo}</span>
           <span className="text-right">วันที่:</span>
-          <span className="font-semibold text-gray-900">{new Date(date).toLocaleDateString('th-TH')}</span>
+          <span className="font-semibold text-gray-900">{formatDate(date)}</span>
         </div>
       </div>
     </div>
@@ -78,7 +107,7 @@ export default function PDFMockPage() {
       <div className="border rounded p-4">
         <h3 className="font-semibold mb-2 border-b pb-1">อ้างอิง</h3>
         <p><span className="text-gray-500 w-24 inline-block">Claim No:</span> {claim.claimNo}</p>
-        <p><span className="text-gray-500 w-24 inline-block">วันที่รับรถ:</span> {new Date(claim.createdAt).toLocaleDateString('th-TH')}</p>
+        <p><span className="text-gray-500 w-24 inline-block">วันที่รับรถ:</span> {formatDate(claim.createdAt)}</p>
       </div>
     </div>
   )
@@ -87,7 +116,7 @@ export default function PDFMockPage() {
     if (!quotation) return <div className="p-8 text-center">ไม่พบใบเสนอราคา</div>
 
     return (
-      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-0">
+      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-12">
         {renderHeader('ใบเสนอราคา', quotation.quotationNo, quotation.quotationDate)}
         {renderCustomerInfo()}
 
@@ -104,7 +133,7 @@ export default function PDFMockPage() {
           </thead>
           <tbody>
             <tr className="bg-gray-50"><td colSpan={6} className="py-1 px-2 font-semibold">รายการค่าแรง</td></tr>
-            {quotation.laborItems.map((l: any, i: number) => (
+            {(quotation.laborItems || []).map((l: any, i: number) => (
               <tr key={l.id} className="border-b border-gray-200">
                 <td className="py-2 px-2 text-gray-600">{i + 1}</td>
                 <td className="py-2 px-2">{l.description}</td>
@@ -115,7 +144,7 @@ export default function PDFMockPage() {
               </tr>
             ))}
             <tr className="bg-gray-50"><td colSpan={6} className="py-1 px-2 font-semibold">รายการค่าอะไหล่</td></tr>
-            {quotation.partItems.map((p: any, i: number) => (
+            {(quotation.partItems || []).map((p: any, i: number) => (
               <tr key={p.id} className="border-b border-gray-200">
                 <td className="py-2 px-2 text-gray-600">{i + 1}</td>
                 <td className="py-2 px-2">{p.partName} <span className="text-gray-400 text-xs">({p.partNo})</span></td>
@@ -159,7 +188,7 @@ export default function PDFMockPage() {
     if (!inv) return <div className="p-8 text-center">ยังไม่ได้ออกใบวางบิล</div>
 
     return (
-      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-0">
+      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-12">
         {renderHeader('ใบวางบิล / ใบแจ้งหนี้', inv.invoiceNo, inv.invoiceDate)}
         {renderCustomerInfo()}
 
@@ -215,6 +244,167 @@ export default function PDFMockPage() {
           <div>
             <div className="border-b border-gray-400 w-48 mx-auto mb-2"></div>
             <p>ผู้วางบิล</p>
+            <p className="text-gray-500 text-xs mt-1">วันที่ ____/____/____</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (type === 'purchase-order') {
+    if (!po) return <div className="p-8 text-center">ไม่พบใบสั่งซื้อ</div>
+
+    const poTotal = (po.items || []).reduce((s: number, item: any) => s + (item.totalPrice || 0), 0)
+
+    return (
+      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-12">
+        {renderHeader('ใบสั่งซื้อ (Purchase Order)', po.poNo, po.createdAt)}
+
+        <div className="grid grid-cols-2 gap-8 mb-8 text-sm">
+          <div className="border rounded p-4">
+            <h3 className="font-semibold mb-2 border-b pb-1">ข้อมูลผู้จัดจำหน่าย (Vendor)</h3>
+            <p><span className="text-gray-500 w-28 inline-block">ชื่อร้าน/บริษัท:</span> {po.vendor?.name}</p>
+            <p><span className="text-gray-500 w-28 inline-block">ประเภท:</span> {po.poType === 'PARTS' ? 'อะไหล่' : 'ค่าแรง'}</p>
+            <p><span className="text-gray-500 w-28 inline-block">การจัดส่ง:</span> {po.deliveryMode === 'DIRECT_TO_GARAGE' ? 'ส่งตรงอู่' : 'รับเอง'}</p>
+          </div>
+          <div className="border rounded p-4">
+            <h3 className="font-semibold mb-2 border-b pb-1">อ้างอิง</h3>
+            <p><span className="text-gray-500 w-24 inline-block">Claim No:</span> {claim.claimNo}</p>
+            <p><span className="text-gray-500 w-24 inline-block">ทะเบียนรถ:</span> {claim.carPlate}</p>
+            <p><span className="text-gray-500 w-24 inline-block">ยี่ห้อ/รุ่น:</span> {claim.carBrand} {claim.carModel}</p>
+          </div>
+        </div>
+
+        <table className="w-full text-sm mb-8 border-collapse">
+          <thead>
+            <tr className="border-b-2 border-gray-800 text-left">
+              <th className="py-2 px-2 w-12">ลำดับ</th>
+              <th className="py-2 px-2">รหัสอะไหล่</th>
+              <th className="py-2 px-2">รายการ</th>
+              <th className="py-2 px-2 text-right">จำนวน</th>
+              <th className="py-2 px-2 text-right">ราคา/หน่วย</th>
+              <th className="py-2 px-2 text-right">จำนวนเงิน</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(po.items || []).map((item: any, i: number) => (
+              <tr key={item.id} className="border-b border-gray-200">
+                <td className="py-2 px-2 text-gray-600">{i + 1}</td>
+                <td className="py-2 px-2 font-mono text-xs">{item.partNo}</td>
+                <td className="py-2 px-2">{item.description}</td>
+                <td className="py-2 px-2 text-right">{item.quantity}</td>
+                <td className="py-2 px-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                <td className="py-2 px-2 text-right">{formatCurrency(item.totalPrice)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="flex justify-end">
+          <div className="w-64 space-y-2 text-sm border rounded p-4">
+            <div className="flex justify-between text-gray-600">
+              <span>ยอดรวมก่อน VAT</span>
+              <span>{formatCurrency((po.items || []).reduce((s: number, item: any) => s + (item.totalPrice || 0), 0))}</span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <span>VAT 7%</span>
+              <span>{formatCurrency(Math.round(((po.items || []).reduce((s: number, item: any) => s + (item.totalPrice || 0), 0)) * 0.07))}</span>
+            </div>
+            <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">
+              <span>ยอดรวมทั้งสิ้น</span>
+              <span>{formatCurrency(po.totalAmount)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 text-sm border rounded p-4 bg-gray-50">
+          <h4 className="font-semibold mb-1">หมายเหตุ</h4>
+          <p className="text-gray-600">กรุณาจัดส่งอะไหล่ตามรายการข้างต้น</p>
+        </div>
+
+        <div className="mt-16 grid grid-cols-2 gap-16 text-center text-sm">
+          <div>
+            <div className="border-b border-gray-400 w-48 mx-auto mb-2 mt-12"></div>
+            <p>ผู้สั่งซื้อ</p>
+            <p className="text-gray-500 text-xs mt-1">วันที่ {formatDate(po.createdAt)}</p>
+          </div>
+          <div>
+            {company.signatureUrl ? (
+              <div className="w-48 h-12 mx-auto mb-2 border-b border-gray-400 flex items-end justify-center pb-1">
+                <img src={company.signatureUrl} alt="Signature" className="max-h-16 object-contain mix-blend-multiply" />
+              </div>
+            ) : (
+              <div className="border-b border-gray-400 w-48 mx-auto mb-2 mt-12"></div>
+            )}
+            <p>{company.authorizedName || 'ผู้อนุมัติ'}</p>
+            {company.authorizedTitle && <p className="text-gray-500 text-xs mt-0.5">{company.authorizedTitle}</p>}
+            <p className="text-gray-500 text-xs mt-1">วันที่ {formatDate(po.createdAt)}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (type === 'delivery-note') {
+    if (!po) return <div className="p-8 text-center">ไม่พบใบสั่งซื้อ</div>
+
+    return (
+      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-12">
+        {renderHeader('ใบส่งของ (Delivery Note)', po.poNo, po.createdAt)}
+
+        <div className="grid grid-cols-2 gap-8 mb-8 text-sm">
+          <div className="border rounded p-4">
+            <h3 className="font-semibold mb-2 border-b pb-1">ผู้จัดจำหน่าย (Vendor)</h3>
+            <p><span className="text-gray-500 w-28 inline-block">ชื่อร้าน/บริษัท:</span> {po.vendor?.name}</p>
+          </div>
+          <div className="border rounded p-4">
+            <h3 className="font-semibold mb-2 border-b pb-1">สถานที่จัดส่ง</h3>
+            <p className="whitespace-pre-wrap">{po.deliveryAddress || [claim.garage?.name, claim.garage?.address, claim.garage?.province].filter(Boolean).join(' ').trim()}</p>
+          </div>
+        </div>
+
+        <table className="w-full text-sm mb-8 border-collapse">
+          <thead>
+            <tr className="border-b-2 border-gray-800 text-left">
+              <th className="py-2 px-2 w-12">ลำดับ</th>
+              <th className="py-2 px-2">รหัสอะไหล่</th>
+              <th className="py-2 px-2">รายการ</th>
+              <th className="py-2 px-2 text-right">จำนวน</th>
+              <th className="py-2 px-2 text-center">ตรวจรับ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(po.items || []).map((item: any, i: number) => (
+              <tr key={item.id} className="border-b border-gray-200">
+                <td className="py-3 px-2 text-gray-600">{i + 1}</td>
+                <td className="py-3 px-2 font-mono text-xs">{item.partNo}</td>
+                <td className="py-3 px-2">{item.description}</td>
+                <td className="py-3 px-2 text-right">{item.quantity}</td>
+                <td className="py-3 px-2 text-center">☐</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="mt-8 text-sm border rounded p-4 bg-gray-50">
+          <h4 className="font-semibold mb-1">หมายเหตุ</h4>
+          <p className="text-gray-600">กรุณาตรวจนับอะไหล่ให้ครบถ้วนก่อนลงนามรับของ</p>
+        </div>
+
+        <div className="mt-16 grid grid-cols-3 gap-8 text-center text-sm">
+          <div>
+            <div className="border-b border-gray-400 w-40 mx-auto mb-2"></div>
+            <p>ผู้ส่งของ</p>
+            <p className="text-gray-500 text-xs mt-1">วันที่ ____/____/____</p>
+          </div>
+          <div>
+            <div className="border-b border-gray-400 w-40 mx-auto mb-2"></div>
+            <p>ผู้ขนส่ง</p>
+            <p className="text-gray-500 text-xs mt-1">วันที่ ____/____/____</p>
+          </div>
+          <div>
+            <div className="border-b border-gray-400 w-40 mx-auto mb-2"></div>
+            <p>ผู้รับของ (อู่)</p>
             <p className="text-gray-500 text-xs mt-1">วันที่ ____/____/____</p>
           </div>
         </div>

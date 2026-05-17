@@ -2,6 +2,7 @@
 
 import Sidebar from "@/components/sidebar"
 import Topbar from "@/components/topbar"
+import { ToastProvider } from "@/components/toast-provider"
 import { usePathname } from "next/navigation"
 
 import { useState } from "react"
@@ -11,19 +12,21 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Full-screen pages (no sidebar)
-  if (pathname === '/') {
-    return <>{children}</>
+  if (pathname === '/' || (pathname && pathname.includes('/pdf'))) {
+    return <ToastProvider>{children}</ToastProvider>
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f8faff]">
-      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-[72px]' : 'ml-[260px]'}`}>
-        <Topbar />
-        <main className="p-6">
-          {children}
-        </main>
+    <ToastProvider>
+      <div className="flex min-h-screen bg-[#f8faff]">
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-[72px]' : 'ml-[260px]'}`}>
+          <Topbar />
+          <main className="p-6">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   )
 }

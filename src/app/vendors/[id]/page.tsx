@@ -1,39 +1,89 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Phone, MapPin, Building2 } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Building2, Save } from 'lucide-react'
+
+const DEFAULT_VENDOR = {
+  name: '', vendorType: 'PARTS', phone: '', address: '', province: '',
+  taxId: '', branchCode: '', peakVendorCode: '', whtType: 'NONE',
+  whtRate: 0, isVatRegistered: false, paymentTerms: 30, isActive: true
+}
 
 export default function VendorDetailPage() {
   const params = useParams()
-  const [vendor, setVendor] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const isNew = params.id === 'new'
+  const [vendor, setVendor] = useState<any>(isNew ? DEFAULT_VENDOR : null)
+  const [loading, setLoading] = useState(!isNew)
+  const [isSaving, setIsSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   useEffect(() => {
-    fetch(`/api/vendors/${params.id}`).then(res => res.json()).then(data => {
-      setVendor(data.error ? null : data)
-      setLoading(false)
-    }).catch(err => {
-      console.error(err)
-      setLoading(false)
-    })
-  }, [params.id])
+    if (!isNew) {
+      fetch(`/api/vendors/${params.id}`).then(res => res.json()).then(data => {
+        setVendor(data.error ? null : data)
+        setLoading(false)
+      }).catch(err => {
+        console.error(err)
+        setLoading(false)
+      })
+    }
+  }, [params.id, isNew])
 
   if (loading) return <div className="text-center py-12 text-[#94a3b8] animate-pulse">กำลังโหลดข้อมูล Vendor...</div>
   if (!vendor) return <div className="text-center py-12 text-[#94a3b8]">ไม่พบ Vendor</div>
 
+  const handleSave = async () => {
+    const missing = []
+    if (!vendor.name) missing.push('ชื่อผู้จำหน่าย/อู่')
+    
+    if (missing.length > 0) {
+      showToast(`⚠️ กรุณากรอกข้อมูลให้ครบถ้วน: ${missing.join(', ')}`)
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      const res = await fetch(isNew ? `/api/vendors` : `/api/vendors/${params.id}`, {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vendor)
+      })
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Save failed')
+      }
+      showToast('บันทึกข้อมูลเรียบร้อย')
+      if (isNew) {
+        setTimeout(() => router.push('/vendors'), 1500)
+      }
+    } catch (err: any) {
+      console.error(err)
+      showToast(`❌ เกิดข้อผิดพลาด: ${err.message}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in relative">
+      {toast && (
+        <div className={`fixed top-6 right-6 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-4 font-medium flex items-center gap-2 ${toast.includes('❌') || toast.includes('⚠️') ? 'bg-red-600' : 'bg-green-600'}`}>
+          {!toast.includes('❌') && !toast.includes('⚠️') && !toast.includes('✅') && '✅ '}
+          <span>{toast}</span>
+        </div>
+      )}
       <div className="flex items-center gap-4">
         <Link href="/vendors"><Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button></Link>
         <div>
-          <h1 className="text-2xl font-bold text-[#0f172a]">{vendor.name}</h1>
+          <h1 className="text-2xl font-bold text-[#0f172a]">{isNew ? 'สร้าง Vendor / อู่ ใหม่' : (vendor.name || 'Vendor')}</h1>
           <div className="flex items-center gap-2 mt-1">
-            <Badge variant="outline">{vendor.vendorType === 'PARTS' ? 'ผู้จำหน่ายอะไหล่' : 'อู่'}</Badge>
             <Badge className={vendor.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
               {vendor.isActive ? 'Active' : 'Inactive'}
             </Badge>
@@ -47,20 +97,41 @@ export default function VendorDetailPage() {
             <CardHeader><CardTitle className="text-base">ข้อมูลทั่วไป</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-[#94a3b8] font-medium">ชื่อผู้จำหน่าย/อู่</label>
-                <div className="text-sm font-medium mt-1">{vendor.name}</div>
+                <label className="text-xs text-[#94a3b8] font-medium">ชื่อผู้จำหน่าย/อู่ <span className="text-red-500">*</span></label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.name || ''} onChange={e => setVendor({...vendor, name: e.target.value})} />
+              </div>
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ประเภท Vendor</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.vendorType || 'PARTS'} onChange={e => setVendor({...vendor, vendorType: e.target.value})}>
+                  <option value="PARTS">ผู้จำหน่ายอะไหล่ (Parts)</option>
+                  <option value="GARAGE">อู่ (Garage)</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">เครดิต (วัน)</label>
-                <div className="text-sm font-medium mt-1">{vendor.paymentTerms}</div>
+                <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.paymentTerms || 30} onChange={e => setVendor({...vendor, paymentTerms: Number(e.target.value)})} />
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">เบอร์โทรศัพท์</label>
-                <div className="text-sm font-medium mt-1">{vendor.phone || '-'}</div>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.phone || ''} onChange={e => setVendor({...vendor, phone: e.target.value})} />
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">จังหวัด</label>
-                <div className="text-sm font-medium mt-1">{vendor.province || '-'}</div>
+                <input 
+                  type="text"
+                  className="w-full mt-1.5 p-2 text-sm border rounded-md" 
+                  value={vendor.province || ''}
+                  onChange={(e) => setVendor({ ...vendor, province: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-[#94a3b8] font-medium">ที่อยู่ (Address)</label>
+                <textarea 
+                  className="w-full mt-1.5 p-2 text-sm border rounded-md" 
+                  rows={2} 
+                  defaultValue={vendor.address || ''} 
+                  onChange={e => setVendor({...vendor, address: e.target.value})}
+                ></textarea>
               </div>
             </CardContent>
           </Card>
@@ -70,22 +141,22 @@ export default function VendorDetailPage() {
             <CardContent className="grid grid-cols-2 gap-6">
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">เลขผู้เสียภาษี 13 หลัก</label>
-                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" defaultValue={vendor.taxId || ''} />
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.taxId || ''} onChange={e => setVendor({...vendor, taxId: e.target.value})} />
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">รหัสสาขา 5 หลัก</label>
-                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" defaultValue={vendor.branchCode || '00000'} />
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.branchCode || '00000'} onChange={e => setVendor({...vendor, branchCode: e.target.value})} />
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">ออกใบกำกับภาษี</label>
-                <select className="w-full mt-1.5 p-2 text-sm border rounded-md">
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={String(vendor.isVatRegistered)} onChange={e => setVendor({...vendor, isVatRegistered: e.target.value === 'true'})}>
                   <option value="true">Yes</option>
                   <option value="false">No</option>
                 </select>
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">ภ.ง.ด.</label>
-                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" defaultValue={vendor.whtType || '53'}>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.whtType || '53'} onChange={e => setVendor({...vendor, whtType: e.target.value})}>
                   <option value="1">ภ.ง.ด. 1</option>
                   <option value="3">ภ.ง.ด. 3</option>
                   <option value="53">ภ.ง.ด. 53</option>
@@ -93,7 +164,7 @@ export default function VendorDetailPage() {
               </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">% หัก ณ ที่จ่าย</label>
-                <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" defaultValue={0} />
+                <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.whtRate || 0} onChange={e => setVendor({...vendor, whtRate: Number(e.target.value)})} />
               </div>
             </CardContent>
           </Card>
@@ -112,14 +183,16 @@ export default function VendorDetailPage() {
             </CardHeader>
             <CardContent className="pt-4">
               <label className="text-xs text-[#94a3b8] font-medium">PEAK Vendor Code</label>
-              <input type="text" placeholder="เช่น V00001" className="w-full mt-1.5 p-2 text-sm border rounded-md font-mono" defaultValue={vendor.peakVendorCode || ''} />
+              <input type="text" placeholder="เช่น V00001" className="w-full mt-1.5 p-2 text-sm border rounded-md font-mono" value={vendor.peakVendorCode || ''} onChange={e => setVendor({...vendor, peakVendorCode: e.target.value})} />
               <p className="text-[10px] text-gray-500 mt-2">
                 *รหัสผู้จำหน่าย/เจ้าหนี้ ในระบบบัญชี PEAK จำเป็นต้องระบุเพื่อส่งออกเอกสาร AP
               </p>
             </CardContent>
           </Card>
 
-          <Button className="w-full bg-[#1d4ed8]">บันทึกข้อมูล</Button>
+          <Button className="w-full bg-[#1d4ed8]" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+          </Button>
         </div>
       </div>
     </div>

@@ -34,7 +34,7 @@ export default function InsurancesPage() {
           <h1 className="text-2xl font-bold text-[#0f172a]">บริษัทประกัน</h1>
           <p className="text-sm text-[#94a3b8] mt-1">จัดการข้อมูลบริษัทประกันภัย ({insurances.length} บริษัท)</p>
         </div>
-        <Button><Plus className="w-4 h-4 mr-2" />เพิ่มบริษัทประกัน</Button>
+        <Link href="/insurances/new"><Button><Plus className="w-4 h-4 mr-2" />เพิ่มบริษัทประกัน</Button></Link>
       </div>
 
       <div className="relative max-w-sm">

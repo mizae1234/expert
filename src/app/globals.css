@@ -99,3 +99,19 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Print specific styles for A4 */
+@media print {
+  @page {
+    size: A4;
+    margin: 0; /* Setting margin to 0 hides the browser's default headers and footers (URL, date, title) */
+  }
+  
+  html, body {
+    width: 210mm;
+    height: 297mm;
+    background: white;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}

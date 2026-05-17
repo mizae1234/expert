@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mockClaims } from '@/lib/mock/claims'
+import prisma from '@/lib/prisma'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const body = await request.json()
-  const claim = mockClaims.find(c => c.id === params.id)
-  if (!claim) {
-    return NextResponse.json({ error: 'Claim not found' }, { status: 404 })
-  }
+  try {
+    const body = await request.json()
+    
+    const updatedClaim = await prisma.claim.update({
+      where: { id: params.id },
+      data: { status: body.status }
+    })
+    
+    await prisma.claimStatusLog.create({
+      data: {
+        claimId: params.id,
+        toStatus: body.status,
+        changedBy: body.changedBy || 'admin',
+        note: body.note
+      }
+    })
 
-  const log = {
-    id: `log-${Date.now()}`,
-    claimId: params.id,
-    fromStatus: claim.status,
-    toStatus: body.status,
-    changedBy: body.changedBy || 'admin',
-    note: body.note,
-    createdAt: new Date().toISOString(),
+    return NextResponse.json(updatedClaim)
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
-
-  return NextResponse.json({
-    ...claim,
-    status: body.status,
-    statusLogs: [...(claim.statusLogs || []), log],
-  })
 }

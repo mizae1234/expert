@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,20 +7,70 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Building2, Save, Upload, FileText, Hash, CreditCard, CheckCircle2 } from 'lucide-react'
-import { mockCompanyProfile, mockDocumentSequences, mockPeakConfig } from '@/lib/mock/settings'
-import { mockVendors } from '@/lib/mock/vendors'
-import { mockInsurances } from '@/lib/mock/insurances'
 import { CompanyProfile, DocumentSequence } from '@/lib/types'
 import { uploadToR2 } from '@/lib/upload'
 
 export default function SettingsPage() {
-  const [company, setCompany] = useState<CompanyProfile>(mockCompanyProfile)
+  const [company, setCompany] = useState<CompanyProfile>({} as CompanyProfile)
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const [isUploadingSig, setIsUploadingSig] = useState(false)
-  const [sequences, setSequences] = useState<DocumentSequence[]>(mockDocumentSequences)
-  const [peakConfig, setPeakConfig] = useState<Record<string, string>>(mockPeakConfig)
+  const [sequences, setSequences] = useState<DocumentSequence[]>([])
+  const [peakConfig, setPeakConfig] = useState<Record<string, string>>({
+    ACCOUNT_REVENUE_PARTS: '41102',
+    ACCOUNT_REVENUE_LABOR: '41101',
+    ACCOUNT_COST_PARTS: '51102',
+    ACCOUNT_COST_LABOR: '51101',
+    PAYMENT_CHANNEL_TRANSFER: 'โอนเงิน',
+    PAYMENT_CHANNEL_CHEQUE: 'เช็ค',
+  })
+  const [vendorsList, setVendorsList] = useState<any[]>([])
+  const [insurancesList, setInsurancesList] = useState<any[]>([])
   const [toast, setToast] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/vendors').then(r => r.json()).catch(() => []),
+      fetch('/api/insurances?simple=true').then(r => r.json()).catch(() => []),
+      fetch('/api/settings/company').then(r => r.json()).catch(() => ({})),
+      fetch('/api/settings/sequences').then(r => r.json()).catch(() => []),
+    ]).then(([vnd, ins, compData, seqData]) => {
+      setVendorsList(vnd)
+      setInsurancesList(ins)
+      if (!compData.error && compData.id) setCompany(compData)
+      if (Array.isArray(seqData)) setSequences(seqData)
+      setLoading(false)
+    })
+  }, [])
+
+  const saveCompany = async () => {
+    const missing = []
+    if (!company.name) missing.push('ชื่อบริษัท')
+    if (!company.taxId) missing.push('เลขทะเบียนนิติบุคคล')
+    if (!company.branchCode) missing.push('รหัสสาขา')
+    if (!company.address) missing.push('ที่อยู่')
+    
+    if (missing.length > 0) {
+      showToast(`⚠️ กรุณากรอกข้อมูลให้ครบถ้วน: ${missing.join(', ')}`)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/settings/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(company)
+      })
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Failed to save company settings')
+      }
+      showToast('✅ บันทึกข้อมูลบริษัทเรียบร้อย')
+    } catch (err: any) {
+      showToast(`❌ เกิดข้อผิดพลาด: ${err.message}`)
+    }
+  }
 
   const updateField = (field: keyof CompanyProfile, value: string | number) => {
     setCompany(prev => ({ ...prev, [field]: value }))
@@ -118,7 +168,7 @@ export default function SettingsPage() {
                           updateField('logoUrl', url)
                           showToast('อัปโหลดโลโก้สำเร็จ')
                         } catch (err) {
-                          alert('Upload failed')
+                          showToast('❌ อัปโหลดโลโก้ไม่สำเร็จ')
                         } finally {
                           setIsUploadingLogo(false)
                         }
@@ -161,7 +211,7 @@ export default function SettingsPage() {
                           updateField('signatureUrl', url)
                           showToast('อัปโหลดลายเซ็นสำเร็จ')
                         } catch (err) {
-                          alert('Upload failed')
+                          showToast('❌ อัปโหลดลายเซ็นไม่สำเร็จ')
                         } finally {
                           setIsUploadingSig(false)
                         }
@@ -180,7 +230,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="flex justify-end mt-6">
-            <Button className="bg-[#1d4ed8]" onClick={() => showToast('บันทึกข้อมูลบริษัทเรียบร้อย')}><Save className="w-4 h-4 mr-1.5" />บันทึก</Button>
+            <Button className="bg-[#1d4ed8]" onClick={saveCompany}><Save className="w-4 h-4 mr-1.5" />บันทึก</Button>
           </div>
         </TabsContent>
 
@@ -221,7 +271,24 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
           <div className="flex justify-end mt-4">
-            <Button className="bg-[#1d4ed8]" onClick={() => showToast('บันทึกเลขที่เอกสารเรียบร้อย')}><Save className="w-4 h-4 mr-1.5" />บันทึก</Button>
+            <Button 
+              className="bg-[#1d4ed8]" 
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/settings/sequences', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(sequences)
+                  })
+                  if (!res.ok) throw new Error('Failed to save')
+                  showToast('✅ บันทึกเลขที่เอกสารเรียบร้อย')
+                } catch (err) {
+                  showToast('❌ เกิดข้อผิดพลาดในการบันทึกเลขที่เอกสาร')
+                }
+              }}
+            >
+              <Save className="w-4 h-4 mr-1.5" />บันทึก
+            </Button>
           </div>
         </TabsContent>
 
@@ -278,14 +345,14 @@ export default function SettingsPage() {
                   {/* Vendors */}
                   <div>
                     <h3 className="font-semibold text-sm mb-2 flex justify-between">
-                      ผู้จำหน่าย / อู่ ({mockVendors.filter(v => v.peakVendorCode).length}/{mockVendors.length})
-                      {mockVendors.every(v => v.peakVendorCode) ? 
+                      ผู้จำหน่าย / อู่ ({vendorsList.filter((v: any) => v.peakVendorCode).length}/{vendorsList.length})
+                      {vendorsList.every((v: any) => v.peakVendorCode) ? 
                         <Badge className="bg-green-100 text-green-700 border-none">✅ พร้อม</Badge> : 
                         <Badge className="bg-amber-100 text-amber-700 border-none">⚠️ ขาด Code</Badge>
                       }
                     </h3>
                     <div className="text-sm text-gray-600 pl-4 space-y-2 max-h-[150px] overflow-y-auto pr-2">
-                      {mockVendors.map(v => (
+                      {vendorsList.map((v: any) => (
                         <div key={v.id} className="flex justify-between items-center border-b border-gray-50 pb-1">
                           <span className="truncate pr-2">{v.name}</span>
                           {v.peakVendorCode ? 
@@ -300,14 +367,14 @@ export default function SettingsPage() {
                   {/* Insurances */}
                   <div>
                     <h3 className="font-semibold text-sm mb-2 flex justify-between">
-                      บริษัทประกัน ({mockInsurances.filter(i => i.peakCustomerId).length}/{mockInsurances.length})
-                      {mockInsurances.every(i => i.peakCustomerId) ? 
+                      บริษัทประกัน ({insurancesList.filter((i: any) => i.peakCustomerId).length}/{insurancesList.length})
+                      {insurancesList.every((i: any) => i.peakCustomerId) ? 
                         <Badge className="bg-green-100 text-green-700 border-none">✅ พร้อม</Badge> : 
                         <Badge className="bg-amber-100 text-amber-700 border-none">⚠️ ขาด Code</Badge>
                       }
                     </h3>
                     <div className="text-sm text-gray-600 pl-4 space-y-2 max-h-[150px] overflow-y-auto pr-2">
-                      {mockInsurances.map(i => (
+                      {insurancesList.map((i: any) => (
                         <div key={i.id} className="flex justify-between items-center border-b border-gray-50 pb-1">
                           <span className="truncate pr-2">{i.name}</span>
                           {i.peakCustomerId ? 
@@ -343,8 +410,9 @@ export default function SettingsPage() {
       </Tabs>
 
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-bottom-4">
-          ✅ {toast}
+        <div className={`fixed top-6 right-6 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-4 font-medium flex items-center gap-2 ${toast.includes('❌') || toast.includes('⚠️') ? 'bg-red-600' : 'bg-green-600'}`}>
+          {!toast.includes('❌') && !toast.includes('⚠️') && !toast.includes('✅') && '✅ '}
+          <span>{toast}</span>
         </div>
       )}
     </div>

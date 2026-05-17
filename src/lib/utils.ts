@@ -12,22 +12,16 @@ export function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-export function formatDate(date: string | Date): string {
-  const d = new Date(date)
-  return d.toLocaleDateString('th-TH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+// Date formatting — use lib/date.ts as single source of truth
+// Re-export here for backward compatibility
+export { formatDate, formatDateTime } from './date'
 
 export function formatDateShort(date: string | Date): string {
   const d = new Date(date)
-  return d.toLocaleDateString('th-TH', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  })
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yy = String(d.getFullYear() + 543).slice(-2)
+  return `${dd}/${mm}/${yy}`
 }
 
 export function getStatusColor(status: string): { bg: string; text: string } {

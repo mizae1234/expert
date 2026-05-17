@@ -1,83 +1,170 @@
 import { NextRequest, NextResponse } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
 
-// Mock AI extraction response for demo
-const mockExtraction = {
-  claim: {
-    claimNo: { value: 'CLM-20250021', confidence: 95 },
-    receiveNo: { value: 'RCV-0021', confidence: 90 },
-    transactionNo: { value: 'TXN-000021', confidence: 88 },
-    insuranceName: { value: 'ธนชาตประกันภัย', confidence: 92 },
-    branch: { value: 'สำนักงานใหญ่', confidence: 85 },
-    status: { value: 'RECEIVED', confidence: 95 },
-    createdAt: { value: '2025-03-15', confidence: 90 },
-    sentAt: { value: '', confidence: 0 },
-  },
-  car: {
-    plate: { value: 'กก 1234', confidence: 97 },
-    province: { value: 'กรุงเทพมหานคร', confidence: 93 },
-    brand: { value: 'Toyota', confidence: 95 },
-    model: { value: 'Camry', confidence: 92 },
-    vin: { value: 'JTDKN3DU5A100001', confidence: 78 },
-    insuredName: { value: 'นายสมชาย ใจดี', confidence: 88 },
-  },
-  labors: [
-    {
-      description: { value: 'ค่าแรงถอด-ประกอบกันชนหน้า', confidence: 90 },
-      damageLevel: { value: 'ปานกลาง', confidence: 85 },
-      discountPct: { value: 0, confidence: 95 },
-      priceOffer: { value: 2500, confidence: 92 },
-      priceApprove: { value: 2375, confidence: 88 },
-    },
-    {
-      description: { value: 'ค่าแรงพ่นสีบังโคลนหน้า', confidence: 87 },
-      damageLevel: { value: 'เบา', confidence: 80 },
-      discountPct: { value: 5, confidence: 90 },
-      priceOffer: { value: 3500, confidence: 91 },
-      priceApprove: { value: 3325, confidence: 85 },
-    },
-  ],
-  parts: [
-    {
-      partNo: { value: 'TY-BMP-F01', confidence: 93 },
-      partName: { value: 'กันชนหน้า', confidence: 95 },
-      priceFull: { value: 8500, confidence: 90 },
-      quantity: { value: 1, confidence: 98 },
-      damageType: { value: 'เปลี่ยน', confidence: 92 },
-      discountPct: { value: 10, confidence: 88 },
-      priceOffer: { value: 7650, confidence: 90 },
-      priceApprove: { value: 7225, confidence: 85 },
-      supplier: { value: 'บริษัท ไทยออโต้พาร์ท จำกัด', confidence: 75 },
-      requireReturn: { value: true, confidence: 82 },
-    },
-    {
-      partNo: { value: 'TY-HDL-R01', confidence: 91 },
-      partName: { value: 'ไฟหน้าขวา', confidence: 94 },
-      priceFull: { value: 12000, confidence: 89 },
-      quantity: { value: 1, confidence: 98 },
-      damageType: { value: 'เปลี่ยน', confidence: 93 },
-      discountPct: { value: 5, confidence: 87 },
-      priceOffer: { value: 11400, confidence: 88 },
-      priceApprove: { value: 10200, confidence: 83 },
-      supplier: { value: 'บริษัท ไทยออโต้พาร์ท จำกัด', confidence: 70 },
-      requireReturn: { value: false, confidence: 90 },
-    },
-  ],
-  summary: {
-    laborTotal: { value: 5700, confidence: 92 },
-    partsTotal: { value: 17425, confidence: 90 },
-    subtotal: { value: 23125, confidence: 88 },
-    vat: { value: 1619, confidence: 90 },
-    grandTotal: { value: 24744, confidence: 87 },
-    deductible: { value: 0, confidence: 95 },
-  },
-  validation: {
-    passed: true,
-    warnings: [],
-  },
-}
+// Allow large body (base64 images) and longer execution time for AI processing
+export const maxDuration = 60 // seconds
+export const dynamic = 'force-dynamic'
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY || '',
+})
 
 export async function POST(request: NextRequest) {
-  // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 2000))
-  return NextResponse.json(mockExtraction)
+  try {
+    const { file, mimeType } = await request.json()
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    }
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: 'Anthropic API key is missing' }, { status: 500 })
+    }
+
+    // `file` is expected to be a data URL: `data:image/jpeg;base64,...` or `data:application/pdf;base64,...`
+    const base64Data = file.split(',')[1]
+    if (!base64Data) {
+      return NextResponse.json({ error: 'Invalid file format' }, { status: 400 })
+    }
+
+    // Default to image/jpeg if not provided
+    let mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'application/pdf' = 'image/jpeg'
+    
+    if (mimeType === 'application/pdf') {
+      mediaType = 'application/pdf'
+    } else if (mimeType === 'image/png') {
+      mediaType = 'image/png'
+    } else if (mimeType === 'image/webp') {
+      mediaType = 'image/webp'
+    } else if (mimeType === 'image/gif') {
+      mediaType = 'image/gif'
+    } else if (file.startsWith('data:image/png')) {
+      mediaType = 'image/png'
+    } else if (file.startsWith('data:image/webp')) {
+      mediaType = 'image/webp'
+    } else if (file.startsWith('data:application/pdf')) {
+      mediaType = 'application/pdf'
+    }
+
+    const systemPrompt = `You are an expert AI assistant that extracts data from Thai vehicle insurance claim documents and repair estimates. 
+You must output ONLY valid JSON according to the following structure, with NO markdown formatting or surrounding text.
+For each field, extract the 'value' and provide a 'confidence' score from 0 to 100 based on how clear it is.
+If a field is missing, provide empty string for value and 0 for confidence.
+
+{
+  "claim": {
+    "claimNo": { "value": "...", "confidence": 0 },
+    "receiveNo": { "value": "...", "confidence": 0 },
+    "transactionNo": { "value": "...", "confidence": 0 },
+    "insuranceName": { "value": "...", "confidence": 0 },
+    "branch": { "value": "...", "confidence": 0 },
+    "status": { "value": "RECEIVED", "confidence": 100 },
+    "createdAt": { "value": "YYYY-MM-DD", "confidence": 0 },
+    "sentAt": { "value": "", "confidence": 0 }
+  },
+  "car": {
+    "plate": { "value": "...", "confidence": 0 },
+    "province": { "value": "...", "confidence": 0 },
+    "brand": { "value": "...", "confidence": 0 },
+    "model": { "value": "...", "confidence": 0 },
+    "vin": { "value": "...", "confidence": 0 },
+    "insuredName": { "value": "...", "confidence": 0 }
+  },
+  "labors": [
+    {
+      "description": { "value": "...", "confidence": 0 },
+      "damageLevel": { "value": "เบา/ปานกลาง/หนัก", "confidence": 0 },
+      "discountPct": { "value": 0, "confidence": 0 },
+      "priceOffer": { "value": 0, "confidence": 0 },
+      "priceApprove": { "value": 0, "confidence": 0 }
+    }
+  ],
+  "parts": [
+    {
+      "partNo": { "value": "...", "confidence": 0 },
+      "partName": { "value": "...", "confidence": 0 },
+      "priceFull": { "value": 0, "confidence": 0 },
+      "quantity": { "value": 1, "confidence": 0 },
+      "damageType": { "value": "เปลี่ยน/ซ่อม", "confidence": 0 },
+      "discountPct": { "value": 0, "confidence": 0 },
+      "priceOffer": { "value": 0, "confidence": 0 },
+      "priceApprove": { "value": 0, "confidence": 0 },
+      "supplier": { "value": "...", "confidence": 0 },
+      "requireReturn": { "value": false, "confidence": 0 }
+    }
+  ],
+  "summary": {
+    "laborTotal": { "value": 0, "confidence": 0 },
+    "partsTotal": { "value": 0, "confidence": 0 },
+    "subtotal": { "value": 0, "confidence": 0 },
+    "vat": { "value": 0, "confidence": 0 },
+    "grandTotal": { "value": 0, "confidence": 0 },
+    "deductible": { "value": 0, "confidence": 0 }
+  },
+  "validation": {
+    "passed": true,
+    "warnings": []
+  }
 }
+
+Important:
+- Return ONLY the JSON object. Do NOT wrap it in \`\`\`json.
+- Try to read Thai text correctly.
+- Be precise with numbers and prices.
+- Dates MUST be formatted as ISO YYYY-MM-DD in the Christian Era (CE / ค.ศ.). If the document has a Buddhist Era (พ.ศ.) date (e.g. 2569), you must subtract 543 to convert it to CE (e.g. 2026) before formatting it as YYYY-MM-DD.
+`
+
+    const messageContent: any = [
+      {
+        type: mediaType === 'application/pdf' ? 'document' : 'image',
+        source: {
+          type: 'base64',
+          media_type: mediaType,
+          data: base64Data,
+        },
+      },
+      {
+        type: 'text',
+        text: 'Extract the information from this claim document according to the JSON structure provided.',
+      }
+    ]
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      temperature: 0,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: messageContent,
+        }
+      ],
+      ...(mediaType === 'application/pdf' ? {
+        betas: ['pdfs-2024-09-25']
+      } : {})
+    })
+
+    const responseText = (response.content[0] as any).text
+    
+    // Parse the JSON string
+    try {
+      // Find the first { and last } in case Claude added some text
+      const firstBrace = responseText.indexOf('{')
+      const lastBrace = responseText.lastIndexOf('}')
+      const jsonStr = responseText.substring(firstBrace, lastBrace + 1)
+      const extractedData = JSON.parse(jsonStr)
+      return NextResponse.json(extractedData)
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', responseText)
+      return NextResponse.json({ error: 'AI response was not valid JSON' }, { status: 500 })
+    }
+
+  } catch (error: any) {
+    const errMsg = error?.message || error?.toString() || 'Unknown error'
+    const errStatus = error?.status || 500
+    console.error('Extraction error:', errMsg, JSON.stringify(error, null, 2))
+    return NextResponse.json({ error: 'Failed to extract document: ' + errMsg }, { status: errStatus })
+  }
+}
+

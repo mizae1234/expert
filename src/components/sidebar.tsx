@@ -15,6 +15,7 @@ import {
   CreditCard,
   Receipt,
   Settings,
+  Cloud,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LucideIcon } from 'lucide-react'
@@ -32,42 +33,7 @@ interface NavGroup {
   items: NavItem[]
 }
 
-const navGroups: NavGroup[] = [
-  {
-    label: 'OVERVIEW',
-    items: [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: 'OPERATIONS',
-    items: [
-      { name: 'Claims', href: '/claims', icon: FileText, badge: 17 },
-      { name: 'Invoices', href: '/invoices', icon: Receipt, badge: 2, badgeColor: 'red' },
-      { name: 'Payments', href: '/payments', icon: CreditCard, badge: 4 },
-    ],
-  },
-  {
-    label: 'MASTER DATA',
-    items: [
-      { name: 'Insurances', href: '/insurances', icon: Building2 },
-      { name: 'Vendors', href: '/vendors', icon: Users },
-      { name: 'Parts Master', href: '/parts-master', icon: Package },
-    ],
-  },
-  {
-    label: 'REPORTS',
-    items: [
-      { name: 'Reports', href: '/reports', icon: BarChart3 },
-    ],
-  },
-  {
-    label: 'SETTINGS',
-    items: [
-      { name: 'Settings', href: '/settings', icon: Settings },
-    ],
-  },
-]
+import React, { useState, useEffect } from 'react'
 
 interface SidebarProps {
   collapsed: boolean;
@@ -76,6 +42,65 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname()
+  const [stats, setStats] = useState({ claims: 0, invoices: 0, payments: 0 })
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) {
+          setStats({
+            claims: data.claims || 0,
+            invoices: data.invoices || 0,
+            payments: data.payments || 0
+          })
+        }
+      })
+      .catch(console.error)
+  }, [])
+
+  const currentNavGroups: NavGroup[] = [
+    {
+      label: 'OVERVIEW',
+      items: [
+        { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'OPERATIONS',
+      items: [
+        { name: 'Claims', href: '/claims', icon: FileText, badge: stats.claims },
+        { name: 'Invoices', href: '/invoices', icon: Receipt, badge: stats.invoices, badgeColor: 'red' },
+        { name: 'Payments', href: '/payments', icon: CreditCard, badge: stats.payments },
+      ],
+    },
+    {
+      label: 'ACCOUNTING',
+      items: [
+        { name: 'PEAK Sync', href: '/peak', icon: Cloud },
+      ],
+    },
+    {
+      label: 'MASTER DATA',
+      items: [
+        { name: 'Insurances', href: '/insurances', icon: Building2 },
+        { name: 'Vendors', href: '/vendors', icon: Users },
+        { name: 'Parts Master', href: '/parts-master', icon: Package },
+      ],
+    },
+    {
+      label: 'REPORTS',
+      items: [
+        { name: 'Reports', href: '/reports', icon: BarChart3 },
+      ],
+    },
+    {
+      label: 'SETTINGS',
+      items: [
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ],
+    },
+  ]
 
   return (
     <aside
@@ -99,7 +124,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Navigation — Grouped */}
       <nav className="flex-1 px-3 py-2 overflow-y-auto">
-        {navGroups.map((group) => (
+        {currentNavGroups.map((group) => (
           <div key={group.label}>
             {/* Group label */}
             {!collapsed && (
@@ -130,7 +155,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     {!collapsed && (
                       <span className="animate-fade-in flex-1">{item.name}</span>
                     )}
-                    {!collapsed && item.badge && (
+                    {!collapsed && item.badge !== undefined && item.badge > 0 && (
                       <span className={cn(
                         "text-[10px] font-bold px-2 py-0.5 rounded-full animate-fade-in",
                         item.badgeColor === 'red'
