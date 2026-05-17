@@ -74,8 +74,12 @@ export default function PDFMockPage() {
   const renderHeader = (title: string, docNo: string, date: string) => (
     <div className="flex justify-between items-start border-b-2 border-gray-800 pb-6 mb-6">
       <div className="flex gap-4">
-        <div className="w-20 h-20 bg-gray-100 flex items-center justify-center font-bold text-gray-400 rounded">
-          LOGO
+        <div className="w-20 h-20 bg-gray-100 flex items-center justify-center font-bold text-gray-400 rounded overflow-hidden">
+          {company.logoUrl ? (
+            <img src={company.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+          ) : (
+            'LOGO'
+          )}
         </div>
         <div>
           <h1 className="text-xl font-bold text-gray-900">{company.name}</h1>
