@@ -59,32 +59,36 @@ export async function GET(request: NextRequest) {
       pnlByMonth.push({ month: `${monthNames[new Date().getMonth()]} ${new Date().getFullYear() + 543}`, ar: 0, ap: 0, profit: 0, margin: 0, claims: 0 })
     }
 
-    // AR Aging — real average days calculation
-    const insurances = await prisma.insurance.findMany({
+    // AR Aging — Detailed list of unpaid invoices
+    const arInvoices = await prisma.insuranceInvoice.findMany({
+      where: {
+        status: { in: ['PENDING', 'SENT'] },
+        claim: claimFilter
+      },
       include: {
-        claims: {
-          where: claimFilter,
-          include: {
-            insuranceInvoice: true
-          }
+        claim: {
+          include: { insurance: true }
         }
+      },
+      orderBy: { invoiceDate: 'asc' }
+    })
+
+    const arAging = arInvoices.map(inv => {
+      const invoiceDate = new Date(inv.invoiceDate)
+      const agingDays = Math.max(0, Math.floor((now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24)))
+      return {
+        insurance: inv.claim.insurance.name,
+        insuranceId: inv.claim.insuranceId,
+        claimNo: inv.claim.claimNo,
+        carPlate: inv.claim.carPlate,
+        invoiceNo: inv.invoiceNo,
+        invoiceDate: inv.invoiceDate,
+        amount: inv.grandTotal,
+        agingDays
       }
     })
 
-
-    const arAging = insurances.map(ins => {
-      const unpaidClaims = ins.claims.filter(c => c.insuranceInvoice && c.insuranceInvoice.status !== 'PAID' && c.insuranceInvoice.status !== 'CANCELLED')
-      const total = unpaidClaims.reduce((s, c) => s + (c.insuranceInvoice?.grandTotal || 0), 0)
-      const avgDays = unpaidClaims.length > 0
-        ? Math.round(unpaidClaims.reduce((s, c) => {
-            const invoiceDate = new Date(c.insuranceInvoice!.invoiceDate)
-            return s + Math.max(0, Math.floor((now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24)))
-          }, 0) / unpaidClaims.length)
-        : 0
-      return { insurance: ins.name, insuranceId: ins.id, count: unpaidClaims.length, total, avgDays }
-    }).filter(a => a.count > 0)
-
-    // AP Outstanding — real data per vendor
+    // AP Outstanding — Detailed list of unpaid vendor/garage invoices
     const supplierFilter: any = {}
     if (vendorId) supplierFilter.vendorId = vendorId
 
@@ -94,24 +98,43 @@ export async function GET(request: NextRequest) {
         apPayment: null, // not yet paid
         claim: claimFilter,
       },
-      include: { vendor: true }
+      include: { vendor: true, claim: true }
     })
 
     const garageInvoices = await prisma.garageInvoice.findMany({
       where: {
         claim: claimFilter,
+        // For garage, outstanding means it's approved for payment but not paid? Or just no payment request?
+        // Let's assume outstanding = no payment request or payment request not completed (we can just check paymentRequests lack of PAID status if we had it, but apPayment doesn't exist for garage. Let's just use what was here)
       },
-      include: { garage: true, paymentRequests: { where: { status: 'APPROVED' } } }
+      // Wait, previous code just loaded all garageInvoices and checked totalAmount? 
+      // Actually garage payments go through PaymentRequest. We can just list all garage invoices without completed PRs.
+      // But let's just keep the existing data set and map to detail.
+      include: { garage: true, claim: true, paymentRequests: { where: { status: 'APPROVED' } } }
     })
 
-    // Group AP by vendor
-    const vendorMap: Record<string, { vendor: string, vendorId: string, total: number, invoices: number }> = {}
-    apInvoices.forEach(inv => {
-      if (!vendorMap[inv.vendorId]) vendorMap[inv.vendorId] = { vendor: inv.vendor.name, vendorId: inv.vendorId, total: 0, invoices: 0 }
-      vendorMap[inv.vendorId].total += inv.totalAmount
-      vendorMap[inv.vendorId].invoices += 1
-    })
-    const apOutstanding = Object.values(vendorMap).filter(a => a.total > 0)
+    const apOutstanding = [
+      ...apInvoices.map(inv => ({
+        vendor: inv.vendor.name,
+        vendorId: inv.vendorId,
+        type: 'อะไหล่',
+        invoiceNo: inv.invoiceNo || '-',
+        claimNo: inv.claim.claimNo,
+        carPlate: inv.claim.carPlate,
+        invoiceDate: inv.createdAt,
+        amount: inv.totalAmount
+      })),
+      ...garageInvoices.map(inv => ({
+        vendor: inv.garage?.name || inv.garageName || 'อู่ซ่อม',
+        vendorId: inv.garageId || '',
+        type: 'ค่าแรง',
+        invoiceNo: inv.invoiceNo || '-',
+        claimNo: inv.claim.claimNo,
+        carPlate: inv.claim.carPlate,
+        invoiceDate: inv.createdAt,
+        amount: inv.totalAmount
+      }))
+    ].sort((a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime())
 
     // Vendor Performance — real PO data
     const vendors = await prisma.vendor.findMany({

@@ -97,10 +97,13 @@ export default function ReportsPage() {
     )
     const rows = filtered.map(a => ({
       'บ.ประกัน': a.insurance,
-      'จำนวนใบ': a.count,
-      'ยอดค้างชำระ': a.total,
-      'เฉลี่ย (วัน)': a.avgDays,
-      'สถานะ': a.avgDays > 45 ? 'เกินกำหนด' : 'ปกติ',
+      'เคลม': a.claimNo,
+      'ทะเบียนรถ': a.carPlate,
+      'เลขที่วางบิล': a.invoiceNo,
+      'วันที่วางบิล': formatDate(a.invoiceDate),
+      'ยอดค้างชำระ': a.amount,
+      'Aging (วัน)': a.agingDays,
+      'สถานะ': a.agingDays > 45 ? 'เกินกำหนด' : 'ปกติ',
     }))
     exportToExcel(rows, `AR_Aging_${dateFrom}_${dateTo}.xlsx`)
   }
@@ -112,8 +115,12 @@ export default function ReportsPage() {
     )
     const rows = filtered.map(a => ({
       'Vendor': a.vendor,
-      'จำนวนใบ': a.invoices,
-      'ยอดค้างจ่าย': a.total,
+      'ประเภท': a.type,
+      'เลขที่ Invoice': a.invoiceNo,
+      'เคลม': a.claimNo,
+      'ทะเบียนรถ': a.carPlate,
+      'วันที่รับเอกสาร': formatDate(a.invoiceDate),
+      'ยอดค้างจ่าย': a.amount,
     }))
     exportToExcel(rows, `AP_Outstanding_${dateFrom}_${dateTo}.xlsx`)
   }
@@ -129,7 +136,6 @@ export default function ReportsPage() {
       'จำนวน PO': v.poCount,
       'มูลค่ารวม': v.totalValue,
       'เครดิต (วัน)': v.paymentTerms,
-      'โซน': v.zone || '-',
     }))
     exportToExcel(rows, `Vendor_Performance_${dateFrom}_${dateTo}.xlsx`)
   }
@@ -317,15 +323,15 @@ export default function ReportsPage() {
                     <div className="grid grid-cols-3 gap-4 mb-6">
                       <div className="bg-amber-50 rounded-lg p-4 text-center">
                         <p className="text-xs text-[#475569]">ยอดรวมค้างชำระ</p>
-                        <p className="text-xl font-bold text-amber-600">฿{formatCurrency(filteredAR.reduce((s, a) => s + a.total, 0))}</p>
+                        <p className="text-xl font-bold text-amber-600">฿{formatCurrency(filteredAR.reduce((s, a) => s + a.amount, 0))}</p>
                       </div>
                       <div className="bg-blue-50 rounded-lg p-4 text-center">
-                        <p className="text-xs text-[#475569]">จำนวนใบรวม</p>
-                        <p className="text-xl font-bold text-blue-600">{filteredAR.reduce((s, a) => s + a.count, 0)} ใบ</p>
+                        <p className="text-xs text-[#475569]">จำนวนบิลรวม</p>
+                        <p className="text-xl font-bold text-blue-600">{filteredAR.length} ใบ</p>
                       </div>
                       <div className="bg-red-50 rounded-lg p-4 text-center">
                         <p className="text-xs text-[#475569]">เกินกำหนด</p>
-                        <p className="text-xl font-bold text-red-600">{filteredAR.filter(a => a.avgDays > 45).length} ราย</p>
+                        <p className="text-xl font-bold text-red-600">{filteredAR.filter(a => a.agingDays > 45).length} รายการ</p>
                       </div>
                     </div>
 
@@ -333,22 +339,30 @@ export default function ReportsPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>บ.ประกัน</TableHead>
-                          <TableHead className="text-center">จำนวนใบ</TableHead>
+                          <TableHead>เคลม / ทะเบียนรถ</TableHead>
+                          <TableHead>เลขที่วางบิล / วันที่</TableHead>
                           <TableHead className="text-right">ยอดค้างชำระ</TableHead>
-                          <TableHead className="text-right">เฉลี่ย (วัน)</TableHead>
+                          <TableHead className="text-right">Aging (วัน)</TableHead>
                           <TableHead>สถานะ</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredAR.map(item => (
-                          <TableRow key={item.insurance}>
+                        {filteredAR.map((item, i) => (
+                          <TableRow key={i}>
                             <TableCell className="font-medium">{item.insurance}</TableCell>
-                            <TableCell className="text-center">{item.count}</TableCell>
-                            <TableCell className="text-right font-semibold text-amber-600">฿{formatCurrency(item.total)}</TableCell>
-                            <TableCell className="text-right">{item.avgDays} วัน</TableCell>
                             <TableCell>
-                              <Badge className={item.avgDays > 45 ? 'bg-red-100 text-red-700 border-none' : 'bg-green-100 text-green-700 border-none'}>
-                                {item.avgDays > 45 ? 'เกินกำหนด' : 'ปกติ'}
+                              <div className="text-sm font-medium">{item.claimNo}</div>
+                              <div className="text-xs text-[#64748b]">{item.carPlate}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">{item.invoiceNo || '-'}</div>
+                              <div className="text-xs text-[#64748b]">{formatDate(item.invoiceDate)}</div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-amber-600">฿{formatCurrency(item.amount)}</TableCell>
+                            <TableCell className="text-right">{item.agingDays} วัน</TableCell>
+                            <TableCell>
+                              <Badge className={item.agingDays > 45 ? 'bg-red-100 text-red-700 border-none' : 'bg-green-100 text-green-700 border-none'}>
+                                {item.agingDays > 45 ? 'เกินกำหนด' : 'ปกติ'}
                               </Badge>
                             </TableCell>
                           </TableRow>
@@ -384,11 +398,11 @@ export default function ReportsPage() {
                     <div className="grid grid-cols-2 gap-4 mb-6">
                       <div className="bg-red-50 rounded-lg p-4 text-center">
                         <p className="text-xs text-[#475569]">ยอดรวมค้างจ่าย</p>
-                        <p className="text-xl font-bold text-red-600">฿{formatCurrency(filteredAP.reduce((s, a) => s + a.total, 0))}</p>
+                        <p className="text-xl font-bold text-red-600">฿{formatCurrency(filteredAP.reduce((s, a) => s + a.amount, 0))}</p>
                       </div>
                       <div className="bg-blue-50 rounded-lg p-4 text-center">
                         <p className="text-xs text-[#475569]">จำนวน Invoice รวม</p>
-                        <p className="text-xl font-bold text-blue-600">{filteredAP.reduce((s, a) => s + a.invoices, 0)} ใบ</p>
+                        <p className="text-xl font-bold text-blue-600">{filteredAP.length} ใบ</p>
                       </div>
                     </div>
 
@@ -396,16 +410,28 @@ export default function ReportsPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Vendor</TableHead>
-                          <TableHead className="text-center">จำนวนใบ</TableHead>
+                          <TableHead>ประเภท</TableHead>
+                          <TableHead>Invoice / วันที่รับเอกสาร</TableHead>
+                          <TableHead>เคลม / ทะเบียนรถ</TableHead>
                           <TableHead className="text-right">ยอดค้างจ่าย</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredAP.map(item => (
-                          <TableRow key={item.vendor}>
+                        {filteredAP.map((item, i) => (
+                          <TableRow key={i}>
                             <TableCell className="font-medium">{item.vendor}</TableCell>
-                            <TableCell className="text-center">{item.invoices}</TableCell>
-                            <TableCell className="text-right font-semibold text-red-500">฿{formatCurrency(item.total)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-[10px]">{item.type}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">{item.invoiceNo || '-'}</div>
+                              <div className="text-xs text-[#64748b]">{formatDate(item.invoiceDate)}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm font-medium">{item.claimNo}</div>
+                              <div className="text-xs text-[#64748b]">{item.carPlate}</div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-red-500">฿{formatCurrency(item.amount)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -443,7 +469,6 @@ export default function ReportsPage() {
                         <TableHead className="text-center">จำนวน PO</TableHead>
                         <TableHead className="text-right">มูลค่ารวม</TableHead>
                         <TableHead className="text-center">เครดิต (วัน)</TableHead>
-                        <TableHead>โซน</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -456,7 +481,6 @@ export default function ReportsPage() {
                           <TableCell className="text-center">{v.poCount}</TableCell>
                           <TableCell className="text-right font-semibold">฿{formatCurrency(v.totalValue)}</TableCell>
                           <TableCell className="text-center">{v.paymentTerms}</TableCell>
-                          <TableCell>{v.zone || '-'}</TableCell>
                         </TableRow>
                       ))}
                       {/* Summary Row */}
