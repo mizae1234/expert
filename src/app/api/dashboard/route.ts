@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { ClaimStatus } from '@/lib/types'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   // 1. Status counts via groupBy — no need to load all claims
   const statusGroups = await prisma.claim.groupBy({
