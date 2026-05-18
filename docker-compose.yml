@@ -14,10 +14,13 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DATABASE_URL=${DATABASE_URL}
     networks:
-      - postgres-network
+      - postgres-server_default
+      - expert_default
     restart: always
 
 networks:
-  postgres-network:
+  postgres-server_default:
     external: true
-    name: postgres-server_default
+  expert_default:
+    driver: bridge
+
