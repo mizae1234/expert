@@ -28,7 +28,7 @@ async function main() {
   await prisma.claim.deleteMany()
   await prisma.vendor.deleteMany()
   await prisma.insurance.deleteMany()
-  await prisma.garage.deleteMany()
+
   await prisma.partMaster.deleteMany()
 
   // Seed Insurances
@@ -65,11 +65,14 @@ async function main() {
     })
   }
 
-  // Seed Garages (Mocking one default garage since the mock data doesn't have garages explicitly separate from claims often, wait we need at least one)
-  const defaultGarage = await prisma.garage.create({
-    data: {
+  // Seed default Garage (as a Vendor with type GARAGE)
+  const defaultGarage = await prisma.vendor.upsert({
+    where: { id: 'garage-1' },
+    update: {},
+    create: {
       id: 'garage-1',
       name: 'อู่มาตรฐาน 1',
+      vendorType: VendorType.GARAGE,
       zone: 'BKK',
     }
   })

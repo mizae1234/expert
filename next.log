@@ -1,0 +1,2083 @@
+
+> expert@0.1.0 dev
+> next dev --port 3000
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 1121ms
+ ○ Compiling / ...
+ ✓ Compiled / in 797ms (617 modules)
+ HEAD / 307 in 888ms
+ ✓ Compiled in 91ms (299 modules)
+ ✓ Compiled /vendors/[id] in 172ms (619 modules)
+ GET /vendors/garage-1 200 in 327ms
+ ✓ Compiled /api/vendors/[id] in 51ms (357 modules)
+ ✓ Compiled (359 modules)
+ GET /api/stats 200 in 774ms
+ GET /api/vendors/garage-1 200 in 837ms
+ GET /api/vendors/garage-1 200 in 52ms
+ GET /api/stats 200 in 149ms
+ PUT /api/vendors/garage-1 200 in 123ms
+ ✓ Compiled /vendors in 166ms (718 modules)
+ ✓ Compiled /api/vendors in 27ms (392 modules)
+ GET /api/vendors 200 in 448ms
+ GET /api/vendors 200 in 52ms
+ GET /api/vendors/garage-1 200 in 130ms
+ GET /api/vendors/garage-1 200 in 53ms
+ GET /api/vendors 200 in 113ms
+ GET /api/vendors 200 in 57ms
+ GET /api/vendors/ven-g01 200 in 87ms
+ GET /api/vendors/ven-g01 200 in 51ms
+ ✓ Compiled in 182ms (724 modules)
+ ✓ Compiled in 87ms (724 modules)
+ GET /api/vendors 200 in 457ms
+ GET /api/vendors 200 in 58ms
+ GET /api/vendors/garage-1 200 in 208ms
+ GET /api/vendors/garage-1 200 in 54ms
+ GET /api/vendors 200 in 78ms
+ GET /api/vendors 200 in 59ms
+ ✓ Compiled /claims in 224ms (720 modules)
+ ✓ Compiled /api/insurances in 30ms (390 modules)
+ ✓ Compiled (392 modules)
+ GET /api/insurances 200 in 717ms
+ GET /api/insurances 200 in 163ms
+ GET /api/claims 200 in 1025ms
+ GET /api/claims 200 in 159ms
+ ✓ Compiled /claims/[id] in 281ms (792 modules)
+ ✓ Compiled /api/claims/[id] in 36ms (429 modules)
+ ✓ Compiled (431 modules)
+ GET /api/parts-master 200 in 649ms
+ GET /api/parts-master 200 in 142ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 3345ms
+ ✓ Compiled /api/garages in 66ms (433 modules)
+ GET /api/garages 500 in 93ms
+ GET /api/garages 500 in 5ms
+ GET /api/vendors 200 in 164ms
+ GET /api/insurances 200 in 680ms
+ GET /api/insurances 200 in 629ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 1370ms
+ GET /api/insurances 200 in 167ms
+ GET /api/insurances 200 in 198ms
+ GET /api/vendors 200 in 428ms
+ GET /api/claims 200 in 625ms
+ GET /api/claims 200 in 149ms
+ GET /api/parts-master 200 in 297ms
+ GET /api/parts-master 200 in 105ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 2990ms
+ GET /api/garages 500 in 11ms
+ GET /api/garages 500 in 6ms
+ GET /api/vendors 200 in 113ms
+ GET /api/insurances 200 in 217ms
+ GET /api/insurances 200 in 225ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 1312ms
+ GET /api/vendors 200 in 117ms
+ ✓ Compiled /claims/[id]/pdf/[type] in 128ms (804 modules)
+ GET /claims/cmp9tdool000f13lryax2psr0/pdf/delivery-note?poId=cmp9w1h0f001f130vdvpooebr 200 in 265ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 3045ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 1339ms
+ ✓ Compiled in 110ms (818 modules)
+ ✓ Compiled in 127ms (814 modules)
+ ✓ Compiled /api/insurances in 48ms (427 modules)
+ ✓ Compiled (429 modules)
+ GET /api/insurances 200 in 821ms
+ GET /api/insurances 200 in 164ms
+ GET /api/claims 200 in 1082ms
+ GET /api/claims 200 in 164ms
+ ✓ Compiled in 305ms (808 modules)
+ ✓ Compiled in 178ms (776 modules)
+ ✓ Compiled in 130ms (776 modules)
+ ✓ Compiled /payments in 165ms (770 modules)
+ ✓ Compiled /api/payments in 39ms (430 modules)
+ GET /api/payments 200 in 1251ms
+ GET /api/payments 200 in 414ms
+ ✓ Compiled /api/insurances in 70ms (427 modules)
+ ✓ Compiled (429 modules)
+ GET /api/insurances 200 in 738ms
+ GET /api/insurances 200 in 161ms
+ GET /api/claims 200 in 1014ms
+ GET /api/claims 200 in 158ms
+ ✓ Compiled /api/parts-master in 35ms (431 modules)
+ ✓ Compiled (433 modules)
+ GET /api/parts-master 200 in 693ms
+ GET /api/parts-master 200 in 172ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 3537ms
+ ✓ Compiled /api/garages in 39ms (435 modules)
+ ✓ Compiled (437 modules)
+ GET /api/garages 500 in 112ms
+ GET /api/garages 500 in 4ms
+ GET /api/vendors 200 in 528ms
+ GET /api/insurances 200 in 1038ms
+ GET /api/insurances 200 in 159ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 1361ms
+ GET /api/vendors 200 in 220ms
+ ✓ Compiled /settings in 266ms (775 modules)
+ ✓ Compiled /api/insurances in 32ms (431 modules)
+ ✓ Compiled (433 modules)
+ GET /api/vendors 200 in 503ms
+ GET /api/vendors 200 in 53ms
+ GET /api/insurances 200 in 1028ms
+ GET /api/insurances 200 in 156ms
+ ✓ Compiled /api/claims in 46ms (430 modules)
+ GET /api/insurances 200 in 730ms
+ GET /api/insurances 200 in 162ms
+ GET /api/claims 200 in 1049ms
+ GET /api/claims 200 in 166ms
+ ✓ Compiled /api/claims/[id] in 64ms (432 modules)
+ ✓ Compiled (434 modules)
+ GET /api/parts-master 200 in 615ms
+ GET /api/parts-master 200 in 134ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 3297ms
+ ✓ Compiled /api/garages in 31ms (436 modules)
+ GET /api/garages 500 in 46ms
+ GET /api/garages 500 in 4ms
+ GET /api/vendors 200 in 165ms
+ GET /api/insurances 200 in 682ms
+ GET /api/insurances 200 in 635ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 2454ms
+ GET /api/vendors 200 in 108ms
+ GET /claims/cmp9tdool000f13lryax2psr0/pdf/delivery-note?poId=cmp9w1h0f001f130vdvpooebr 200 in 52ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 2668ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 1373ms
+ ✓ Compiled /invoices in 440ms (780 modules)
+ ✓ Compiled /api/invoices in 39ms (432 modules)
+ GET /api/invoices 200 in 741ms
+ GET /api/invoices 200 in 159ms
+ ✓ Compiled /vendors in 75ms (437 modules)
+ ✓ Compiled /api/vendors in 35ms (439 modules)
+ GET /api/vendors 200 in 441ms
+ GET /api/vendors 200 in 51ms
+ ✓ Compiled /parts-master in 129ms (833 modules)
+ ✓ Compiled /api/parts-master in 33ms (450 modules)
+ GET /api/parts-master 200 in 552ms
+ GET /api/parts-master 200 in 110ms
+ ✓ Compiled /insurances in 105ms (843 modules)
+ ✓ Compiled /api/insurances in 39ms (457 modules)
+ GET /api/insurances 200 in 720ms
+ GET /api/insurances 200 in 162ms
+ GET /api/vendors 200 in 112ms
+ GET /api/vendors 200 in 57ms
+ GET /api/insurances 200 in 662ms
+ GET /api/insurances 200 in 248ms
+ ✓ Compiled in 157ms (853 modules)
+ GET /api/insurances 200 in 635ms
+ GET /api/insurances 200 in 167ms
+ ✓ Compiled /api/settings/company in 69ms (453 modules)
+ GET /api/vendors 200 in 504ms
+ GET /api/vendors 200 in 55ms
+ GET /api/settings/company 500 in 790ms
+ GET /api/settings/company 500 in 59ms
+ GET /api/insurances 200 in 1030ms
+ GET /api/insurances 200 in 158ms
+ PUT /api/settings/company 500 in 116ms
+ PUT /api/settings/company 500 in 105ms
+ ✓ Compiled in 168ms (855 modules)
+ PUT /api/settings/company 500 in 419ms
+ ✓ Compiled in 143ms (855 modules)
+ ✓ Compiled in 175ms (770 modules)
+ ✓ Compiled in 508ms (770 modules)
+ ✓ Compiled in 157ms (770 modules)
+ ✓ Compiled /api/insurances in 38ms (398 modules)
+ GET /api/insurances 200 in 661ms
+ GET /api/insurances 200 in 298ms
+ ✓ Compiled in 177ms (402 modules)
+ ✓ Compiled in 72ms (402 modules)
+ ✓ Compiled in 258ms (771 modules)
+ ✓ Compiled in 57ms (402 modules)
+ ✓ Compiled /api/vendors in 108ms (399 modules)
+ GET /api/vendors 200 in 571ms
+ GET /api/vendors 200 in 59ms
+ ✓ Compiled /vendors/[id] in 73ms (405 modules)
+ ✓ Compiled /api/vendors/[id] in 34ms (407 modules)
+ GET /api/vendors/ven-p01 200 in 469ms
+ GET /api/vendors/ven-p01 200 in 58ms
+ GET /api/vendors 200 in 112ms
+ GET /api/vendors 200 in 59ms
+ GET /api/vendors/ven-p01 200 in 129ms
+ GET /api/vendors/ven-p01 200 in 54ms
+ ✓ Compiled in 190ms (801 modules)
+ ✓ Compiled in 59ms (402 modules)
+ ✓ Compiled in 154ms (771 modules)
+ ✓ Compiled /api/vendors/[id] in 35ms (399 modules)
+ GET /api/vendors/ven-p01 200 in 460ms
+ GET /api/vendors/ven-p01 200 in 54ms
+ ✓ Compiled in 171ms (800 modules)
+ ✓ Compiled /api/vendors in 80ms (400 modules)
+ GET /api/vendors 200 in 460ms
+ GET /api/vendors 200 in 57ms
+ ✓ Compiled /api/insurances in 76ms (400 modules)
+ GET /api/insurances 200 in 691ms
+ GET /api/insurances 200 in 222ms
+ ✓ Compiled in 182ms (802 modules)
+ ✓ Compiled /parts-master in 88ms (409 modules)
+ ✓ Compiled /api/parts-master in 30ms (411 modules)
+ GET /api/parts-master 200 in 611ms
+ GET /api/parts-master 200 in 103ms
+ GET /api/vendors 200 in 153ms
+ GET /api/vendors 200 in 54ms
+ GET /api/vendors 200 in 69ms
+ ✓ Compiled /api/settings/company in 63ms (413 modules)
+ ✓ Compiled in 0ms (413 modules)
+ ✓ Compiled in 0ms (413 modules)
+ ✓ Compiled in 0ms (413 modules)
+ GET /api/settings/company 500 in 620ms
+ GET /api/vendors 200 in 556ms
+ GET /api/insurances 200 in 781ms
+ GET /api/settings/company 500 in 161ms
+ GET /api/insurances 200 in 320ms
+ PUT /api/settings/company 500 in 127ms
+ ✓ Compiled in 212ms (803 modules)
+ ✓ Compiled in 181ms (773 modules)
+ ✓ Compiled in 124ms (773 modules)
+ ✓ Compiled /api/settings/company in 47ms (401 modules)
+ PUT /api/settings/company 200 in 583ms
+ ✓ Compiled /claims in 114ms (407 modules)
+ ✓ Compiled /api/insurances in 51ms (409 modules)
+ ✓ Compiled (411 modules)
+ GET /api/insurances 200 in 730ms
+ GET /api/insurances 200 in 157ms
+ GET /api/claims 200 in 1054ms
+ GET /api/claims 200 in 159ms
+ ✓ Compiled in 143ms (813 modules)
+ ✓ Compiled /claims/[id] in 85ms (444 modules)
+ ✓ Compiled /api/claims/[id] in 36ms (446 modules)
+ ✓ Compiled (448 modules)
+ GET /api/parts-master 200 in 655ms
+ GET /api/parts-master 200 in 103ms
+ GET /api/claims/cmp9vihy5000g130vt6kan1hv 200 in 2616ms
+ ✓ Compiled /api/garages in 75ms (450 modules)
+ ✓ Compiled (452 modules)
+ GET /api/garages 500 in 114ms
+ GET /api/garages 500 in 3ms
+ GET /api/vendors 200 in 488ms
+ GET /api/insurances 200 in 1008ms
+ GET /api/insurances 200 in 210ms
+ GET /api/claims/cmp9vihy5000g130vt6kan1hv 200 in 2811ms
+ GET /api/vendors 200 in 103ms
+ ✓ Compiled /api/claims/[id]/status in 37ms (444 modules)
+ PATCH /api/claims/cmp9vihy5000g130vt6kan1hv/status 200 in 694ms
+ ✓ Compiled in 55ms (402 modules)
+ ✓ Compiled in 166ms (842 modules)
+ ✓ Compiled in 91ms (402 modules)
+ PUT /api/claims/cmp9vihy5000g130vt6kan1hv 200 in 1264ms
+ ✓ Compiled in 240ms (832 modules)
+ ✓ Compiled /api/claims/[id]/quotations in 86ms (432 modules)
+ POST /api/claims/cmp9vihy5000g130vt6kan1hv/quotations 200 in 1408ms
+ ✓ Compiled in 142ms (834 modules)
+ ✓ Compiled in 74ms (402 modules)
+ ✓ Compiled in 170ms (832 modules)
+ ✓ Compiled in 66ms (402 modules)
+ ✓ Compiled in 247ms (832 modules)
+ ✓ Compiled /api/garages in 64ms (430 modules)
+ ✓ Compiled (432 modules)
+ GET /api/garages 500 in 138ms
+ GET /api/garages 500 in 2ms
+ GET /api/insurances 200 in 769ms
+ GET /api/insurances 200 in 160ms
+ ✓ Compiled /api/settings/company in 88ms (434 modules)
+ ✓ Compiled (436 modules)
+ GET /api/settings/company 200 in 549ms
+ GET /api/settings/company 200 in 53ms
+ GET /api/vendors 200 in 801ms
+ GET /api/vendors 200 in 54ms
+ GET /api/insurances 200 in 1076ms
+ GET /api/insurances 200 in 172ms
+ ✓ Compiled /peak in 423ms (802 modules)
+ ✓ Compiled /api/peak in 52ms (437 modules)
+ GET /api/peak 200 in 1413ms
+ GET /api/peak 200 in 572ms
+ ✓ Compiled in 54ms (409 modules)
+ ✓ Compiled in 109ms (823 modules)
+ ✓ Compiled in 155ms (837 modules)
+ ✓ Compiled in 208ms (807 modules)
+ ✓ Compiled in 84ms (409 modules)
+ ✓ Compiled /api/settings/sequences in 76ms (428 modules)
+ ✓ Compiled (434 modules)
+ GET /api/vendors 200 in 862ms
+ GET /api/settings/company 200 in 865ms
+ GET /api/settings/company 200 in 103ms
+ GET /api/vendors 200 in 111ms
+ ✓ Compiled in 78ms (409 modules)
+ GET /api/settings/sequences 200 in 1018ms
+ GET /api/insurances 200 in 1054ms
+ GET /api/settings/sequences 200 in 54ms
+ GET /api/insurances 200 in 220ms
+ ✓ Compiled in 75ms (409 modules)
+ ✓ Compiled /api/peak in 51ms (436 modules)
+ GET /api/peak 200 in 1393ms
+ GET /api/peak 200 in 686ms
+ ✓ Compiled /insurances in 119ms (441 modules)
+ GET /api/insurances 200 in 629ms
+ GET /api/insurances 200 in 202ms
+ ✓ Compiled /payments in 96ms (440 modules)
+ ✓ Compiled /api/payments in 45ms (442 modules)
+ GET /api/payments 200 in 1196ms
+ ✓ Compiled /api/claims in 70ms (444 modules)
+ GET /api/payments 200 in 478ms
+ GET /api/insurances 200 in 749ms
+ ✓ Compiled /dashboard in 192ms (851 modules)
+ ✓ Compiled /api/dashboard in 41ms (454 modules)
+ GET /api/claims 200 in 1055ms
+ GET /api/insurances 200 in 704ms
+ GET /api/claims 200 in 530ms
+ GET /api/dashboard 200 in 1043ms
+ GET /api/dashboard 200 in 201ms
+ GET /api/payments 200 in 739ms
+ GET /api/claims 200 in 155ms
+ GET /api/claims 200 in 218ms
+ GET /api/payments 200 in 440ms
+ GET /api/insurances 200 in 621ms
+ GET /api/insurances 200 in 219ms
+ ✓ Compiled in 122ms (824 modules)
+ ✓ Compiled in 112ms (824 modules)
+ ✓ Compiled in 67ms (413 modules)
+ ✓ Compiled in 216ms (783 modules)
+ ✓ Compiled /api/insurances in 47ms (400 modules)
+ GET /api/insurances 200 in 683ms
+ GET /api/insurances 200 in 224ms
+ ✓ Compiled /insurances/[id] in 148ms (807 modules)
+ GET /api/insurances 200 in 615ms
+ GET /api/insurances 200 in 164ms
+ ✓ Compiled /vendors in 81ms (412 modules)
+ ✓ Compiled /api/vendors in 53ms (414 modules)
+ GET /api/vendors 200 in 495ms
+ GET /api/vendors 200 in 60ms
+ ✓ Compiled /parts-master in 80ms (415 modules)
+ ✓ Compiled /api/parts-master in 49ms (417 modules)
+ GET /api/parts-master 200 in 593ms
+ GET /api/parts-master 200 in 104ms
+ ✓ Compiled /settings in 129ms (426 modules)
+ ✓ Compiled /api/settings/sequences in 57ms (428 modules)
+ ✓ Compiled (430 modules)
+ GET /api/vendors 200 in 404ms
+ GET /api/settings/sequences 200 in 568ms
+ GET /api/settings/sequences 200 in 57ms
+ GET /api/vendors 200 in 417ms
+ GET /api/settings/company 200 in 825ms
+ ✓ Compiled /reports in 204ms (843 modules)
+ GET /api/insurances 200 in 1018ms
+ ✓ Compiled /api/reports in 47ms (440 modules)
+ GET /api/settings/company 200 in 575ms
+ GET /api/vendors 200 in 452ms
+ GET /api/vendors 200 in 58ms
+ GET /api/insurances 200 in 908ms
+ GET /api/insurances 200 in 367ms
+ GET /api/insurances 200 in 162ms
+ GET /api/vendors 200 in 59ms
+ GET /api/vendors 200 in 103ms
+ GET /api/settings/sequences 200 in 420ms
+ GET /api/settings/company 200 in 422ms
+ GET /api/settings/company 200 in 103ms
+ GET /api/settings/sequences 200 in 108ms
+ GET /api/insurances 200 in 687ms
+ GET /api/insurances 200 in 162ms
+ GET /api/reports?dateFrom=2026-02-17&dateTo=2026-05-17 200 in 2402ms
+ ✓ Compiled /payments in 85ms (445 modules)
+ ✓ Compiled /api/payments in 39ms (447 modules)
+ GET /api/reports?dateFrom=2026-02-17&dateTo=2026-05-17 200 in 957ms
+ GET /api/payments 200 in 1193ms
+ GET /api/payments 200 in 402ms
+ ✓ Compiled in 111ms (419 modules)
+ ✓ Compiled in 114ms (788 modules)
+ ✓ Compiled in 101ms (419 modules)
+ ✓ Compiled in 58ms (419 modules)
+ ✓ Compiled in 60ms (419 modules)
+ ✓ Compiled /dashboard in 85ms (377 modules)
+ ✓ Compiled /api/dashboard in 32ms (407 modules)
+ GET /api/dashboard 200 in 1315ms
+ GET /api/dashboard 200 in 469ms
+ ✓ Compiled /api/insurances in 86ms (409 modules)
+ ✓ Compiled (411 modules)
+ GET /api/claims 200 in 793ms
+ GET /api/claims 200 in 202ms
+ GET /api/insurances 200 in 1089ms
+ GET /api/insurances 200 in 159ms
+ ✓ Compiled /claims/[id] in 108ms (445 modules)
+ ✓ Compiled /api/claims/[id] in 41ms (447 modules)
+ ✓ Compiled (449 modules)
+ GET /api/parts-master 200 in 685ms
+ GET /api/parts-master 200 in 129ms
+ GET /api/claims/cmp9vihy5000g130vt6kan1hv 200 in 2915ms
+ ✓ Compiled /api/garages in 44ms (451 modules)
+ ✓ Compiled (453 modules)
+ GET /api/garages 500 in 96ms
+ GET /api/garages 500 in 7ms
+ GET /api/vendors 200 in 526ms
+ GET /api/insurances 200 in 993ms
+ GET /api/claims/cmp9vihy5000g130vt6kan1hv 200 in 1091ms
+ GET /api/insurances 200 in 145ms
+ GET /api/vendors 200 in 56ms
+ ✓ Compiled in 162ms (867 modules)
+ ✓ Compiled in 90ms (865 modules)
+ ✓ Compiled in 223ms (819 modules)
+ ✓ Compiled in 234ms (819 modules)
+ ✓ Compiled in 69ms (419 modules)
+ ✓ Compiled in 67ms (419 modules)
+ ✓ Compiled /api/upload in 341ms (807 modules)
+ POST /api/upload 200 in 1580ms
+ ✓ Compiled /api/claims/[id]/documents in 53ms (811 modules)
+ POST /api/claims/cmp9vihy5000g130vt6kan1hv/documents 201 in 603ms
+ ✓ Compiled /api/claims/[id] in 75ms (813 modules)
+ ⨯ PrismaClientValidationError: 
+Invalid `prisma.claim.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmp9vihy5000g130vt6kan1hv"
+  },
+  include: {
+    insurance: {
+      select: {
+        id: true,
+        name: true,
+        branch: true,
+        taxId: true,
+        branchCode: true,
+        peakCustomerId: true
+      }
+    },
+    garage: {
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    },
+    parts: {
+      include: {
+        partMaster: {
+          select: {
+            id: true,
+            partNo: true,
+            partName: true,
+            standardPrice: true
+          }
+        }
+      }
+    },
+    labors: true,
+    purchaseOrders: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    supplierInvoices: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true,
+        apPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            amount: true
+          }
+        }
+      }
+    },
+    garageInvoices: {
+      include: {
+        garage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    insuranceInvoice: {
+      include: {
+        arPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            ~~~~~~
+            amount: true,
+?           insuranceInvoiceId?: true,
+?           paymentRequestId?: true,
+?           receivedAt?: true,
+?           method?: true,
+?           ref?: true,
+?           insuranceInvoice?: true,
+?           paymentRequest?: true
+          }
+        }
+      }
+    },
+    statusLogs: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 50
+    },
+    quotations: {
+      include: {
+        laborItems: true,
+        partItems: true
+      }
+    },
+    expenses: {
+      orderBy: {
+        createdAt: "desc"
+      }
+    },
+    documents: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 30
+    },
+    paymentRequests: {
+      include: {
+        supplierInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        garageInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            garage: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        insuranceInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true
+          }
+        },
+        billReceipt: true
+      }
+    }
+  }
+}
+
+Unknown field `paidAt` for select statement on model `ARPayment`. Available options are marked with ?.
+    at wn (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at $n.handleRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6958)
+    at $n.handleAndLogRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async GET (webpack-internal:///(rsc)/./src/app/api/claims/[id]/route.ts:11:19)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57228
+    at async eT.execute (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46851)
+    at async eT.handle (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58760)
+    at async doRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1366:42)
+    at async cacheEntry.responseCache.get.routeKind (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1576:40)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1496:28)
+    at async DevServer.renderPageComponent (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/kanittamac/web/expert/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  clientVersion: '5.22.0'
+}
+ GET /api/claims/cmp9vihy5000g130vt6kan1hv 500 in 341ms
+ ✓ Compiled in 273ms (819 modules)
+ ✓ Compiled /api/upload in 69ms (807 modules)
+ POST /api/upload 200 in 1176ms
+ ✓ Compiled /api/claims/[id]/documents in 91ms (811 modules)
+ POST /api/claims/cmp9vihy5000g130vt6kan1hv/documents 201 in 529ms
+ ✓ Compiled /api/claims/[id] in 60ms (813 modules)
+ ⨯ PrismaClientValidationError: 
+Invalid `prisma.claim.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmp9vihy5000g130vt6kan1hv"
+  },
+  include: {
+    insurance: {
+      select: {
+        id: true,
+        name: true,
+        branch: true,
+        taxId: true,
+        branchCode: true,
+        peakCustomerId: true
+      }
+    },
+    garage: {
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    },
+    parts: {
+      include: {
+        partMaster: {
+          select: {
+            id: true,
+            partNo: true,
+            partName: true,
+            standardPrice: true
+          }
+        }
+      }
+    },
+    labors: true,
+    purchaseOrders: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    supplierInvoices: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true,
+        apPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            amount: true
+          }
+        }
+      }
+    },
+    garageInvoices: {
+      include: {
+        garage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    insuranceInvoice: {
+      include: {
+        arPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            ~~~~~~
+            amount: true,
+?           insuranceInvoiceId?: true,
+?           paymentRequestId?: true,
+?           receivedAt?: true,
+?           method?: true,
+?           ref?: true,
+?           insuranceInvoice?: true,
+?           paymentRequest?: true
+          }
+        }
+      }
+    },
+    statusLogs: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 50
+    },
+    quotations: {
+      include: {
+        laborItems: true,
+        partItems: true
+      }
+    },
+    expenses: {
+      orderBy: {
+        createdAt: "desc"
+      }
+    },
+    documents: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 30
+    },
+    paymentRequests: {
+      include: {
+        supplierInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        garageInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            garage: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        insuranceInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true
+          }
+        },
+        billReceipt: true
+      }
+    }
+  }
+}
+
+Unknown field `paidAt` for select statement on model `ARPayment`. Available options are marked with ?.
+    at wn (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at $n.handleRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6958)
+    at $n.handleAndLogRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async GET (webpack-internal:///(rsc)/./src/app/api/claims/[id]/route.ts:11:19)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57228
+    at async eT.execute (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46851)
+    at async eT.handle (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58760)
+    at async doRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1366:42)
+    at async cacheEntry.responseCache.get.routeKind (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1576:40)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1496:28)
+    at async DevServer.renderPageComponent (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/kanittamac/web/expert/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  clientVersion: '5.22.0'
+}
+ GET /api/claims/cmp9vihy5000g130vt6kan1hv 500 in 336ms
+ GET /claims/cmp9vihy5000g130vt6kan1hv?tab=documents 200 in 76ms
+ ✓ Compiled /api/parts-master in 79ms (815 modules)
+ ✓ Compiled (819 modules)
+ ⨯ PrismaClientValidationError: 
+Invalid `prisma.claim.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmp9vihy5000g130vt6kan1hv"
+  },
+  include: {
+    insurance: {
+      select: {
+        id: true,
+        name: true,
+        branch: true,
+        taxId: true,
+        branchCode: true,
+        peakCustomerId: true
+      }
+    },
+    garage: {
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    },
+    parts: {
+      include: {
+        partMaster: {
+          select: {
+            id: true,
+            partNo: true,
+            partName: true,
+            standardPrice: true
+          }
+        }
+      }
+    },
+    labors: true,
+    purchaseOrders: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    supplierInvoices: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true,
+        apPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            amount: true
+          }
+        }
+      }
+    },
+    garageInvoices: {
+      include: {
+        garage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    insuranceInvoice: {
+      include: {
+        arPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            ~~~~~~
+            amount: true,
+?           insuranceInvoiceId?: true,
+?           paymentRequestId?: true,
+?           receivedAt?: true,
+?           method?: true,
+?           ref?: true,
+?           insuranceInvoice?: true,
+?           paymentRequest?: true
+          }
+        }
+      }
+    },
+    statusLogs: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 50
+    },
+    quotations: {
+      include: {
+        laborItems: true,
+        partItems: true
+      }
+    },
+    expenses: {
+      orderBy: {
+        createdAt: "desc"
+      }
+    },
+    documents: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 30
+    },
+    paymentRequests: {
+      include: {
+        supplierInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        garageInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            garage: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        insuranceInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true
+          }
+        },
+        billReceipt: true
+      }
+    }
+  }
+}
+
+Unknown field `paidAt` for select statement on model `ARPayment`. Available options are marked with ?.
+    at wn (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at $n.handleRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6958)
+    at $n.handleAndLogRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async GET (webpack-internal:///(rsc)/./src/app/api/claims/[id]/route.ts:11:19)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57228
+    at async eT.execute (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46851)
+    at async eT.handle (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58760)
+    at async doRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1366:42)
+    at async cacheEntry.responseCache.get.routeKind (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1576:40)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1496:28)
+    at async DevServer.renderPageComponent (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/kanittamac/web/expert/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  clientVersion: '5.22.0'
+}
+ GET /api/claims/cmp9vihy5000g130vt6kan1hv 500 in 738ms
+ ⨯ PrismaClientValidationError: 
+Invalid `prisma.claim.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmp9vihy5000g130vt6kan1hv"
+  },
+  include: {
+    insurance: {
+      select: {
+        id: true,
+        name: true,
+        branch: true,
+        taxId: true,
+        branchCode: true,
+        peakCustomerId: true
+      }
+    },
+    garage: {
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    },
+    parts: {
+      include: {
+        partMaster: {
+          select: {
+            id: true,
+            partNo: true,
+            partName: true,
+            standardPrice: true
+          }
+        }
+      }
+    },
+    labors: true,
+    purchaseOrders: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    supplierInvoices: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true,
+        apPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            amount: true
+          }
+        }
+      }
+    },
+    garageInvoices: {
+      include: {
+        garage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    insuranceInvoice: {
+      include: {
+        arPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            ~~~~~~
+            amount: true,
+?           insuranceInvoiceId?: true,
+?           paymentRequestId?: true,
+?           receivedAt?: true,
+?           method?: true,
+?           ref?: true,
+?           insuranceInvoice?: true,
+?           paymentRequest?: true
+          }
+        }
+      }
+    },
+    statusLogs: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 50
+    },
+    quotations: {
+      include: {
+        laborItems: true,
+        partItems: true
+      }
+    },
+    expenses: {
+      orderBy: {
+        createdAt: "desc"
+      }
+    },
+    documents: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 30
+    },
+    paymentRequests: {
+      include: {
+        supplierInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        garageInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            garage: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        insuranceInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true
+          }
+        },
+        billReceipt: true
+      }
+    }
+  }
+}
+
+Unknown field `paidAt` for select statement on model `ARPayment`. Available options are marked with ?.
+    at wn (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at $n.handleRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6958)
+    at $n.handleAndLogRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async GET (webpack-internal:///(rsc)/./src/app/api/claims/[id]/route.ts:11:19)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57228
+    at async eT.execute (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46851)
+    at async eT.handle (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58760)
+    at async doRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1366:42)
+    at async cacheEntry.responseCache.get.routeKind (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1576:40)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1496:28)
+    at async DevServer.renderPageComponent (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/kanittamac/web/expert/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  clientVersion: '5.22.0'
+}
+ GET /api/claims/cmp9vihy5000g130vt6kan1hv 500 in 6ms
+ GET /api/stats 200 in 785ms
+ GET /api/vendors 200 in 848ms
+ GET /api/parts-master?all=true 200 in 854ms
+ GET /api/stats 200 in 148ms
+ GET /api/parts-master?all=true 200 in 99ms
+ GET /api/vendors 200 in 110ms
+ ✓ Compiled /claims in 102ms (825 modules)
+ ✓ Compiled /api/insurances in 42ms (827 modules)
+ ✓ Compiled (829 modules)
+ GET /api/insurances 200 in 843ms
+ GET /api/insurances 200 in 156ms
+ GET /api/claims 200 in 1101ms
+ GET /api/claims 200 in 161ms
+ ⨯ PrismaClientValidationError: 
+Invalid `prisma.claim.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmp9tdool000f13lryax2psr0"
+  },
+  include: {
+    insurance: {
+      select: {
+        id: true,
+        name: true,
+        branch: true,
+        taxId: true,
+        branchCode: true,
+        peakCustomerId: true
+      }
+    },
+    garage: {
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    },
+    parts: {
+      include: {
+        partMaster: {
+          select: {
+            id: true,
+            partNo: true,
+            partName: true,
+            standardPrice: true
+          }
+        }
+      }
+    },
+    labors: true,
+    purchaseOrders: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    supplierInvoices: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true,
+        apPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            amount: true
+          }
+        }
+      }
+    },
+    garageInvoices: {
+      include: {
+        garage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    insuranceInvoice: {
+      include: {
+        arPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            ~~~~~~
+            amount: true,
+?           insuranceInvoiceId?: true,
+?           paymentRequestId?: true,
+?           receivedAt?: true,
+?           method?: true,
+?           ref?: true,
+?           insuranceInvoice?: true,
+?           paymentRequest?: true
+          }
+        }
+      }
+    },
+    statusLogs: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 50
+    },
+    quotations: {
+      include: {
+        laborItems: true,
+        partItems: true
+      }
+    },
+    expenses: {
+      orderBy: {
+        createdAt: "desc"
+      }
+    },
+    documents: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 30
+    },
+    paymentRequests: {
+      include: {
+        supplierInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        garageInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            garage: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        insuranceInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true
+          }
+        },
+        billReceipt: true
+      }
+    }
+  }
+}
+
+Unknown field `paidAt` for select statement on model `ARPayment`. Available options are marked with ?.
+    at wn (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at $n.handleRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6958)
+    at $n.handleAndLogRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async GET (webpack-internal:///(rsc)/./src/app/api/claims/[id]/route.ts:11:19)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57228
+    at async eT.execute (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46851)
+    at async eT.handle (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58760)
+    at async doRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1366:42)
+    at async cacheEntry.responseCache.get.routeKind (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1576:40)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1496:28)
+    at async DevServer.renderPageComponent (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/kanittamac/web/expert/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  clientVersion: '5.22.0'
+}
+ GET /api/claims/cmp9tdool000f13lryax2psr0 500 in 9ms
+ GET /api/parts-master?all=true 200 in 108ms
+ GET /api/vendors 200 in 110ms
+ GET /api/parts-master?all=true 200 in 103ms
+ GET /api/vendors 200 in 106ms
+ ⨯ PrismaClientValidationError: 
+Invalid `prisma.claim.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmp9tdool000f13lryax2psr0"
+  },
+  include: {
+    insurance: {
+      select: {
+        id: true,
+        name: true,
+        branch: true,
+        taxId: true,
+        branchCode: true,
+        peakCustomerId: true
+      }
+    },
+    garage: {
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    },
+    parts: {
+      include: {
+        partMaster: {
+          select: {
+            id: true,
+            partNo: true,
+            partName: true,
+            standardPrice: true
+          }
+        }
+      }
+    },
+    labors: true,
+    purchaseOrders: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    supplierInvoices: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true,
+        apPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            amount: true
+          }
+        }
+      }
+    },
+    garageInvoices: {
+      include: {
+        garage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    insuranceInvoice: {
+      include: {
+        arPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            ~~~~~~
+            amount: true,
+?           insuranceInvoiceId?: true,
+?           paymentRequestId?: true,
+?           receivedAt?: true,
+?           method?: true,
+?           ref?: true,
+?           insuranceInvoice?: true,
+?           paymentRequest?: true
+          }
+        }
+      }
+    },
+    statusLogs: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 50
+    },
+    quotations: {
+      include: {
+        laborItems: true,
+        partItems: true
+      }
+    },
+    expenses: {
+      orderBy: {
+        createdAt: "desc"
+      }
+    },
+    documents: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 30
+    },
+    paymentRequests: {
+      include: {
+        supplierInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        garageInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            garage: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        insuranceInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true
+          }
+        },
+        billReceipt: true
+      }
+    }
+  }
+}
+
+Unknown field `paidAt` for select statement on model `ARPayment`. Available options are marked with ?.
+    at wn (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at $n.handleRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6958)
+    at $n.handleAndLogRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async GET (webpack-internal:///(rsc)/./src/app/api/claims/[id]/route.ts:11:19)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57228
+    at async eT.execute (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46851)
+    at async eT.handle (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58760)
+    at async doRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1366:42)
+    at async cacheEntry.responseCache.get.routeKind (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1576:40)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1496:28)
+    at async DevServer.renderPageComponent (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/kanittamac/web/expert/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  clientVersion: '5.22.0'
+}
+ GET /api/claims/cmp9tdool000f13lryax2psr0 500 in 265ms
+ GET /api/insurances 200 in 312ms
+ GET /api/claims 200 in 323ms
+ GET /api/insurances 200 in 201ms
+ GET /api/claims 200 in 200ms
+ ⨯ PrismaClientValidationError: 
+Invalid `prisma.claim.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmp9tdool000f13lryax2psr0"
+  },
+  include: {
+    insurance: {
+      select: {
+        id: true,
+        name: true,
+        branch: true,
+        taxId: true,
+        branchCode: true,
+        peakCustomerId: true
+      }
+    },
+    garage: {
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    },
+    parts: {
+      include: {
+        partMaster: {
+          select: {
+            id: true,
+            partNo: true,
+            partName: true,
+            standardPrice: true
+          }
+        }
+      }
+    },
+    labors: true,
+    purchaseOrders: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    supplierInvoices: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true,
+        apPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            amount: true
+          }
+        }
+      }
+    },
+    garageInvoices: {
+      include: {
+        garage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    insuranceInvoice: {
+      include: {
+        arPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            ~~~~~~
+            amount: true,
+?           insuranceInvoiceId?: true,
+?           paymentRequestId?: true,
+?           receivedAt?: true,
+?           method?: true,
+?           ref?: true,
+?           insuranceInvoice?: true,
+?           paymentRequest?: true
+          }
+        }
+      }
+    },
+    statusLogs: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 50
+    },
+    quotations: {
+      include: {
+        laborItems: true,
+        partItems: true
+      }
+    },
+    expenses: {
+      orderBy: {
+        createdAt: "desc"
+      }
+    },
+    documents: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 30
+    },
+    paymentRequests: {
+      include: {
+        supplierInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        garageInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            garage: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        insuranceInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true
+          }
+        },
+        billReceipt: true
+      }
+    }
+  }
+}
+
+Unknown field `paidAt` for select statement on model `ARPayment`. Available options are marked with ?.
+    at wn (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at $n.handleRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6958)
+    at $n.handleAndLogRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async GET (webpack-internal:///(rsc)/./src/app/api/claims/[id]/route.ts:11:19)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57228
+    at async eT.execute (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46851)
+    at async eT.handle (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58760)
+    at async doRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1366:42)
+    at async cacheEntry.responseCache.get.routeKind (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1576:40)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1496:28)
+    at async DevServer.renderPageComponent (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/kanittamac/web/expert/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  clientVersion: '5.22.0'
+}
+ GET /api/claims/cmp9tdool000f13lryax2psr0 500 in 68ms
+ ⨯ PrismaClientValidationError: 
+Invalid `prisma.claim.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmp9tdool000f13lryax2psr0"
+  },
+  include: {
+    insurance: {
+      select: {
+        id: true,
+        name: true,
+        branch: true,
+        taxId: true,
+        branchCode: true,
+        peakCustomerId: true
+      }
+    },
+    garage: {
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    },
+    parts: {
+      include: {
+        partMaster: {
+          select: {
+            id: true,
+            partNo: true,
+            partName: true,
+            standardPrice: true
+          }
+        }
+      }
+    },
+    labors: true,
+    purchaseOrders: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    supplierInvoices: {
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true,
+        apPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            amount: true
+          }
+        }
+      }
+    },
+    garageInvoices: {
+      include: {
+        garage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        items: true
+      }
+    },
+    insuranceInvoice: {
+      include: {
+        arPayment: {
+          select: {
+            id: true,
+            paidAt: true,
+            ~~~~~~
+            amount: true,
+?           insuranceInvoiceId?: true,
+?           paymentRequestId?: true,
+?           receivedAt?: true,
+?           method?: true,
+?           ref?: true,
+?           insuranceInvoice?: true,
+?           paymentRequest?: true
+          }
+        }
+      }
+    },
+    statusLogs: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 50
+    },
+    quotations: {
+      include: {
+        laborItems: true,
+        partItems: true
+      }
+    },
+    expenses: {
+      orderBy: {
+        createdAt: "desc"
+      }
+    },
+    documents: {
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 30
+    },
+    paymentRequests: {
+      include: {
+        supplierInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        garageInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true,
+            garage: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        insuranceInvoice: {
+          select: {
+            id: true,
+            invoiceNo: true
+          }
+        },
+        billReceipt: true
+      }
+    }
+  }
+}
+
+Unknown field `paidAt` for select statement on model `ARPayment`. Available options are marked with ?.
+    at wn (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:29:1363)
+    at $n.handleRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6958)
+    at $n.handleAndLogRequestError (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:121:6307)
+    at async l (/Users/kanittamac/web/expert/node_modules/@prisma/client/runtime/library.js:130:9633)
+    at async GET (webpack-internal:///(rsc)/./src/app/api/claims/[id]/route.ts:11:19)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57228
+    at async eT.execute (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46851)
+    at async eT.handle (/Users/kanittamac/web/expert/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58760)
+    at async doRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1366:42)
+    at async cacheEntry.responseCache.get.routeKind (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1576:40)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1496:28)
+    at async DevServer.renderPageComponent (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:1962:32)
+    at async DevServer.pipeImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/base-server.js:818:17)
+    at async /Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+    at async Span.traceAsyncFn (/Users/kanittamac/web/expert/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:179:21)
+    at async handleRequest (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:359:24)
+    at async requestHandlerImpl (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/router-server.js:383:13)
+    at async Server.requestListener (/Users/kanittamac/web/expert/node_modules/next/dist/server/lib/start-server.js:141:13) {
+  clientVersion: '5.22.0'
+}
+ GET /api/claims/cmp9tdool000f13lryax2psr0 500 in 5ms
+ GET /api/vendors 200 in 117ms
+ GET /api/parts-master?all=true 200 in 117ms
+ GET /api/vendors 200 in 52ms
+ GET /api/parts-master?all=true 200 in 108ms
+ ✓ Compiled in 241ms (817 modules)
+ ✓ Compiled /api/insurances in 47ms (428 modules)
+ ✓ Compiled (430 modules)
+ GET /api/insurances 200 in 787ms
+ GET /api/insurances 200 in 216ms
+ GET /api/claims 200 in 1113ms
+ GET /api/claims 200 in 165ms
+ ✓ Compiled /api/parts-master in 40ms (432 modules)
+ ✓ Compiled (436 modules)
+ GET /api/vendors 200 in 538ms
+ GET /api/vendors 200 in 87ms
+ GET /api/parts-master?all=true 200 in 839ms
+ GET /api/parts-master?all=true 200 in 57ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 3154ms
+ ✓ Compiled /api/garages in 45ms (438 modules)
+ GET /api/garages 500 in 100ms
+ GET /api/garages 500 in 3ms
+ GET /api/insurances 200 in 698ms
+ GET /api/insurances 200 in 157ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 1330ms
+ ✓ Compiled /api/upload in 161ms (819 modules)
+ POST /api/upload 200 in 1193ms
+ ✓ Compiled /api/claims/[id]/documents in 67ms (821 modules)
+ POST /api/claims/cmp9tdool000f13lryax2psr0/documents 201 in 484ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 2517ms
+ ✓ Compiled /invoices in 120ms (824 modules)
+ ✓ Compiled /api/invoices in 48ms (826 modules)
+ GET /api/invoices 200 in 651ms
+ ✓ Compiled /api/claims in 44ms (828 modules)
+ GET /api/insurances 200 in 682ms
+ GET /api/insurances 200 in 185ms
+ GET /api/claims 200 in 1028ms
+ GET /api/invoices 200 in 1014ms
+ GET /api/claims 200 in 360ms
+ GET /api/invoices 200 in 167ms
+ GET /api/invoices 200 in 165ms
+ GET /api/claims 200 in 174ms
+ GET /api/insurances 200 in 358ms
+ GET /api/claims 200 in 231ms
+ GET /api/insurances 200 in 160ms
+ ✓ Compiled /api/dashboard in 110ms (434 modules)
+ GET /api/dashboard 200 in 1288ms
+ GET /api/dashboard 200 in 441ms
+ ✓ Compiled in 879ms (847 modules)
+ ✓ Compiled /settings in 271ms (404 modules)
+ ✓ Compiled /api/settings/company in 39ms (434 modules)
+ ✓ Compiled (440 modules)
+ GET /api/settings/company 200 in 512ms
+ GET /api/settings/company 200 in 55ms
+ GET /api/settings/sequences 200 in 769ms
+ GET /api/insurances?simple=true 200 in 780ms
+ GET /api/vendors 200 in 782ms
+ GET /api/settings/sequences 200 in 116ms
+ GET /api/insurances?simple=true 200 in 162ms
+ GET /api/vendors 200 in 163ms
+ ✓ Compiled /api/upload in 176ms (816 modules)
+ POST /api/upload 200 in 1233ms
+ PUT /api/settings/company 200 in 597ms
+ ✓ Compiled /api/claims in 64ms (818 modules)
+ GET /api/insurances 200 in 729ms
+ GET /api/insurances 200 in 211ms
+ GET /api/claims 200 in 1041ms
+ GET /api/claims 200 in 168ms
+ ✓ Compiled /api/parts-master in 73ms (820 modules)
+ ✓ Compiled (822 modules)
+ GET /api/vendors 200 in 550ms
+ GET /api/vendors 200 in 56ms
+ GET /api/parts-master?all=true 200 in 826ms
+ GET /api/parts-master?all=true 200 in 60ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 3266ms
+ ✓ Compiled /_not-found in 189ms (1230 modules)
+ GET /api/garages 404 in 231ms
+ GET /api/garages 404 in 12ms
+ GET /api/insurances 200 in 367ms
+ GET /api/insurances 200 in 626ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 1241ms
+ GET /claims/cmp9tdool000f13lryax2psr0/pdf/purchase-order?poId=cmp9w1h0f001f130vdvpooebr 200 in 25ms
+ GET /api/settings/company 200 in 107ms
+ GET /api/settings/company 200 in 52ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 2802ms
+ GET /api/claims/cmp9tdool000f13lryax2psr0 200 in 1322ms
+ ✓ Compiled in 233ms (861 modules)
+ ✓ Compiled /invoices in 90ms (404 modules)
+ ✓ Compiled /api/invoices in 34ms (434 modules)
+ GET /api/invoices 200 in 695ms
+ ✓ Compiled /api/insurances in 33ms (436 modules)
+ ✓ Compiled (438 modules)
+ GET /api/invoices 200 in 151ms
+ GET /api/insurances 200 in 808ms
+ GET /api/insurances 200 in 156ms
+ GET /api/claims 200 in 1063ms
+ GET /api/claims 200 in 214ms
+ ✓ Compiled /insurances in 85ms (443 modules)
+ GET /api/insurances 200 in 612ms
+ GET /api/insurances 200 in 213ms
+ ✓ Compiled /vendors in 102ms (448 modules)
+ ✓ Compiled /api/vendors in 35ms (450 modules)
+ GET /api/vendors 200 in 430ms
+ GET /api/vendors 200 in 55ms
+ ✓ Compiled /parts-master in 82ms (458 modules)
+ ✓ Compiled /api/parts-master in 35ms (460 modules)
+ GET /api/parts-master?page=1&limit=50 200 in 885ms
+ GET /api/parts-master?page=1&limit=50 200 in 210ms
+ GET /api/claims 200 in 343ms
+ GET /api/insurances 200 in 362ms
+ GET /api/claims 200 in 159ms
+ GET /api/insurances 200 in 144ms
+ GET /api/invoices 200 in 375ms
+ GET /api/invoices 200 in 147ms
+ ✓ Compiled /api/settings/company in 73ms (456 modules)
+ ✓ Compiled (458 modules)
+ GET /api/insurances?simple=true 200 in 493ms
+ GET /api/insurances?simple=true 200 in 110ms
+ GET /api/settings/sequences 200 in 808ms
+ GET /api/vendors 200 in 812ms
+ GET /api/settings/company 200 in 814ms
+ GET /api/vendors 200 in 56ms
+ GET /api/settings/sequences 200 in 105ms
+ GET /api/settings/company 200 in 108ms
+ PUT /api/settings/company 200 in 160ms
+ GET /api/invoices 200 in 395ms
+ GET /api/invoices 200 in 158ms
+ ✓ Compiled /reports in 108ms (465 modules)
+ ✓ Compiled /api/reports in 52ms (467 modules)
+ GET /api/vendors 200 in 506ms
+ GET /api/vendors 200 in 55ms
+ GET /api/insurances 200 in 689ms
+ GET /api/insurances 200 in 287ms
+ GET /api/reports?dateFrom=2026-02-17&dateTo=2026-05-17 200 in 2411ms
+ GET /api/reports?dateFrom=2026-02-17&dateTo=2026-05-17 200 in 1090ms
+ ✓ Compiled in 162ms (796 modules)
+ ✓ Compiled in 177ms (796 modules)
+ ✓ Compiled /api/reports in 59ms (407 modules)
+ ✓ Compiled in 0ms (407 modules)
+ ✓ Compiled in 0ms (407 modules)
+ ✓ Compiled in 1ms (407 modules)
+ ✓ Compiled in 1ms (407 modules)
+ GET /api/reports?dateFrom=2026-02-17&dateTo=2026-05-17 200 in 2440ms
+[?25h
