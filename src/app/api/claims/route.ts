@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
   // Ensure insurance and garage exist
   const defaultInsurance = await prisma.insurance.findFirst()
-  const defaultGarage = await prisma.garage.findFirst()
+  const defaultGarage = await prisma.vendor.findFirst({ where: { vendorType: 'GARAGE' } })
 
   try {
     const newClaim = await prisma.claim.create({
