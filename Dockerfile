@@ -25,6 +25,9 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN apk add --no-cache openssl
 
+# Dummy DATABASE_URL for build-time Prisma initialization (not used at runtime)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
 RUN npm run build
 
 # Production image, copy all the files and run next
