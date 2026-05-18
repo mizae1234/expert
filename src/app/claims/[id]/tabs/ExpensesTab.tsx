@@ -58,7 +58,7 @@ export default function ExpensesTab({ claim, showToast, setErrorModalMsg, refres
     try {
       let receiptUrl = null
       if (receiptFile) {
-        receiptUrl = await uploadToR2(receiptFile)
+        receiptUrl = await uploadToR2(receiptFile, 'claim-expenses')
       }
       const res = await fetch(`/api/claims/${claim.id}/expenses`, {
         method: 'POST',

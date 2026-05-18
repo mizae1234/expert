@@ -36,6 +36,7 @@ export async function GET() {
         },
         include: {
           claim: { select: { claimNo: true } },
+          garage: { select: { name: true } },
           paymentRequests: true
         },
         orderBy: { createdAt: 'desc' }
@@ -67,7 +68,7 @@ export async function GET() {
           id: inv.id,
           invoiceNo: inv.invoiceNo,
           claimNo: inv.claim.claimNo,
-          vendorName: inv.garageName || 'อู่ซ่อม',
+          vendorName: inv.garage?.name || 'อู่ซ่อม',
           invoiceDate: inv.createdAt,
           totalAmount: inv.totalAmount,
           isSynced: false,

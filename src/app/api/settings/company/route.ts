@@ -10,7 +10,8 @@ export async function GET() {
           name: 'บริษัท เดโม่ จำกัด',
           taxId: '0000000000000',
           branchCode: '00000',
-          branchName: 'สำนักงานใหญ่'
+          branchName: 'สำนักงานใหญ่',
+          address: '-',
         }
       })
     }

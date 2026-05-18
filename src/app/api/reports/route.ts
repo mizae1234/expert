@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
         amount: inv.totalAmount
       })),
       ...garageInvoices.map(inv => ({
-        vendor: inv.garage?.name || inv.garageName || 'อู่ซ่อม',
+        vendor: inv.garage?.name || 'อู่ซ่อม',
         vendorId: inv.garageId || '',
         type: 'ค่าแรง',
         invoiceNo: inv.invoiceNo || '-',

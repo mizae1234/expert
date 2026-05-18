@@ -1112,7 +1112,7 @@ export default function ClaimDetailPage() {
                       {(() => {
                         const allInvoices = [
                           ...supplierInvoices.map((si: any) => ({ ...si, _type: 'SUPPLIER', name: si.vendor?.name || 'Vendor' })),
-                          ...garageInvoices.map((gi: any) => ({ ...gi, _type: 'GARAGE', name: gi.garageName || 'อู่' }))
+                          ...garageInvoices.map((gi: any) => ({ ...gi, _type: 'GARAGE', name: gi.garage?.name || 'อู่' }))
                         ].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
 
                         if (allInvoices.length === 0) {
