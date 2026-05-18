@@ -13,4 +13,11 @@ services:
       - R2_PUBLIC_URL=${R2_PUBLIC_URL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DATABASE_URL=${DATABASE_URL}
+    networks:
+      - postgres-network
     restart: always
+
+networks:
+  postgres-network:
+    external: true
+    name: postgres-server_default
