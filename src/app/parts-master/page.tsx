@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Search, Plus, Filter, Package, AlertTriangle, ArrowRight, History, Settings2 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { PartMaster } from '@/lib/types'
+import { SkeletonTableRows } from '@/components/ui/skeleton'
 
 export default function PartsMasterPage() {
   const [search, setSearch] = useState('')
@@ -143,9 +144,7 @@ export default function PartsMasterPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={8} className="p-8 text-center text-[#94a3b8]">กำลังโหลดข้อมูล...</td>
-                  </tr>
+                  <SkeletonTableRows rows={10} cols={8} />
                 ) : filteredParts.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="p-8 text-center text-[#94a3b8]">ไม่พบข้อมูลอะไหล่ที่ค้นหา</td>

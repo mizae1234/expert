@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Eye, Package, Wrench, X } from 'lucide-react'
+import { SkeletonTableRows } from '@/components/ui/skeleton'
 
 export default function VendorsPage() {
   const [search, setSearch] = useState('')
@@ -83,7 +84,9 @@ export default function VendorsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {partsVendors.map(v => (
+                  {loading ? (
+                    <SkeletonTableRows rows={6} cols={8} />
+                  ) : partsVendors.map(v => (
                     <TableRow key={v.id}>
                       <TableCell className="font-semibold">{v.name}</TableCell>
                       <TableCell className="font-mono text-xs">{v.taxId}</TableCell>
@@ -126,7 +129,9 @@ export default function VendorsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {garageVendors.map(v => (
+                  {loading ? (
+                    <SkeletonTableRows rows={6} cols={8} />
+                  ) : garageVendors.map(v => (
                     <TableRow key={v.id}>
                       <TableCell className="font-semibold">{v.name}</TableCell>
                       <TableCell className="font-mono text-xs">{v.taxId}</TableCell>

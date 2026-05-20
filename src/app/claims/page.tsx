@@ -12,6 +12,7 @@ import { Plus, Search, Filter, Eye, MoreHorizontal, AlertTriangle, FileText } fr
 import { getStatusColor, getStatusLabel, formatCurrency } from '@/lib/utils'
 import { formatDate } from '@/lib/date'
 import { ClaimStatus } from '@/lib/types'
+import { Skeleton, SkeletonStatusPill, SkeletonTableRows } from '@/components/ui/skeleton'
 
 const statuses: ClaimStatus[] = ['RECEIVED', 'PARTS_CHECK', 'PO_ISSUED', 'GOODS_RECEIVED', 'INVOICE_SENT', 'AP_PAID', 'AR_RECEIVED', 'CLOSED', 'CANCELLED']
 
@@ -80,7 +81,9 @@ export default function ClaimsPage() {
 
       {/* Status Summary */}
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 gap-2">
-        {statuses.map(status => {
+        {loading ? (
+          Array.from({ length: 9 }).map((_, i) => <SkeletonStatusPill key={i} />)
+        ) : statuses.map(status => {
           const count = claims.filter(c => c.status === status).length
           const { bg, text } = getStatusColor(status)
           const isActive = statusFilter === status
@@ -145,7 +148,9 @@ export default function ClaimsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedClaims.map(claim => {
+              {loading ? (
+                <SkeletonTableRows rows={8} cols={7} />
+              ) : paginatedClaims.map(claim => {
                 const { bg, text } = getStatusColor(claim.status)
                 const hasReturnParts = claim.parts?.some((p: any) => p.requireReturn)
                 return (

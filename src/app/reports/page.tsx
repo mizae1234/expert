@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select'
 import { TrendingUp, Clock, Users, BarChart3, Download, Search, Filter, FileSpreadsheet } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { formatDate } from '@/lib/date'
+import { Skeleton, SkeletonTableRows } from '@/components/ui/skeleton'
 
 export default function ReportsPage() {
   const [data, setData] = useState<{ pnlByMonth: any[], arAging: any[], apOutstanding: any[], vendorPerf: any[], incomeExpense: any[] } | null>(null)
@@ -204,7 +205,21 @@ export default function ReportsPage() {
       </Card>
 
       {loading ? (
-        <div className="p-8 text-center text-[#94a3b8]">กำลังโหลดรายงาน...</div>
+        <Card>
+          <CardHeader className="pb-2"><Skeleton className="h-5 w-48" /></CardHeader>
+          <CardContent className="space-y-6">
+            {/* Fake bar chart */}
+            <div className="flex items-end justify-center gap-4 h-36 mb-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <Skeleton className="w-5 rounded-t" style={{ height: `${40 + Math.random() * 60}px` }} />
+                  <Skeleton className="h-2.5 w-10" />
+                </div>
+              ))}
+            </div>
+            <SkeletonTableRows rows={6} cols={6} />
+          </CardContent>
+        </Card>
       ) : (!data || (data as any).error) ? (
         <div className="p-8 text-center text-red-500">ไม่สามารถโหลดข้อมูลได้: {(data as any)?.error || 'ข้อผิดพลาดไม่ทราบสาเหตุ'}</div>
       ) : (

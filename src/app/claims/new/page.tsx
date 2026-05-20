@@ -133,6 +133,43 @@ export default function NewClaimPage() {
   }
 
   // AI extraction
+  // Compress image before sending to API
+  // Only limit WIDTH (max 2048px) — preserve height fully so tall screenshots stay readable
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      // PDF — no compression
+      if (file.type === 'application/pdf') {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+        return
+      }
+
+      const img = new Image()
+      const objectUrl = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl)
+        const MAX_WIDTH = 2048 // only limit width, never squish height
+        let { width, height } = img
+        if (width > MAX_WIDTH) {
+          height = Math.round(height * MAX_WIDTH / width)
+          width = MAX_WIDTH
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        const compressed = canvas.toDataURL('image/jpeg', 0.88)
+        console.log(`[compress] ${file.name}: ${(file.size/1024/1024).toFixed(2)}MB → ~${(compressed.length*0.75/1024/1024).toFixed(2)}MB, ${width}x${height}px`)
+        resolve(compressed)
+      }
+      img.onerror = reject
+      img.src = objectUrl
+    })
+  }
+
   const handleExtract = useCallback(async (file: File) => {
     setStep('processing')
     setProcessingStep(0)
@@ -142,24 +179,23 @@ export default function NewClaimPage() {
     }, 2000)
 
     try {
-      const base64data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => resolve(reader.result as string)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
+      // Compress image before sending
+      const base64data = await compressImage(file)
+      const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg'
 
       const res = await fetch('/api/ai/extract-claim', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: base64data, mimeType: file.type }) 
+        body: JSON.stringify({ file: base64data, mimeType }) 
       })
 
       const result = await res.json()
       clearInterval(progressInterval)
 
       if (!res.ok || result.error) {
-        showToast('❌ AI ดึงข้อมูลไม่สำเร็จ: ' + (result.error || 'Unknown error'))
+        const errMsg = result.error || `HTTP ${res.status}`
+        console.error('[AI extract] error:', errMsg)
+        showToast('❌ AI อ่านไม่สำเร็จ: ' + errMsg)
         setStep('upload')
         return
       }
@@ -169,13 +205,14 @@ export default function NewClaimPage() {
         setData(result)
         setStep('form')
       }, 500)
-    } catch (err) {
+    } catch (err: any) {
       clearInterval(progressInterval)
       console.error('Extract error:', err)
-      showToast('❌ เกิดข้อผิดพลาดในการเชื่อมต่อ AI กรุณาลองใหม่')
+      showToast('❌ เกิดข้อผิดพลาด: ' + (err?.message || 'ไม่สามารถเชื่อมต่อ AI ได้'))
       setStep('upload')
     }
   }, [])
+
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

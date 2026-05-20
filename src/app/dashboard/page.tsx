@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FileText, Clock, DollarSign, TrendingUp, ArrowUpRight, ArrowRight } from 'lucide-react'
 import { formatCurrency, getStatusColor, getStatusLabel, formatDate } from '@/lib/utils'
 import { DashboardSummary, ClaimsByStatus, RevenueByInsurance } from '@/lib/types'
+import { Skeleton, SkeletonKPICard, SkeletonBarRow, SkeletonRevenueRow, SkeletonTableRows } from '@/components/ui/skeleton'
 import Link from 'next/link'
 
 const COLORS = ['#1d4ed8', '#3b82f6', '#60a5fa', '#93bbfd', '#bfdbfe', '#dbeafe', '#2563eb', '#1e40af']
@@ -16,6 +17,7 @@ export default function DashboardPage() {
   const [byStatus, setByStatus] = useState<ClaimsByStatus[]>([])
   const [byInsurance, setByInsurance] = useState<RevenueByInsurance[]>([])
   const [recentClaims, setRecentClaims] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetch('/api/dashboard').then(res => res.json()).then(data => {
@@ -23,18 +25,67 @@ export default function DashboardPage() {
       setByStatus(data.byStatus)
       setByInsurance(data.byInsurance)
       setRecentClaims(data.recentClaims)
+      setLoading(false)
     }).catch(err => {
       console.error(err)
+      setLoading(false)
     })
   }, [])
 
-  if (!summary) return <div className="flex items-center justify-center h-64"><div className="animate-pulse-soft text-[#94a3b8]">กำลังโหลด...</div></div>
+  if (loading) return (
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-7 w-32 mb-2" />
+        <Skeleton className="h-4 w-48" />
+      </div>
+      {/* KPI skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => <SkeletonKPICard key={i} />)}
+      </div>
+      {/* Charts skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-2"><Skeleton className="h-5 w-32" /></CardHeader>
+          <CardContent className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => <SkeletonBarRow key={i} />)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><Skeleton className="h-5 w-32" /></CardHeader>
+          <CardContent className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonRevenueRow key={i} />)}
+          </CardContent>
+        </Card>
+      </div>
+      {/* Table skeleton */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-4 w-16" />
+        </CardHeader>
+        <CardContent>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-[#f1f5f9]">
+                {['Claim No.', 'ทะเบียน', 'บ.ประกัน', 'อู่', 'วันที่', 'Status'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs text-[#94a3b8]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <SkeletonTableRows rows={5} cols={6} />
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  )
 
   const kpis = [
-    { label: 'Claim ทั้งหมด', value: summary.totalClaims, icon: FileText, color: 'from-blue-500 to-blue-600', change: '+12%' },
-    { label: 'รอดำเนินการ', value: summary.pendingClaims, icon: Clock, color: 'from-amber-500 to-orange-500', change: '-3%' },
-    { label: 'รายได้รวม', value: `฿${formatCurrency(summary.totalRevenue)}`, icon: DollarSign, color: 'from-emerald-500 to-green-600', change: '+8%' },
-    { label: 'Margin เฉลี่ย', value: `${summary.avgMargin.toFixed(1)}%`, icon: TrendingUp, color: 'from-violet-500 to-purple-600', change: '+2%' },
+    { label: 'Claim ทั้งหมด', value: summary!.totalClaims, icon: FileText, color: 'from-blue-500 to-blue-600', change: '+12%' },
+    { label: 'รอดำเนินการ', value: summary!.pendingClaims, icon: Clock, color: 'from-amber-500 to-orange-500', change: '-3%' },
+    { label: 'รายได้รวม', value: `฿${formatCurrency(summary!.totalRevenue)}`, icon: DollarSign, color: 'from-emerald-500 to-green-600', change: '+8%' },
+    { label: 'Margin เฉลี่ย', value: `${summary!.avgMargin.toFixed(1)}%`, icon: TrendingUp, color: 'from-violet-500 to-purple-600', change: '+2%' },
   ]
 
   const maxStatusCount = Math.max(...byStatus.map(s => s.count), 1)
