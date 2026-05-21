@@ -14,6 +14,16 @@ const PEAK_CONFIG = {
   PAYMENT_CHANNEL_TRANSFER: 'โอนเงิน',
 }
 
+function buildRemark(claim: any): string {
+  const parts = [
+    claim.claimNo,
+    [claim.carBrand, claim.carModel].filter(Boolean).join(' '),
+    claim.carColor || '',
+    claim.carPlate,
+  ].filter(Boolean)
+  return parts.join('|')
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -36,6 +46,7 @@ export async function GET(
 
     const insurance = claim.insurance
     const conf = PEAK_CONFIG
+    const remark = buildRemark(claim)
 
     // ==============================
     // Template 1: AR Invoice (ตั้งลูกหนี้)
@@ -65,6 +76,7 @@ export async function GET(
             จำนวน: 1,
             'ราคา/หน่วย': inv.laborTotal,
             อัตราภาษี: '7%',
+            หมายเหตุ: remark,
           },
           {
             ลำดับที่: 1,
@@ -78,6 +90,7 @@ export async function GET(
             จำนวน: 1,
             'ราคา/หน่วย': inv.partsTotal,
             อัตราภาษี: '7%',
+            หมายเหตุ: remark,
           },
         ],
       })
@@ -103,7 +116,7 @@ export async function GET(
             ออกใบกำกับภาษี: insurance?.isVatRegistered ? 1 : 2,
             รับชำระโดย: conf.PAYMENT_CHANNEL_TRANSFER,
             จำนวนเงินที่รับชำระ: arPayment.amount,
-            หมายเหตุ: claim.claimNo,
+            หมายเหตุ: remark,
           },
         ],
       })
@@ -139,7 +152,7 @@ export async function GET(
           ชำระโดย: '',
           จำนวนเงินที่ชำระ: 0,
           'ภ.ง.ด.': vendor?.whtType || '53',
-          หมายเหตุ: si.invoiceNo,
+          หมายเหตุ: remark,
         })
       }
 
@@ -166,7 +179,7 @@ export async function GET(
           ชำระโดย: '',
           จำนวนเงินที่ชำระ: 0,
           'ภ.ง.ด.': garage?.whtType || '53',
-          หมายเหตุ: gi.invoiceNo,
+          หมายเหตุ: remark,
         })
       }
 
@@ -211,7 +224,7 @@ export async function GET(
           ชำระโดย: conf.PAYMENT_CHANNEL_TRANSFER,
           จำนวนเงินที่ชำระ: apPayment.amount - (apPayment.whtAmount || 0),
           'ภ.ง.ด.': vendor?.whtType || '53',
-          หมายเหตุ: si.invoiceNo,
+          หมายเหตุ: remark,
         })
       }
 

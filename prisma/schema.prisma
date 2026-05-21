@@ -21,6 +21,7 @@ model Claim {
   carBrand         String
   carModel         String
   carVin           String
+  carColor         String?
   province         String
   insuredName      String
   status           ClaimStatus       @default(RECEIVED)
@@ -385,6 +386,7 @@ model Vendor {
   branchCode       String            @default("00000")
   peakVendorCode   String?
   isVatRegistered  Boolean           @default(true)
+  billingPct       Float             @default(100)
   whtType          String            @default("53")
   whtRate          Float             @default(0)
   PartVendorPrice  PartVendorPrice[]

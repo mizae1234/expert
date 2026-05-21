@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
         whtType: body.whtType,
         whtRate: Number(body.whtRate) || 0,
         isVatRegistered: Boolean(body.isVatRegistered),
+        billingPct: Number(body.billingPct) || 100,
         paymentTerms: body.paymentTerms || 30
       }
     })

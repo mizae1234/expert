@@ -9,7 +9,8 @@ export async function PUT(
     const body = await request.json()
     
     const subtotal = (body.items || []).reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0)
-    const totalAmount = subtotal + Math.round(subtotal * 0.07)
+    const vatPct = body.includeVat !== false ? (body.vatPct ?? 7) : 0
+    const totalAmount = subtotal + Math.round(subtotal * (vatPct / 100))
     
     // First, delete existing items (if Prisma requires it when we completely replace items)
     // Or we can use deleteMany + create in the update

@@ -36,9 +36,10 @@ export async function POST(
       poNo = `PO-${year}-${String(count + 1).padStart(6, '0')}`
     }
 
-    // Calculate total
+    // Calculate total with configurable VAT
     const subtotal = (body.items || []).reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0)
-    const totalAmount = subtotal + Math.round(subtotal * 0.07)
+    const vatPct = body.includeVat !== false ? (body.vatPct ?? 7) : 0
+    const totalAmount = subtotal + Math.round(subtotal * (vatPct / 100))
     
     const newPO = await prisma.purchaseOrder.create({
       data: {

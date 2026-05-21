@@ -112,6 +112,14 @@ export default function VendorDetailPage() {
                 <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.paymentTerms || 30} onChange={e => setVendor({...vendor, paymentTerms: Number(e.target.value)})} />
               </div>
               <div>
+                <label className="text-xs text-[#94a3b8] font-medium">% วางบิล (Billing %)</label>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <input type="number" className="w-full p-2 text-sm border rounded-md" value={vendor.billingPct ?? 100} onChange={e => setVendor({...vendor, billingPct: Number(e.target.value)})} min={0} max={100} step={0.1} />
+                  <span className="text-sm text-gray-500">%</span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">% ของยอดอนุมัติที่ vendor จะมาวางบิลจริง (default 100%)</p>
+              </div>
+              <div>
                 <label className="text-xs text-[#94a3b8] font-medium">เบอร์โทรศัพท์</label>
                 <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.phone || ''} onChange={e => setVendor({...vendor, phone: e.target.value})} />
               </div>

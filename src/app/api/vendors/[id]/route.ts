@@ -32,6 +32,7 @@ export async function PUT(
         peakVendorCode: body.peakVendorCode,
         whtType: body.whtType,
         whtRate: Number(body.whtRate) || 0,
+        billingPct: body.billingPct !== undefined ? Number(body.billingPct) : undefined,
         isVatRegistered: String(body.isVatRegistered) === 'true'
       }
     })

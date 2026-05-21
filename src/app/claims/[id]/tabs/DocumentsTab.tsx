@@ -85,8 +85,11 @@ export default function DocumentsTab({ claim, showToast, setErrorModalMsg, setCo
 
   const handlePreview = (doc: any) => {
     // PDF and images can be previewed inline; other types open in new tab
-    if (doc.fileType === 'pdf' || doc.fileType === 'image') {
-      setPreviewDoc({ fileName: doc.fileName, fileUrl: doc.fileUrl, fileType: doc.fileType })
+    const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.fileUrl?.toLowerCase().includes('.pdf') || doc.fileType === 'pdf'
+    const isImage = !!(doc.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) || doc.fileUrl?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)/i) || doc.fileType === 'image')
+    
+    if (isPdf || isImage) {
+      setPreviewDoc({ fileName: doc.fileName, fileUrl: doc.fileUrl, fileType: isPdf ? 'pdf' : 'image' })
     } else {
       window.open(doc.fileUrl)
     }
@@ -199,16 +202,20 @@ export default function DocumentsTab({ claim, showToast, setErrorModalMsg, setCo
           ) : (
             <div className="space-y-4">
               {documents.map((doc: any, i: number) => {
-                const IconComp = FILE_ICONS[doc.fileType] || File
-                const isPdf = doc.fileType === 'pdf'
-                const isImage = doc.fileType === 'image'
+                const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.fileUrl?.toLowerCase().includes('.pdf') || doc.fileType === 'pdf'
+                const isImage = !!(doc.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) || doc.fileUrl?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)/i) || doc.fileType === 'image')
+                const isExcel = !!(doc.fileName?.toLowerCase().match(/\.(xls|xlsx)$/i) || doc.fileUrl?.toLowerCase().match(/\.(xls|xlsx)/i) || doc.fileType === 'excel' || doc.fileType === 'xls' || doc.fileType === 'xlsx')
+                
+                const IconComp = isPdf ? FileText : isImage ? Image : FileText
+                const iconBgClass = isPdf ? 'bg-red-50' : isImage ? 'bg-blue-50' : isExcel ? 'bg-green-50' : 'bg-gray-50'
+                const iconColorClass = isPdf ? 'text-red-500' : isImage ? 'text-blue-500' : isExcel ? 'text-green-600' : 'text-gray-500'
                 return (
                   <div key={doc.id} className="bg-[#f8faff] rounded-lg border border-gray-100 overflow-hidden">
                     {/* Header */}
                     <div className="flex items-center justify-between p-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded flex items-center justify-center ${isPdf ? 'bg-red-50' : isImage ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                          <IconComp className={`w-4 h-4 ${isPdf ? 'text-red-500' : isImage ? 'text-blue-500' : 'text-[#1d4ed8]'}`} />
+                        <div className={`w-8 h-8 rounded flex items-center justify-center ${iconBgClass}`}>
+                          <IconComp className={`w-4 h-4 ${iconColorClass}`} />
                         </div>
                         <div>
                           <p className="text-sm font-medium text-[#0f172a]">{doc.fileName}</p>
@@ -228,14 +235,24 @@ export default function DocumentsTab({ claim, showToast, setErrorModalMsg, setCo
                       </div>
                     </div>
                     {/* Inline Preview */}
-                    {isPdf && (
+                    {isPdf && doc.fileUrl && (
                       <div className="px-3 pb-3">
                         <iframe src={doc.fileUrl} className="w-full rounded-lg border border-gray-200 bg-white" style={{ height: '500px' }} title={doc.fileName} />
                       </div>
                     )}
-                    {isImage && (
+                    {isImage && doc.fileUrl && (
                       <div className="px-3 pb-3">
                         <img src={doc.fileUrl} alt={doc.fileName} className="w-full rounded-lg border border-gray-200 object-contain max-h-[500px] bg-white" />
+                      </div>
+                    )}
+                    {isExcel && doc.fileUrl && (
+                      <div className="px-3 pb-3">
+                        <div className="p-3 bg-green-50 border border-green-100 rounded-lg flex items-center justify-between">
+                          <span className="text-xs text-green-700 font-medium">ไฟล์ Excel (ดาวน์โหลดเพื่อเปิดดู)</span>
+                          <Button size="sm" className="h-7 bg-green-600 hover:bg-green-700 text-xs text-white" onClick={() => window.open(doc.fileUrl, '_blank')}>
+                            <Download className="w-3 h-3 mr-1" />ดาวน์โหลด Excel
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>

@@ -114,6 +114,7 @@ export default function ClaimDetailPage() {
   const [uploadedFile, setUploadedFile] = useState<{ name: string, url: string, type: string, file?: File } | null>(null)
   const [uploadedGarageFile, setUploadedGarageFile] = useState<{ name: string, url: string, type: string, file?: File } | null>(null)
   const [uploadMapSelections, setUploadMapSelections] = useState<Record<string, boolean>>({})
+  const [uploadItemPrices, setUploadItemPrices] = useState<Record<string, number>>({})
   const [customInvoiceNo, setCustomInvoiceNo] = useState('')
   const [garageUploadSelections, setGarageUploadSelections] = useState<Record<string, boolean>>({})
   const [showCreatePRModal, setShowCreatePRModal] = useState(false)
@@ -133,6 +134,9 @@ export default function ClaimDetailPage() {
   const [poVendorId, setPoVendorId] = useState<string>('')
   const [poVendorName, setPoVendorName] = useState<string>('')
   const [poDeliveryAddress, setPoDeliveryAddress] = useState<string>('')
+  const [poManualItems, setPoManualItems] = useState<{ id: string; description: string; quantity: number; unitPrice: number }[]>([])
+  const [poIncludeVat, setPoIncludeVat] = useState(true)
+  const [poVatPct, setPoVatPct] = useState(7)
   
   const [qtParts, setQtParts] = useState<any[]>([])
   const [qtLabors, setQtLabors] = useState<any[]>([])
@@ -212,7 +216,7 @@ export default function ClaimDetailPage() {
   const submitCreatePO = async () => {
     const selectedParts = poModalParts.filter(p => p.selected)
     const selectedLabors = poModalLabors.filter(l => l.selected)
-    if (selectedParts.length === 0 && selectedLabors.length === 0) { showToast('กรุณาเลือกรายการอย่างน้อย 1 รายการ'); return }
+    if (selectedParts.length === 0 && selectedLabors.length === 0 && poManualItems.length === 0) { showToast('กรุณาเลือกรายการอย่างน้อย 1 รายการ'); return }
     const poNo = editPOId ? purchaseOrders.find(p => p.id === editPOId)?.poNo : undefined // let server generate
     
     const partItems = selectedParts.map(p => ({
@@ -229,12 +233,21 @@ export default function ClaimDetailPage() {
       unitPrice: Number(l.priceApprove) || 0,
       totalPrice: Number(l.priceApprove) || 0
     }))
+    const manualItems = poManualItems.filter(m => m.description.trim()).map(m => ({
+      partNo: '',
+      description: m.description,
+      quantity: Number(m.quantity) || 1,
+      unitPrice: Number(m.unitPrice) || 0,
+      totalPrice: (Number(m.unitPrice) || 0) * (Number(m.quantity) || 1)
+    }))
 
     const payload = {
       poNo,
       vendorId: poVendorId,
       deliveryAddress: poDeliveryAddress,
-      items: [...partItems, ...laborItems]
+      includeVat: poIncludeVat,
+      vatPct: poIncludeVat ? poVatPct : 0,
+      items: [...partItems, ...laborItems, ...manualItems]
     }
 
     try {
@@ -879,6 +892,9 @@ export default function ClaimDetailPage() {
                 setPoDeliveryAddress(claim.garage?.name ? `${claim.garage.name}\n${claim.garage.address || ''} ${claim.garage.province || ''}`.trim() : '')
                 setPoModalParts(parts.map(p => ({ ...p, selected: p.status === 'approved' })))
                 setPoModalLabors(labors.map(l => ({ ...l, selected: false })))
+                setPoManualItems([])
+                setPoIncludeVat(true)
+                setPoVatPct(7)
                 setShowCreatePOModal(true)
               }}>
                 <Plus className="w-4 h-4 mr-1" />สร้าง PO
@@ -929,6 +945,9 @@ export default function ClaimDetailPage() {
                                     }
                                     return { ...l, selected: false }
                                   }))
+                                  setPoManualItems([])
+                                  setPoIncludeVat(true)
+                                  setPoVatPct(7)
                                   setShowCreatePOModal(true)
                                 }}>
                                   <Edit2 className="w-3.5 h-3.5" />
@@ -1032,9 +1051,10 @@ export default function ClaimDetailPage() {
                   <CardTitle className="text-base">รายการอะไหล่และค่าแรง</CardTitle>
                   <Button variant="outline" size="sm" onClick={() => {
                     const sel: Record<string, boolean> = {}
-                    parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').forEach(p => { sel[p.id] = true })
-                    labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').forEach(l => { sel[l.id] = true })
-                    setUploadMapSelections(sel); setShowUploadModal(true)
+                    const prices: Record<string, number> = {}
+                    parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').forEach(p => { sel[p.id] = true; prices[p.id] = getPartAmt(p) })
+                    labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').forEach(l => { sel[l.id] = true; prices[l.id] = getLaborAmt(l) })
+                    setUploadMapSelections(sel); setUploadItemPrices(prices); setShowUploadModal(true)
                   }}><Upload className="w-4 h-4 mr-1" />อัพโหลด Invoice</Button>
                 </CardHeader><CardContent>
                   <Table><TableHeader><TableRow className="bg-[#f8faff]">
@@ -1100,16 +1120,17 @@ export default function ClaimDetailPage() {
                         ) : (
                           <div className="space-y-4">
                             {allAttachments.map((att, i) => {
-                              const isPdf = att.name.match(/\.pdf$/i) || att.url?.match(/\.pdf/i)
-                              const isImage = att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-                              const isValid = att.url && (att.url.startsWith('http') || att.url.startsWith('blob:'))
+                              const isPdf = att.name.toLowerCase().endsWith('.pdf') || att.url?.toLowerCase().includes('.pdf')
+                              const isImage = att.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) || att.url?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)/i)
+                              const isExcel = att.name.toLowerCase().match(/\.(xls|xlsx)$/i) || att.url?.toLowerCase().match(/\.(xls|xlsx)/i)
+                              const isValid = !!att.url
                               return (
                                 <div key={att.id + '-' + i} className="bg-[#f8faff] rounded-lg border border-gray-100 overflow-hidden">
                                   {/* Header */}
                                   <div className="flex items-center justify-between p-3">
                                     <div className="flex items-center gap-3">
-                                      <div className={`w-8 h-8 rounded flex items-center justify-center ${isPdf ? 'bg-red-50' : isImage ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                                        <FileText className={`w-4 h-4 ${isPdf ? 'text-red-500' : isImage ? 'text-blue-500' : 'text-gray-500'}`} />
+                                      <div className={`w-8 h-8 rounded flex items-center justify-center ${isPdf ? 'bg-red-50' : isImage ? 'bg-blue-50' : isExcel ? 'bg-green-50' : 'bg-gray-50'}`}>
+                                        <FileText className={`w-4 h-4 ${isPdf ? 'text-red-500' : isImage ? 'text-blue-500' : isExcel ? 'text-green-600' : 'text-gray-500'}`} />
                                       </div>
                                       <div>
                                         <p className="text-sm font-medium text-[#0f172a]">{att.name}</p>
@@ -1131,6 +1152,16 @@ export default function ClaimDetailPage() {
                                   {isValid && isImage && (
                                     <div className="px-3 pb-3">
                                       <img src={att.url} alt={att.name} className="w-full rounded-lg border border-gray-200 object-contain max-h-[500px] bg-white" />
+                                    </div>
+                                  )}
+                                  {isValid && isExcel && (
+                                    <div className="px-3 pb-3">
+                                      <div className="p-3 bg-green-50 border border-green-100 rounded-lg flex items-center justify-between">
+                                        <span className="text-xs text-green-700 font-medium">ไฟล์ Excel (ดาวน์โหลดเพื่อเปิดดู)</span>
+                                        <Button size="sm" className="h-6 bg-green-600 hover:bg-green-700 text-[10px] text-white" onClick={() => window.open(att.url, '_blank')}>
+                                          <Download className="w-3 h-3 mr-1" />ดาวน์โหลด Excel
+                                        </Button>
+                                      </div>
                                     </div>
                                   )}
                                 </div>
@@ -1182,25 +1213,6 @@ export default function ClaimDetailPage() {
                                 </div>
                               </div>
                               <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
-                                {(inv.attachmentUrl || inv.pdfUrl) && (
-                                  <Button variant="outline" size="sm" className="h-7 text-xs text-purple-600 border-purple-200" onClick={() => { 
-                                    const u = inv.attachmentUrl || inv.pdfUrl;
-                                    const name = inv.attachmentName || (u ? u.split('/').pop() || 'เอกสาร' : 'เอกสาร');
-                                    if (u && (u.startsWith('http') || u.startsWith('blob:'))) {
-                                      const isPdf = name.match(/\.pdf$/i) || u.match(/\.pdf/i)
-                                      const isImage = name.match(/\.(jpg|jpeg|png|gif|webp)$/i) || u.match(/\.(jpg|jpeg|png|gif|webp)/i)
-                                      if (isPdf) {
-                                        setPreviewAttachment({ name, url: u, type: 'pdf' })
-                                      } else if (isImage) {
-                                        setPreviewAttachment({ name, url: u, type: 'image' })
-                                      } else {
-                                        window.open(u, '_blank')
-                                      }
-                                    } else {
-                                      showToast('ไฟล์ถูกเก็บในระบบเก่า หรือยังไม่อัพโหลด')
-                                    }
-                                  }}><Eye className="w-3 h-3 mr-1" />ดูเอกสารแนบ</Button>
-                                )}
                                 {!pr && !inv.apPayment && (
                                   <Button variant="outline" size="sm" className="h-7 text-xs text-[#1d4ed8] border-[#1d4ed8] hover:bg-blue-50" onClick={() => setPendingPaymentRequest({ type: inv._type === 'SUPPLIER' ? 'AP_VENDOR' : 'AP_GARAGE', invoiceId: inv.id, amount: inv.totalAmount })}><CreditCard className="w-3 h-3 mr-1" />ขอเบิกเงิน</Button>
                                 )}
@@ -1227,6 +1239,46 @@ export default function ClaimDetailPage() {
                                   }}><Trash2 className="w-3 h-3 mr-1" />ลบ Invoice</Button>
                                 )}
                               </div>
+                              {/* Inline Preview for Invoice Attachment */}
+                              {(() => {
+                                const u = inv.attachmentUrl || inv.pdfUrl
+                                if (!u) return null
+                                const name = inv.attachmentName || u.split('/').pop() || 'เอกสาร'
+                                const isPdf = name.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf')
+                                const isImage = name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) || u.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)/i)
+                                const isExcel = name.toLowerCase().match(/\.(xls|xlsx)$/i) || u.toLowerCase().match(/\.(xls|xlsx)/i)
+                                
+                                return (
+                                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-[#475569] font-medium flex items-center gap-1">
+                                        <FileText className="w-3.5 h-3.5 text-blue-500" /> {name}
+                                      </span>
+                                      <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-[#1d4ed8]" onClick={() => window.open(u, '_blank')}>
+                                        <Download className="w-3 h-3 mr-1" />ดาวน์โหลด
+                                      </Button>
+                                    </div>
+                                    {isPdf && (
+                                      <div className="rounded-lg overflow-hidden border border-gray-200 bg-white">
+                                        <iframe src={u} className="w-full" style={{ height: '350px' }} title={name} />
+                                      </div>
+                                    )}
+                                    {isImage && (
+                                      <div className="rounded-lg overflow-hidden border border-gray-200 bg-white">
+                                        <img src={u} alt={name} className="w-full object-contain max-h-[350px]" />
+                                      </div>
+                                    )}
+                                    {isExcel && (
+                                      <div className="p-3 bg-green-50 border border-green-100 rounded-lg flex items-center justify-between">
+                                        <span className="text-xs text-green-700 font-medium">ไฟล์ Excel (ดาวน์โหลดเพื่อเปิดดู)</span>
+                                        <Button size="sm" className="h-6 bg-green-600 hover:bg-green-700 text-[10px] text-white" onClick={() => window.open(u, '_blank')}>
+                                          <Download className="w-3 h-3 mr-1" />ดาวน์โหลด Excel
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </div>
                           )
                         })
@@ -1279,14 +1331,14 @@ export default function ClaimDetailPage() {
                     <Input className="mt-1" placeholder="ใส่เลขที่จริงจากผู้จัดจำหน่าย หรือเว้นว่างระบบสร้างให้อัตโนมัติ" value={customInvoiceNo} onChange={e => setCustomInvoiceNo(e.target.value)} />
                   </div>
                   <div><h4 className="text-sm font-semibold mb-2">Invoice นี้ cover รายการไหนบ้าง?</h4>
-                    <Table><TableHeader><TableRow className="bg-[#f8faff]"><TableHead className="w-10"></TableHead><TableHead className="text-xs">ประเภท</TableHead><TableHead className="text-xs">รายการ</TableHead><TableHead className="text-xs text-right">ราคา</TableHead></TableRow></TableHeader>
+                    <Table><TableHeader><TableRow className="bg-[#f8faff]"><TableHead className="w-10"></TableHead><TableHead className="text-xs">ประเภท</TableHead><TableHead className="text-xs">รายการ</TableHead><TableHead className="text-xs text-right w-36">ราคา (แก้ไขได้)</TableHead></TableRow></TableHeader>
                       <TableBody>
                         {parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').map(p => (
                           <TableRow key={p.id} className={uploadMapSelections[p.id] ? 'bg-blue-50/50' : ''}>
                             <TableCell><input type="checkbox" checked={!!uploadMapSelections[p.id]} onChange={e => setUploadMapSelections(prev => ({ ...prev, [p.id]: e.target.checked }))} className="w-4 h-4" /></TableCell>
                             <TableCell><Badge variant="outline" className="text-[10px]">อะไหล่</Badge></TableCell>
                             <TableCell className="font-medium">{p.partName} <span className="text-xs text-[#94a3b8] font-mono">{p.partNo}</span></TableCell>
-                            <TableCell className="text-right font-semibold">฿{formatCurrency(getPartAmt(p))}</TableCell>
+                            <TableCell className="text-right"><Input type="number" className="h-8 text-sm text-right w-32 ml-auto" value={uploadItemPrices[p.id] ?? getPartAmt(p)} onChange={e => setUploadItemPrices(prev => ({ ...prev, [p.id]: Number(e.target.value) || 0 }))} /></TableCell>
                           </TableRow>
                         ))}
                         {labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').map(l => (
@@ -1294,19 +1346,29 @@ export default function ClaimDetailPage() {
                             <TableCell><input type="checkbox" checked={!!uploadMapSelections[l.id]} onChange={e => setUploadMapSelections(prev => ({ ...prev, [l.id]: e.target.checked }))} className="w-4 h-4" /></TableCell>
                             <TableCell><Badge variant="outline" className="text-[10px]">ค่าแรง</Badge></TableCell>
                             <TableCell className="font-medium">{l.description}</TableCell>
-                            <TableCell className="text-right font-semibold">฿{formatCurrency(getLaborAmt(l))}</TableCell>
+                            <TableCell className="text-right"><Input type="number" className="h-8 text-sm text-right w-32 ml-auto" value={uploadItemPrices[l.id] ?? getLaborAmt(l)} onChange={e => setUploadItemPrices(prev => ({ ...prev, [l.id]: Number(e.target.value) || 0 }))} /></TableCell>
                           </TableRow>
                         ))}
                       </TableBody></Table>
                       <div className="flex flex-col items-end gap-1 mt-4 p-4 bg-gray-50 rounded-lg">
                         {(() => {
-                           const sub = parts.filter(p => uploadMapSelections[p.id]).reduce((s, p) => s + getPartAmt(p), 0) + labors.filter(l => uploadMapSelections[l.id]).reduce((s, l) => s + getLaborAmt(l), 0)
+                           const sub = parts.filter(p => uploadMapSelections[p.id]).reduce((s, p) => s + (uploadItemPrices[p.id] ?? getPartAmt(p)), 0) + labors.filter(l => uploadMapSelections[l.id]).reduce((s, l) => s + (uploadItemPrices[l.id] ?? getLaborAmt(l)), 0)
                            const vat = Math.round(sub * 0.07)
+                           const validPOs = claim.purchaseOrders?.filter((po: any) => po.status !== 'CANCELLED') || []
+                           const vendorData = validPOs[0]?.vendorId ? vendors.find((v: any) => v.id === validPOs[0].vendorId) : vendors[0]
+                           const billingPct = vendorData?.billingPct ?? 100
+                           const expectedBilling = Math.round(sub * billingPct / 100)
                            return (
                              <>
-                               <div className="flex justify-between w-48 text-sm text-gray-500"><span>มูลค่าก่อนภาษี:</span><span>฿{formatCurrency(sub)}</span></div>
-                               <div className="flex justify-between w-48 text-sm text-gray-500"><span>VAT 7%:</span><span>฿{formatCurrency(vat)}</span></div>
-                               <div className="flex justify-between w-48 text-base font-bold text-blue-700 pt-2 border-t mt-1"><span>รวมทั้งสิ้น:</span><span>฿{formatCurrency(sub + vat)}</span></div>
+                               <div className="flex justify-between w-56 text-sm text-gray-500"><span>มูลค่าก่อนภาษี:</span><span>฿{formatCurrency(sub)}</span></div>
+                               <div className="flex justify-between w-56 text-sm text-gray-500"><span>VAT 7%:</span><span>฿{formatCurrency(vat)}</span></div>
+                               <div className="flex justify-between w-56 text-base font-bold text-blue-700 pt-2 border-t mt-1"><span>รวมทั้งสิ้น:</span><span>฿{formatCurrency(sub + vat)}</span></div>
+                               {billingPct < 100 && (
+                                 <div className="w-56 mt-2 pt-2 border-t border-dashed">
+                                   <div className="flex justify-between text-sm text-amber-600"><span>Vendor วางบิล {billingPct}%:</span><span>฿{formatCurrency(expectedBilling)}</span></div>
+                                   <p className="text-[10px] text-gray-400 mt-0.5">({vendorData?.name})</p>
+                                 </div>
+                               )}
                              </>
                            )
                         })()}
@@ -1336,8 +1398,9 @@ export default function ClaimDetailPage() {
                         const firstVendorId = validPOs[0]?.vendorId || vendors[0]?.id || claim.garageId || 'ven-p01'
 
                         const partItems = selParts.map(p => {
+                          const editedPrice = uploadItemPrices[p.id]
                           const poItem = validPOs.flatMap((po: any) => po.items).find((pi: any) => pi.partNo === p.partNo)
-                          const unitPrice = poItem ? poItem.unitPrice : p.priceApprove
+                          const unitPrice = editedPrice !== undefined ? editedPrice / p.quantity : (poItem ? poItem.unitPrice : p.priceApprove)
                           return {
                             poItemId: poItem?.id || validPOs[0]?.items?.[0]?.id,
                             claimPartId: p.id,
@@ -1349,8 +1412,9 @@ export default function ClaimDetailPage() {
                           }
                         })
                         const laborItems = selLabors.map(l => {
+                          const editedPrice = uploadItemPrices[l.id]
                           const poLabor = validPOs.flatMap((po: any) => po.items).find((pi: any) => pi.description?.includes(l.description))
-                          const unitPrice = poLabor ? poLabor.unitPrice : l.priceApprove
+                          const unitPrice = editedPrice !== undefined ? editedPrice : (poLabor ? poLabor.unitPrice : l.priceApprove)
                           return {
                             claimPartId: null,
                             claimLaborId: l.id,
@@ -1529,7 +1593,11 @@ export default function ClaimDetailPage() {
 
       {/* ─── Create PO Modal ─── */}
       {showCreatePOModal && (() => {
-        const poTot = poModalParts.filter(p => p.selected).reduce((sum, p) => sum + ((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)), 0) + poModalLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
+        const poPartsTot = poModalParts.filter(p => p.selected).reduce((sum, p) => sum + ((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)), 0)
+        const poLaborsTot = poModalLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
+        const poManualTot = poManualItems.reduce((sum, m) => sum + ((Number(m.unitPrice) || 0) * (Number(m.quantity) || 1)), 0)
+        const poTot = poPartsTot + poLaborsTot + poManualTot
+        const vatAmt = poIncludeVat ? Math.round(poTot * (poVatPct / 100)) : 0
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -1613,17 +1681,67 @@ export default function ClaimDetailPage() {
                       </TableBody>
                     </Table>
                   </div>
+
+                  {/* Manual Items */}
+                  <div className="border rounded-lg overflow-hidden mt-4">
+                    <div className="bg-green-50 px-4 py-2 border-b flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-green-800">รายการเพิ่มเติม (Manual)</h4>
+                      <Button variant="outline" size="sm" className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-100" onClick={() => setPoManualItems([...poManualItems, { id: `manual-${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }])}>
+                        <Plus className="w-3 h-3 mr-1" />เพิ่มรายการ
+                      </Button>
+                    </div>
+                    <Table>
+                      <TableHeader className="bg-gray-50">
+                        <TableRow>
+                          <TableHead>รายการ</TableHead>
+                          <TableHead className="w-20 text-center">จำนวน</TableHead>
+                          <TableHead className="w-32 text-right">ราคา/หน่วย</TableHead>
+                          <TableHead className="w-32 text-right">รวม</TableHead>
+                          <TableHead className="w-10"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {poManualItems.map((m, i) => (
+                          <TableRow key={m.id}>
+                            <TableCell><Input className="h-8 text-sm" placeholder="ชื่อรายการ เช่น ค่าขนส่ง" value={m.description} onChange={e => { const n = [...poManualItems]; n[i].description = e.target.value; setPoManualItems(n) }} /></TableCell>
+                            <TableCell><Input type="number" className="h-8 text-sm text-center" value={m.quantity || ''} onChange={e => { const n = [...poManualItems]; n[i].quantity = Number(e.target.value); setPoManualItems(n) }} /></TableCell>
+                            <TableCell><Input type="number" className="h-8 text-sm text-right" value={m.unitPrice || ''} onChange={e => { const n = [...poManualItems]; n[i].unitPrice = Number(e.target.value); setPoManualItems(n) }} /></TableCell>
+                            <TableCell className="text-right font-medium text-sm pt-3">฿{formatCurrency((Number(m.unitPrice) || 0) * (Number(m.quantity) || 1))}</TableCell>
+                            <TableCell><button onClick={() => setPoManualItems(poManualItems.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></TableCell>
+                          </TableRow>
+                        ))}
+                        {poManualItems.length === 0 && (
+                          <TableRow><TableCell colSpan={5} className="text-center py-4 text-gray-400 text-sm">ยังไม่มีรายการเพิ่มเติม — กดปุ่ม "เพิ่มรายการ" ด้านบน</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                   
                   <div className="flex justify-end pt-4 border-t">
-                    <div className="flex flex-col items-end gap-1 w-64 bg-gray-50 p-4 rounded-lg">
+                    <div className="flex flex-col items-end gap-2 w-72 bg-gray-50 p-4 rounded-lg">
                       <div className="flex justify-between w-full text-sm text-gray-500">
                         <span>ยอดรวมก่อน VAT:</span><span>฿{formatCurrency(poTot)}</span>
                       </div>
-                      <div className="flex justify-between w-full text-sm text-gray-500">
-                        <span>VAT 7%:</span><span>฿{formatCurrency(Math.round(poTot * 0.07))}</span>
+                      {/* VAT Toggle */}
+                      <div className="flex items-center justify-between w-full">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={poIncludeVat} onChange={e => setPoIncludeVat(e.target.checked)} className="w-4 h-4 rounded" />
+                          <span className="text-sm text-gray-600">รวม VAT</span>
+                        </label>
+                        {poIncludeVat && (
+                          <div className="flex items-center gap-1">
+                            <Input type="number" className="h-7 w-16 text-sm text-right" value={poVatPct} onChange={e => setPoVatPct(Number(e.target.value) || 0)} />
+                            <span className="text-sm text-gray-500">%</span>
+                          </div>
+                        )}
                       </div>
+                      {poIncludeVat && (
+                        <div className="flex justify-between w-full text-sm text-gray-500">
+                          <span>VAT {poVatPct}%:</span><span>฿{formatCurrency(vatAmt)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1">
-                        <span>ยอดรวมทั้งสิ้น:</span><span>฿{formatCurrency(poTot + Math.round(poTot * 0.07))}</span>
+                        <span>ยอดรวมทั้งสิ้น:</span><span>฿{formatCurrency(poTot + vatAmt)}</span>
                       </div>
                     </div>
                   </div>
