@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Paperclip, Upload, Trash2, Eye, FileText, Image, File } from 'lucide-react'
+import { Paperclip, Upload, Trash2, Eye, FileText, Image, File, X, Download } from 'lucide-react'
 import { formatDate } from '@/lib/date'
 import { uploadToR2 } from '@/lib/upload'
 import { ClaimTabProps } from './types'
@@ -30,6 +30,7 @@ export default function DocumentsTab({ claim, showToast, setErrorModalMsg, setCo
   const [file, setFile] = useState<File | null>(null)
   const [description, setDescription] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<{ fileName: string; fileUrl: string; fileType: string } | null>(null)
 
   const handleUpload = async () => {
     if (!file) {
@@ -82,8 +83,66 @@ export default function DocumentsTab({ claim, showToast, setErrorModalMsg, setCo
     })
   }
 
+  const handlePreview = (doc: any) => {
+    // PDF and images can be previewed inline; other types open in new tab
+    if (doc.fileType === 'pdf' || doc.fileType === 'image') {
+      setPreviewDoc({ fileName: doc.fileName, fileUrl: doc.fileUrl, fileType: doc.fileType })
+    } else {
+      window.open(doc.fileUrl)
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Document Preview Modal */}
+      {previewDoc && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex flex-col" onClick={() => setPreviewDoc(null)}>
+          {/* Header Bar */}
+          <div className="flex items-center justify-between px-4 py-3 bg-[#0f172a]/90 backdrop-blur-sm border-b border-white/10" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-blue-400" />
+              <span className="text-white text-sm font-medium truncate max-w-[400px]">{previewDoc.fileName}</span>
+              <Badge className="border-none text-[10px] bg-white/10 text-white/70">{previewDoc.fileType.toUpperCase()}</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white/80 hover:text-white hover:bg-white/10 h-8 text-xs"
+                onClick={() => window.open(previewDoc.fileUrl)}
+              >
+                <Download className="w-3.5 h-3.5 mr-1" />ดาวน์โหลด
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white/80 hover:text-white hover:bg-white/10 h-8 w-8 p-0"
+                onClick={() => setPreviewDoc(null)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          {/* Content */}
+          <div className="flex-1 flex items-center justify-center p-4 overflow-auto" onClick={e => e.stopPropagation()}>
+            {previewDoc.fileType === 'pdf' ? (
+              <iframe
+                src={previewDoc.fileUrl}
+                className="w-full h-full max-w-5xl rounded-lg border border-white/10 bg-white"
+                style={{ minHeight: 'calc(100vh - 80px)' }}
+                title={previewDoc.fileName}
+              />
+            ) : (
+              <img
+                src={previewDoc.fileUrl}
+                alt={previewDoc.fileName}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between py-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -138,49 +197,51 @@ export default function DocumentsTab({ claim, showToast, setErrorModalMsg, setCo
               <p className="text-xs mt-1">กดปุ่ม "อัพโหลดเอกสาร" เพื่อเพิ่มไฟล์ เช่น รูปถ่าย, ใบเสร็จ, เอกสารสัญญา</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-[#f8faff]">
-                  <TableHead className="text-xs w-10">#</TableHead>
-                  <TableHead className="text-xs">ชื่อไฟล์</TableHead>
-                  <TableHead className="text-xs">คำอธิบาย</TableHead>
-                  <TableHead className="text-xs">ขนาด</TableHead>
-                  <TableHead className="text-xs">วันที่อัพโหลด</TableHead>
-                  <TableHead className="text-xs">ผู้อัพโหลด</TableHead>
-                  <TableHead className="text-xs text-center">จัดการ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {documents.map((doc: any, i: number) => {
-                  const IconComp = FILE_ICONS[doc.fileType] || File
-                  return (
-                    <TableRow key={doc.id} className="hover:bg-blue-50/30">
-                      <TableCell className="text-xs text-[#94a3b8]">{i + 1}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <IconComp className="w-4 h-4 text-[#1d4ed8] flex-shrink-0" />
-                          <span className="text-sm font-medium truncate max-w-[200px]">{doc.fileName}</span>
+            <div className="space-y-4">
+              {documents.map((doc: any, i: number) => {
+                const IconComp = FILE_ICONS[doc.fileType] || File
+                const isPdf = doc.fileType === 'pdf'
+                const isImage = doc.fileType === 'image'
+                return (
+                  <div key={doc.id} className="bg-[#f8faff] rounded-lg border border-gray-100 overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded flex items-center justify-center ${isPdf ? 'bg-red-50' : isImage ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                          <IconComp className={`w-4 h-4 ${isPdf ? 'text-red-500' : isImage ? 'text-blue-500' : 'text-[#1d4ed8]'}`} />
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-[#475569]">{doc.description || '—'}</TableCell>
-                      <TableCell className="text-xs text-[#94a3b8]">{formatFileSize(doc.fileSize)}</TableCell>
-                      <TableCell className="text-xs">{formatDate(doc.createdAt)}</TableCell>
-                      <TableCell className="text-xs text-[#94a3b8]">{doc.uploadedBy}</TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="sm" className="text-[#1d4ed8] p-1" onClick={() => window.open(doc.fileUrl)}>
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-red-500 p-1 hover:bg-red-50" onClick={() => handleDelete(doc.id, doc.fileName)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                        <div>
+                          <p className="text-sm font-medium text-[#0f172a]">{doc.fileName}</p>
+                          <p className="text-xs text-[#94a3b8]">
+                            {doc.description || formatFileSize(doc.fileSize)} • {formatDate(doc.createdAt)}
+                            {doc.uploadedBy && ` • ${doc.uploadedBy}`}
+                          </p>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" className="text-[#1d4ed8] p-1" onClick={() => window.open(doc.fileUrl)}>
+                          <Download className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-red-500 p-1 hover:bg-red-50" onClick={() => handleDelete(doc.id, doc.fileName)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    {/* Inline Preview */}
+                    {isPdf && (
+                      <div className="px-3 pb-3">
+                        <iframe src={doc.fileUrl} className="w-full rounded-lg border border-gray-200 bg-white" style={{ height: '500px' }} title={doc.fileName} />
+                      </div>
+                    )}
+                    {isImage && (
+                      <div className="px-3 pb-3">
+                        <img src={doc.fileUrl} alt={doc.fileName} className="w-full rounded-lg border border-gray-200 object-contain max-h-[500px] bg-white" />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </CardContent>
       </Card>

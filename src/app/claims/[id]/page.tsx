@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { FileText, ArrowLeft, History, Wrench, ShieldAlert, Car, PackageOpen, Tag, CheckCircle2, ChevronRight, Download, Plus, AlertTriangle, TrendingUp, CreditCard, Save, Upload, X, Edit2, Package, Truck, Trash2, CircleDot, Ban, XCircle, Clock, ShoppingCart } from 'lucide-react'
+import { FileText, ArrowLeft, History, Wrench, ShieldAlert, Car, PackageOpen, Tag, CheckCircle2, ChevronRight, Download, Plus, AlertTriangle, TrendingUp, CreditCard, Save, Upload, X, Edit2, Package, Truck, Trash2, CircleDot, Ban, XCircle, Clock, ShoppingCart, Eye } from 'lucide-react'
 import { uploadToR2 } from '@/lib/upload'
 import { getStatusColor, getStatusLabel, formatCurrency, getPOStatusLabel, cn } from '@/lib/utils'
 import { ClaimStatus, PaymentRequest, Quotation, InsuranceInvoice, PurchaseOrder } from '@/lib/types'
@@ -146,6 +146,7 @@ export default function ClaimDetailPage() {
   const [rejectPRId, setRejectPRId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null)
+  const [previewAttachment, setPreviewAttachment] = useState<{ name: string; url: string; type: string } | null>(null)
   const [qtDate, setQtDate] = useState(new Date().toISOString().split('T')[0])
   const [qtValidUntil, setQtValidUntil] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
   const [qtNote, setQtNote] = useState('')
@@ -474,6 +475,33 @@ export default function ClaimDetailPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Inline Preview Modal for PDF/Image attachments */}
+      {previewAttachment && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex flex-col" onClick={() => setPreviewAttachment(null)}>
+          <div className="flex items-center justify-between px-4 py-3 bg-[#0f172a]/90 backdrop-blur-sm border-b border-white/10" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-blue-400" />
+              <span className="text-white text-sm font-medium truncate max-w-[400px]">{previewAttachment.name}</span>
+              <Badge className="border-none text-[10px] bg-white/10 text-white/70">{previewAttachment.type.toUpperCase()}</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" className="text-white/80 hover:text-white hover:bg-white/10 h-8 text-xs" onClick={() => window.open(previewAttachment.url)}>
+                <Download className="w-3.5 h-3.5 mr-1" />ดาวน์โหลด
+              </Button>
+              <Button variant="ghost" size="sm" className="text-white/80 hover:text-white hover:bg-white/10 h-8 w-8 p-0" onClick={() => setPreviewAttachment(null)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4 overflow-auto" onClick={e => e.stopPropagation()}>
+            {previewAttachment.type === 'pdf' ? (
+              <iframe src={previewAttachment.url} className="w-full h-full max-w-5xl rounded-lg border border-white/10 bg-white" style={{ minHeight: 'calc(100vh - 80px)' }} title={previewAttachment.name} />
+            ) : (
+              <img src={previewAttachment.url} alt={previewAttachment.name} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+            )}
+          </div>
+        </div>
+      )}
       {toast && (
         <div className={`fixed top-6 right-6 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-4 font-medium flex items-center gap-2 ${toast.includes('❌') || toast.includes('⚠️') ? 'bg-red-600' : 'bg-green-600'}`}>
           {!toast.includes('❌') && !toast.includes('⚠️') && !toast.includes('✅') && '✅ '}
@@ -1070,31 +1098,44 @@ export default function ClaimDetailPage() {
                             <p className="text-sm">ยังไม่มีเอกสารแนบ</p>
                           </div>
                         ) : (
-                          <div className="space-y-2">
-                            {allAttachments.map((att, i) => (
-                              <div key={att.id + '-' + i} className="flex items-center justify-between p-3 bg-[#f8faff] rounded-lg border border-gray-100 hover:border-purple-200 transition-colors">
-                                <div className="flex items-center gap-3">
-                                  {att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                    <img src={att.url} alt="" className="w-10 h-10 object-cover rounded border" />
-                                  ) : (
-                                    <div className="w-10 h-10 bg-red-50 rounded border flex items-center justify-center"><FileText className="w-5 h-5 text-red-500" /></div>
-                                  )}
-                                  <div>
-                                    <p className="text-sm font-medium text-[#0f172a]">{att.name}</p>
-                                    <p className="text-xs text-[#94a3b8]">{att.type} • {att.invoiceNo}</p>
+                          <div className="space-y-4">
+                            {allAttachments.map((att, i) => {
+                              const isPdf = att.name.match(/\.pdf$/i) || att.url?.match(/\.pdf/i)
+                              const isImage = att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                              const isValid = att.url && (att.url.startsWith('http') || att.url.startsWith('blob:'))
+                              return (
+                                <div key={att.id + '-' + i} className="bg-[#f8faff] rounded-lg border border-gray-100 overflow-hidden">
+                                  {/* Header */}
+                                  <div className="flex items-center justify-between p-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-8 h-8 rounded flex items-center justify-center ${isPdf ? 'bg-red-50' : isImage ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                                        <FileText className={`w-4 h-4 ${isPdf ? 'text-red-500' : isImage ? 'text-blue-500' : 'text-gray-500'}`} />
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium text-[#0f172a]">{att.name}</p>
+                                        <p className="text-xs text-[#94a3b8]">{att.type} • {att.invoiceNo}</p>
+                                      </div>
+                                    </div>
+                                    {isValid && (
+                                      <Button variant="outline" size="sm" className="h-7 text-xs text-purple-600 border-purple-200" onClick={() => window.open(att.url, '_blank')}>
+                                        <Download className="w-3 h-3 mr-1" />ดาวน์โหลด
+                                      </Button>
+                                    )}
                                   </div>
+                                  {/* Inline Preview */}
+                                  {isValid && isPdf && (
+                                    <div className="px-3 pb-3">
+                                      <iframe src={att.url} className="w-full rounded-lg border border-gray-200 bg-white" style={{ height: '500px' }} title={att.name} />
+                                    </div>
+                                  )}
+                                  {isValid && isImage && (
+                                    <div className="px-3 pb-3">
+                                      <img src={att.url} alt={att.name} className="w-full rounded-lg border border-gray-200 object-contain max-h-[500px] bg-white" />
+                                    </div>
+                                  )}
                                 </div>
-                                <Button variant="outline" size="sm" className="h-7 text-xs text-purple-600 border-purple-200" onClick={() => { 
-                                  if (att.url && (att.url.startsWith('http') || att.url.startsWith('blob:'))) {
-                                    window.open(att.url, '_blank');
-                                  } else {
-                                    showToast('ไฟล์นี้ถูกแนบในระบบเก่า หรือยังไม่ได้อัพโหลดเข้า Cloud Storage')
-                                  }
-                                }}>
-                                  <Download className="w-3 h-3 mr-1" />{(att.url && (att.url.startsWith('http') || att.url.startsWith('blob:'))) ? 'เปิดดู' : 'มีไฟล์แนบ'}
-                                </Button>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         )}
                       </CardContent>
@@ -1143,10 +1184,22 @@ export default function ClaimDetailPage() {
                               <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
                                 {(inv.attachmentUrl || inv.pdfUrl) && (
                                   <Button variant="outline" size="sm" className="h-7 text-xs text-purple-600 border-purple-200" onClick={() => { 
-                                    const u = inv.attachmentUrl || inv.pdfUrl; 
-                                    if (u && (u.startsWith('http') || u.startsWith('blob:'))) window.open(u, '_blank'); 
-                                    else showToast('ไฟล์ถูกเก็บในระบบเก่า หรือยังไม่อัพโหลด') 
-                                  }}><FileText className="w-3 h-3 mr-1" />ดูเอกสารแนบ</Button>
+                                    const u = inv.attachmentUrl || inv.pdfUrl;
+                                    const name = inv.attachmentName || (u ? u.split('/').pop() || 'เอกสาร' : 'เอกสาร');
+                                    if (u && (u.startsWith('http') || u.startsWith('blob:'))) {
+                                      const isPdf = name.match(/\.pdf$/i) || u.match(/\.pdf/i)
+                                      const isImage = name.match(/\.(jpg|jpeg|png|gif|webp)$/i) || u.match(/\.(jpg|jpeg|png|gif|webp)/i)
+                                      if (isPdf) {
+                                        setPreviewAttachment({ name, url: u, type: 'pdf' })
+                                      } else if (isImage) {
+                                        setPreviewAttachment({ name, url: u, type: 'image' })
+                                      } else {
+                                        window.open(u, '_blank')
+                                      }
+                                    } else {
+                                      showToast('ไฟล์ถูกเก็บในระบบเก่า หรือยังไม่อัพโหลด')
+                                    }
+                                  }}><Eye className="w-3 h-3 mr-1" />ดูเอกสารแนบ</Button>
                                 )}
                                 {!pr && !inv.apPayment && (
                                   <Button variant="outline" size="sm" className="h-7 text-xs text-[#1d4ed8] border-[#1d4ed8] hover:bg-blue-50" onClick={() => setPendingPaymentRequest({ type: inv._type === 'SUPPLIER' ? 'AP_VENDOR' : 'AP_GARAGE', invoiceId: inv.id, amount: inv.totalAmount })}><CreditCard className="w-3 h-3 mr-1" />ขอเบิกเงิน</Button>
