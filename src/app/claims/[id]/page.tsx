@@ -116,6 +116,8 @@ export default function ClaimDetailPage() {
   const [uploadMapSelections, setUploadMapSelections] = useState<Record<string, boolean>>({})
   const [uploadItemPrices, setUploadItemPrices] = useState<Record<string, number>>({})
   const [customInvoiceNo, setCustomInvoiceNo] = useState('')
+  const [invoiceIncludeVat, setInvoiceIncludeVat] = useState(true)
+  const [invoiceVatPct, setInvoiceVatPct] = useState(7)
   const [garageUploadSelections, setGarageUploadSelections] = useState<Record<string, boolean>>({})
   const [showCreatePRModal, setShowCreatePRModal] = useState(false)
   const [prInvoiceSelections, setPrInvoiceSelections] = useState<Record<string, boolean>>({})
@@ -1054,7 +1056,7 @@ export default function ClaimDetailPage() {
                     const prices: Record<string, number> = {}
                     parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').forEach(p => { sel[p.id] = true; prices[p.id] = getPartAmt(p) })
                     labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').forEach(l => { sel[l.id] = true; prices[l.id] = getLaborAmt(l) })
-                    setUploadMapSelections(sel); setUploadItemPrices(prices); setShowUploadModal(true)
+                    setUploadMapSelections(sel); setUploadItemPrices(prices); setInvoiceIncludeVat(true); setInvoiceVatPct(7); setCustomInvoiceNo(''); setShowUploadModal(true)
                   }}><Upload className="w-4 h-4 mr-1" />อัพโหลด Invoice</Button>
                 </CardHeader><CardContent>
                   <Table><TableHeader><TableRow className="bg-[#f8faff]">
@@ -1350,26 +1352,42 @@ export default function ClaimDetailPage() {
                           </TableRow>
                         ))}
                       </TableBody></Table>
-                      <div className="flex flex-col items-end gap-1 mt-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="flex flex-col items-end gap-2 mt-4 p-4 bg-gray-50 rounded-lg w-full max-w-sm ml-auto">
                         {(() => {
                            const sub = parts.filter(p => uploadMapSelections[p.id]).reduce((s, p) => s + (uploadItemPrices[p.id] ?? getPartAmt(p)), 0) + labors.filter(l => uploadMapSelections[l.id]).reduce((s, l) => s + (uploadItemPrices[l.id] ?? getLaborAmt(l)), 0)
-                           const vat = Math.round(sub * 0.07)
+                           const vat = invoiceIncludeVat ? Math.round(sub * (invoiceVatPct / 100)) : 0
                            const validPOs = claim.purchaseOrders?.filter((po: any) => po.status !== 'CANCELLED') || []
                            const vendorData = validPOs[0]?.vendorId ? vendors.find((v: any) => v.id === validPOs[0].vendorId) : vendors[0]
                            const billingPct = vendorData?.billingPct ?? 100
                            const expectedBilling = Math.round(sub * billingPct / 100)
                            return (
-                             <>
-                               <div className="flex justify-between w-56 text-sm text-gray-500"><span>มูลค่าก่อนภาษี:</span><span>฿{formatCurrency(sub)}</span></div>
-                               <div className="flex justify-between w-56 text-sm text-gray-500"><span>VAT 7%:</span><span>฿{formatCurrency(vat)}</span></div>
-                               <div className="flex justify-between w-56 text-base font-bold text-blue-700 pt-2 border-t mt-1"><span>รวมทั้งสิ้น:</span><span>฿{formatCurrency(sub + vat)}</span></div>
+                             <div className="w-full space-y-2">
+                               {/* VAT Toggle */}
+                               <div className="flex items-center justify-between border-b pb-2 mb-2 w-full">
+                                 <label className="flex items-center gap-2 cursor-pointer">
+                                   <input type="checkbox" checked={invoiceIncludeVat} onChange={e => setInvoiceIncludeVat(e.target.checked)} className="w-4 h-4 rounded animate-fade-in" />
+                                   <span className="text-sm text-gray-600 font-medium">คิด VAT</span>
+                                 </label>
+                                 {invoiceIncludeVat && (
+                                   <div className="flex items-center gap-1">
+                                     <Input type="number" className="h-8 w-16 text-sm text-right" value={invoiceVatPct} onChange={e => setInvoiceVatPct(Number(e.target.value) || 0)} min={0} max={100} />
+                                     <span className="text-sm text-gray-500">%</span>
+                                   </div>
+                                 )}
+                               </div>
+
+                               <div className="flex justify-between w-full text-sm text-gray-500"><span>มูลค่าก่อนภาษี:</span><span>฿{formatCurrency(sub)}</span></div>
+                               {invoiceIncludeVat && (
+                                 <div className="flex justify-between w-full text-sm text-gray-500"><span>VAT {invoiceVatPct}%:</span><span>฿{formatCurrency(vat)}</span></div>
+                               )}
+                               <div className="flex justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1"><span>รวมทั้งสิ้น:</span><span>฿{formatCurrency(sub + vat)}</span></div>
                                {billingPct < 100 && (
-                                 <div className="w-56 mt-2 pt-2 border-t border-dashed">
+                                 <div className="w-full mt-2 pt-2 border-t border-dashed">
                                    <div className="flex justify-between text-sm text-amber-600"><span>Vendor วางบิล {billingPct}%:</span><span>฿{formatCurrency(expectedBilling)}</span></div>
                                    <p className="text-[10px] text-gray-400 mt-0.5">({vendorData?.name})</p>
                                  </div>
                                )}
-                             </>
+                             </div>
                            )
                         })()}
                       </div>
@@ -1426,6 +1444,9 @@ export default function ClaimDetailPage() {
                           }
                         })
 
+                        const sub = selParts.reduce((s, p) => s + (uploadItemPrices[p.id] ?? getPartAmt(p)), 0) + selLabors.reduce((s, l) => s + (uploadItemPrices[l.id] ?? getLaborAmt(l)), 0)
+                        const computedVat = invoiceIncludeVat ? Math.round(sub * (invoiceVatPct / 100)) : 0
+
                         const allItems = [...partItems, ...laborItems]
 
                         // Create ONE supplier invoice with all items
@@ -1437,6 +1458,7 @@ export default function ClaimDetailPage() {
                             invoiceNo,
                             items: allItems,
                             pdfUrl: pdfUrlToSave,
+                            vatAmount: computedVat,
                             laborIds: selLabors.map(l => l.id) // pass labor IDs to mark as INVOICED
                           })
                         })
