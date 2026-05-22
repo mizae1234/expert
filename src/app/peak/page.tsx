@@ -15,13 +15,16 @@ export default function PeakSyncPage() {
   const [loading, setLoading] = useState(true)
   const [arInvoices, setArInvoices] = useState<any[]>([])
   const [apInvoices, setApInvoices] = useState<any[]>([])
+  const [expenses, setExpenses] = useState<any[]>([])
   
   // Selections
   const [arSelections, setArSelections] = useState<Record<string, boolean>>({})
   const [apSelections, setApSelections] = useState<Record<string, boolean>>({})
+  const [expenseSelections, setExpenseSelections] = useState<Record<string, boolean>>({})
   
   const [searchAR, setSearchAR] = useState('')
   const [searchAP, setSearchAP] = useState('')
+  const [searchExpense, setSearchExpense] = useState('')
   
   const [toast, setToast] = useState<string | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -34,6 +37,7 @@ export default function PeakSyncPage() {
       .then(data => {
         setArInvoices(data.arInvoices || [])
         setApInvoices(data.apInvoices || [])
+        setExpenses(data.expenses || [])
         setLoading(false)
       })
       .catch(err => {
@@ -114,6 +118,38 @@ export default function PeakSyncPage() {
     }
   }
 
+  const handleSyncExpense = async () => {
+    const selectedIds = Object.keys(expenseSelections).filter(k => expenseSelections[k])
+    if (selectedIds.length === 0) {
+      showToast('❌ กรุณาเลือกรายการที่ต้องการ Export')
+      return
+    }
+    
+    try {
+      setIsSyncing(true)
+      const res = await fetch('/api/peak/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'expense', ids: selectedIds })
+      })
+      if (!res.ok) throw new Error('Failed to export Expense')
+      const data = await res.json()
+      
+      const XLSX = await import('xlsx')
+      const ws = XLSX.utils.json_to_sheet(data.rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, "Expense")
+      XLSX.writeFile(wb, data.filename)
+      
+      setExpenseSelections({})
+      showToast(`✅ Export ข้อมูล ${selectedIds.length} รายการ สำเร็จ`)
+    } catch (err: any) {
+      showToast('❌ ' + err.message)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   // Filtered Lists
   const filteredAR = arInvoices.filter(i => {
     const s = searchAR.toLowerCase()
@@ -127,6 +163,13 @@ export default function PeakSyncPage() {
     return (i.invoiceNo || '').toLowerCase().includes(s) || 
            (i.claimNo || '').toLowerCase().includes(s) || 
            (i.vendorName || '').toLowerCase().includes(s)
+  })
+
+  const filteredExpense = expenses.filter(i => {
+    const s = searchExpense.toLowerCase()
+    return (i.claimNo || '').toLowerCase().includes(s) || 
+           (i.description || '').toLowerCase().includes(s) || 
+           (i.createdBy || '').toLowerCase().includes(s)
   })
 
   const toggleAllAR = (checked: boolean) => {
@@ -143,6 +186,24 @@ export default function PeakSyncPage() {
       filteredAP.filter(i => !i.isSynced).forEach(i => newSel[i.id] = true)
     }
     setApSelections(newSel)
+  }
+
+  const toggleAllExpense = (checked: boolean) => {
+    const newSel: Record<string, boolean> = {}
+    if (checked) {
+      filteredExpense.filter(i => !i.isSynced).forEach(i => newSel[i.id] = true)
+    }
+    setExpenseSelections(newSel)
+  }
+
+  const categoryLabels: Record<string, string> = {
+    shipping: 'ค่าส่งอะไหล่',
+    handling: 'ค่าขนส่ง/ยก',
+    towing: 'ค่ายกรถ/ลากรถ',
+    paint_material: 'ค่าวัสดุสี',
+    consumable: 'ค่าวัสดุสิ้นเปลือง',
+    subcontract: 'ค่าจ้างช่วง',
+    other: 'อื่นๆ',
   }
 
   return (
@@ -175,6 +236,10 @@ export default function PeakSyncPage() {
           <TabsTrigger value="ap" className="flex items-center gap-1.5">
             ใบรับสินค้า (AP Invoices)
             <Badge className="ml-1 bg-amber-100 text-amber-700 border-none">{apInvoices.filter(i => !i.isSynced).length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="expense" className="flex items-center gap-1.5">
+            ค่าใช้จ่าย (Expenses)
+            <Badge className="ml-1 bg-violet-100 text-violet-700 border-none">{expenses.filter(i => !i.isSynced).length}</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -323,6 +388,91 @@ export default function PeakSyncPage() {
                       <TableCell className="text-right font-semibold">฿{formatCurrency(inv.totalAmount)}</TableCell>
                       <TableCell className="text-center">
                         {inv.isSynced ? (
+                          <Badge className="bg-green-100 text-green-700 border-none gap-1"><CheckCircle2 className="w-3 h-3" />Synced</Badge>
+                        ) : (
+                          <Badge className="bg-gray-100 text-gray-600 border-none gap-1"><AlertTriangle className="w-3 h-3" />รอส่ง</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Expenses */}
+        <TabsContent value="expense">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between py-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                รายการค่าใช้จ่ายเพิ่มเติม (Expenses)
+              </CardTitle>
+              <div className="flex items-center gap-4">
+                <div className="relative w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input 
+                    placeholder="ค้นหา Claim, รายละเอียด, ผู้บันทึก..." 
+                    value={searchExpense}
+                    onChange={(e) => setSearchExpense(e.target.value)}
+                    className="pl-9 h-9 bg-gray-50 border-gray-200"
+                  />
+                </div>
+                <Button size="sm" className="bg-[#1d4ed8]" disabled={isSyncing} onClick={handleSyncExpense}>
+                  {isSyncing ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Cloud className="w-4 h-4 mr-1.5" />}
+                  Export Excel ({Object.keys(expenseSelections).filter(k => expenseSelections[k]).length})
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#f8faff]">
+                    <TableHead className="w-12 text-center">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4"
+                        onChange={e => toggleAllExpense(e.target.checked)}
+                        checked={filteredExpense.filter(i => !i.isSynced).length > 0 && Object.keys(expenseSelections).filter(k => expenseSelections[k]).length === filteredExpense.filter(i => !i.isSynced).length}
+                      />
+                    </TableHead>
+                    <TableHead>Claim No.</TableHead>
+                    <TableHead>ประเภท</TableHead>
+                    <TableHead>รายละเอียด</TableHead>
+                    <TableHead>วันที่</TableHead>
+                    <TableHead>ผู้บันทึก</TableHead>
+                    <TableHead className="text-right">ยอดเงิน (บาท)</TableHead>
+                    <TableHead className="text-center">สถานะ PEAK</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpense.length === 0 ? (
+                     <TableRow>
+                       <TableCell colSpan={8} className="text-center py-12 text-[#94a3b8]">ไม่มีรายการค่าใช้จ่าย</TableCell>
+                     </TableRow>
+                  ) : filteredExpense.map((exp: any) => (
+                    <TableRow key={exp.id} className={expenseSelections[exp.id] ? 'bg-blue-50/50' : ''}>
+                      <TableCell className="text-center">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4"
+                          disabled={exp.isSynced}
+                          checked={!!expenseSelections[exp.id] || exp.isSynced}
+                          onChange={e => setExpenseSelections(prev => ({ ...prev, [exp.id]: e.target.checked }))}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono font-medium text-[#1d4ed8]">{exp.claimNo}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {categoryLabels[exp.category] || exp.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-[#475569]">{exp.description}</TableCell>
+                      <TableCell className="text-xs text-[#475569]">{formatDate(exp.date)}</TableCell>
+                      <TableCell className="text-xs text-[#475569]">{exp.createdBy}</TableCell>
+                      <TableCell className="text-right font-semibold">฿{formatCurrency(exp.amount)}</TableCell>
+                      <TableCell className="text-center">
+                        {exp.isSynced ? (
                           <Badge className="bg-green-100 text-green-700 border-none gap-1"><CheckCircle2 className="w-3 h-3" />Synced</Badge>
                         ) : (
                           <Badge className="bg-gray-100 text-gray-600 border-none gap-1"><AlertTriangle className="w-3 h-3" />รอส่ง</Badge>

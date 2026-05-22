@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma'
 
 export async function GET() {
   try {
-    const [arInvoices, supplierInvoices, garageInvoices] = await Promise.all([
+    const [arInvoices, supplierInvoices, garageInvoices, expenses] = await Promise.all([
       prisma.insuranceInvoice.findMany({
         where: {
           status: { in: ['PENDING', 'SENT', 'PAID'] }
@@ -40,6 +40,12 @@ export async function GET() {
           paymentRequests: true
         },
         orderBy: { createdAt: 'desc' }
+      }),
+      prisma.claimExpense.findMany({
+        include: {
+          claim: { select: { claimNo: true } }
+        },
+        orderBy: { createdAt: 'desc' }
       })
     ])
 
@@ -74,7 +80,17 @@ export async function GET() {
           isSynced: false,
           type: 'GARAGE'
         }))
-      ].sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime())
+      ].sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()),
+      expenses: expenses.map(exp => ({
+        id: exp.id,
+        claimNo: exp.claim.claimNo,
+        category: exp.category,
+        description: exp.description,
+        amount: exp.amount,
+        date: exp.date,
+        createdBy: exp.createdBy,
+        isSynced: false
+      }))
     })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

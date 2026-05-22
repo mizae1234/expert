@@ -6,6 +6,16 @@ function formatDate(dateStr: string | Date): string {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
 }
 
+function buildRemark(claim: any): string {
+  const parts = [
+    claim.claimNo,
+    [claim.carBrand, claim.carModel].filter(Boolean).join(' '),
+    claim.carColor || '',
+    claim.carPlate,
+  ].filter(Boolean)
+  return parts.join('|')
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { type, ids } = await req.json()
@@ -15,6 +25,26 @@ export async function POST(req: NextRequest) {
     const ACCOUNT_REVENUE_PARTS = '410102'
     const ACCOUNT_COST_PARTS = '510101'
     const ACCOUNT_COST_LABOR = '510102'
+
+    const categoryLabels: Record<string, string> = {
+      shipping: 'ค่าส่งอะไหล่',
+      handling: 'ค่าขนส่ง/ยก',
+      towing: 'ค่ายกรถ/ลากรถ',
+      paint_material: 'ค่าวัสดุสี',
+      consumable: 'ค่าวัสดุสิ้นเปลือง',
+      subcontract: 'ค่าจ้างช่วง',
+      other: 'อื่นๆ',
+    }
+
+    const categoryToAccount: Record<string, string> = {
+      shipping: '520201',
+      handling: '520201',
+      towing: '520201',
+      paint_material: '510101',
+      consumable: '510101',
+      subcontract: '510102',
+      other: '520299',
+    }
 
     if (type === 'ar') {
       const invoices = await prisma.insuranceInvoice.findMany({
@@ -27,6 +57,7 @@ export async function POST(req: NextRequest) {
       const rows: any[] = []
       let seq = 1
       for (const inv of invoices) {
+        const remark = buildRemark(inv.claim)
         rows.push({
           'ลำดับที่*': seq++,
           'วันที่เอกสาร': formatDate(inv.invoiceDate),
@@ -45,7 +76,7 @@ export async function POST(req: NextRequest) {
           'ส่วนลดต่อหน่วย': 0,
           'อัตราภาษี': '7%',
           'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 0,
-          'หมายเหตุ': '',
+          'หมายเหตุ': remark,
           'กลุ่มจัดประเภท': ''
         })
         rows.push({
@@ -66,7 +97,7 @@ export async function POST(req: NextRequest) {
           'ส่วนลดต่อหน่วย': 0,
           'อัตราภาษี': '7%',
           'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 0,
-          'หมายเหตุ': '',
+          'หมายเหตุ': remark,
           'กลุ่มจัดประเภท': ''
         })
       }
@@ -88,6 +119,7 @@ export async function POST(req: NextRequest) {
       let seq = 1
 
       for (const si of supplierInvoices) {
+        const remark = buildRemark(si.claim)
         rows.push({
           'ลำดับที่*': seq++,
           'วันที่เอกสาร': formatDate(si.invoiceDate),
@@ -109,12 +141,13 @@ export async function POST(req: NextRequest) {
           'ชำระโดย': '',
           'จำนวนเงินที่ชำระ': 0,
           'ภ.ง.ด. (ถ้ามี)': si.vendor?.whtType || '53',
-          'หมายเหตุ': si.invoiceNo,
+          'หมายเหตุ': remark,
           'กลุ่มจัดประเภท': ''
         })
       }
 
       for (const gi of garageInvoices) {
+        const remark = buildRemark(gi.claim)
         rows.push({
           'ลำดับที่*': seq++,
           'วันที่เอกสาร': formatDate(gi.invoiceDate),
@@ -136,11 +169,48 @@ export async function POST(req: NextRequest) {
           'ชำระโดย': '',
           'จำนวนเงินที่ชำระ': 0,
           'ภ.ง.ด. (ถ้ามี)': '53',
-          'หมายเหตุ': gi.invoiceNo,
+          'หมายเหตุ': remark,
           'กลุ่มจัดประเภท': ''
         })
       }
       return NextResponse.json({ rows, filename: 'AP_Import_Purchase.xlsx' })
+    }
+
+    if (type === 'expense') {
+      const expenses = await prisma.claimExpense.findMany({
+        where: { id: { in: ids } },
+        include: { claim: true }
+      })
+
+      const rows: any[] = []
+      let seq = 1
+      for (const exp of expenses) {
+        const remark = buildRemark(exp.claim)
+        rows.push({
+          'ลำดับที่* ': seq++,
+          'วันที่เอกสาร': formatDate(exp.date),
+          'อ้างอิงถึง': exp.claim.claimNo,
+          'ผู้รับเงิน/คู่ค้า': exp.createdBy || '',
+          'เลขทะเบียน 13 หลัก': '',
+          'เลขสาขา 5 หลัก': '00000',
+          'เลขที่ใบกำกับฯ (ถ้ามี)': '',
+          'วันที่ใบกำกับฯ (ถ้ามี)': '',
+          'วันที่บันทึกภาษีซื้อ (ถ้ามี)': '',
+          'ประเภทราคา': 1,
+          'บัญชี': categoryToAccount[exp.category] || '520299',
+          'คำอธิบาย': `${categoryLabels[exp.category] || 'ค่าใช้จ่ายเพิ่มเติม'} - ${exp.description}`,
+          'จำนวน': 1,
+          'ราคาต่อหน่วย': exp.amount,
+          'อัตราภาษี': '7%',
+          'หัก ณ ที่จ่าย (ถ้ามี)': 0,
+          'ชำระโดย': '',
+          'จำนวนเงินที่ชำระ': 0,
+          'ภ.ง.ด. (ถ้ามี)': '',
+          'หมายเหตุ': remark,
+          'กลุ่มจัดประเภท': ''
+        })
+      }
+      return NextResponse.json({ rows, filename: 'Expense_Import.xlsx' })
     }
 
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
