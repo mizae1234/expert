@@ -60,39 +60,44 @@ export async function GET(
       if (issues.length) return NextResponse.json({ error: 'Validation failed', issues }, { status: 400 })
 
       const inv = claim.insuranceInvoice
+      const rows = []
+      if (inv.laborTotal > 0) {
+        rows.push({
+          ลำดับที่: 1,
+          วันที่: formatDate(inv.invoiceDate),
+          เลขที่เอกสาร: '',
+          อ้างอิงถึง: claim.claimNo,
+          ลูกค้า: insurance?.peakCustomerId || '',
+          สินค้า: 'P00035',
+          บัญชี: conf.ACCOUNT_REVENUE_LABOR,
+          คำอธิบาย: `ค่าแรง|${claim.carPlate}|${insurance?.name || ''}`,
+          จำนวน: 1,
+          'ราคา/หน่วย': inv.laborTotal,
+          อัตราภาษี: '7%',
+          หมายเหตุ: remark,
+        })
+      }
+      if (inv.partsTotal > 0) {
+        rows.push({
+          ลำดับที่: 1,
+          วันที่: formatDate(inv.invoiceDate),
+          เลขที่เอกสาร: '',
+          อ้างอิงถึง: claim.claimNo,
+          ลูกค้า: insurance?.peakCustomerId || '',
+          สินค้า: 'P00033',
+          บัญชี: conf.ACCOUNT_REVENUE_PARTS,
+          คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${insurance?.name || ''}`,
+          จำนวน: 1,
+          'ราคา/หน่วย': inv.partsTotal,
+          อัตราภาษี: '7%',
+          หมายเหตุ: remark,
+        })
+      }
+
       return NextResponse.json({
         template: 'Import_Invoice',
         filename: `AR_Invoice_${inv.invoiceNo}.xlsx`,
-        rows: [
-          {
-            ลำดับที่: 1,
-            วันที่: formatDate(inv.invoiceDate),
-            เลขที่เอกสาร: '',
-            อ้างอิงถึง: claim.claimNo,
-            ลูกค้า: insurance?.peakCustomerId || '',
-            สินค้า: 'P00035',
-            บัญชี: conf.ACCOUNT_REVENUE_LABOR,
-            คำอธิบาย: `ค่าแรง|${claim.carPlate}|${insurance?.name || ''}`,
-            จำนวน: 1,
-            'ราคา/หน่วย': inv.laborTotal,
-            อัตราภาษี: '7%',
-            หมายเหตุ: remark,
-          },
-          {
-            ลำดับที่: 1,
-            วันที่: formatDate(inv.invoiceDate),
-            เลขที่เอกสาร: '',
-            อ้างอิงถึง: claim.claimNo,
-            ลูกค้า: insurance?.peakCustomerId || '',
-            สินค้า: 'P00033',
-            บัญชี: conf.ACCOUNT_REVENUE_PARTS,
-            คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${insurance?.name || ''}`,
-            จำนวน: 1,
-            'ราคา/หน่วย': inv.partsTotal,
-            อัตราภาษี: '7%',
-            หมายเหตุ: remark,
-          },
-        ],
+        rows,
       })
     }
 

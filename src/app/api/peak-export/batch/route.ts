@@ -49,21 +49,32 @@ export async function GET(request: NextRequest) {
         const insurance = claim.insurance
         if (!insurance?.peakCustomerId) continue
         const inv = claim.insuranceInvoice
-        allRows.push({
-          ลำดับที่: seq, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: '',
-          อ้างอิงถึง: claim.claimNo, ลูกค้า: insurance.peakCustomerId,
-          สินค้า: 'P00035', บัญชี: conf.ACCOUNT_REVENUE_LABOR,
-          คำอธิบาย: `ค่าแรง|${claim.carPlate}|${insurance.name}`,
-          จำนวน: 1, 'ราคา/หน่วย': inv.laborTotal, อัตราภาษี: '7%',
-        })
-        allRows.push({
-          ลำดับที่: seq, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: '',
-          อ้างอิงถึง: claim.claimNo, ลูกค้า: insurance.peakCustomerId,
-          สินค้า: 'P00033', บัญชี: conf.ACCOUNT_REVENUE_PARTS,
-          คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${insurance.name}`,
-          จำนวน: 1, 'ราคา/หน่วย': inv.partsTotal, อัตราภาษี: '7%',
-        })
-        seq++
+        
+        let hasAdded = false
+        if (inv.laborTotal > 0) {
+          allRows.push({
+            ลำดับที่: seq, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: '',
+            อ้างอิงถึง: claim.claimNo, ลูกค้า: insurance.peakCustomerId,
+            สินค้า: 'P00035', บัญชี: conf.ACCOUNT_REVENUE_LABOR,
+            คำอธิบาย: `ค่าแรง|${claim.carPlate}|${insurance.name}`,
+            จำนวน: 1, 'ราคา/หน่วย': inv.laborTotal, อัตราภาษี: '7%',
+          })
+          hasAdded = true
+        }
+        if (inv.partsTotal > 0) {
+          allRows.push({
+            ลำดับที่: seq, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: '',
+            อ้างอิงถึง: claim.claimNo, ลูกค้า: insurance.peakCustomerId,
+            สินค้า: 'P00033', บัญชี: conf.ACCOUNT_REVENUE_PARTS,
+            คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${insurance.name}`,
+            จำนวน: 1, 'ราคา/หน่วย': inv.partsTotal, อัตราภาษี: '7%',
+          })
+          hasAdded = true
+        }
+        
+        if (hasAdded) {
+          seq++
+        }
       }
       return NextResponse.json({ template: 'Import_Invoice', filename: `Batch_AR_Invoice.xlsx`, rows: allRows })
     }

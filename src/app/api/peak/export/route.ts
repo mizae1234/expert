@@ -58,49 +58,59 @@ export async function POST(req: NextRequest) {
       let seq = 1
       for (const inv of invoices) {
         const remark = buildRemark(inv.claim)
-        rows.push({
-          'ลำดับที่*': seq,
-          'วันที่เอกสาร': formatDate(inv.invoiceDate),
-          'เลขที่เอกสาร': '',
-          'อ้างอิงถึง': inv.claim.claimNo,
-          'ลูกค้า': inv.claim.insurance?.peakCustomerId || inv.claim.insurance?.id || '',
-          'เลขทะเบียน 13 หลัก': '',
-          'เลขสาขา 5 หลัก': '',
-          'เป็นใบกำกับภาษี': '',
-          'ประเภทราคา': 1,
-          'สินค้า/บริการ': 'P00035',
-          'บัญชี': ACCOUNT_REVENUE_LABOR,
-          'คำอธิบาย': `ค่าแรง|${inv.claim.carPlate}|${inv.claim.insurance?.name || ''}`,
-          'จำนวน': 1,
-          'ราคาต่อหน่วย': inv.laborTotal,
-          'ส่วนลดต่อหน่วย': 0,
-          'อัตราภาษี': '7%',
-          'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 0,
-          'หมายเหตุ': remark,
-          'กลุ่มจัดประเภท': ''
-        })
-        rows.push({
-          'ลำดับที่*': seq,
-          'วันที่เอกสาร': formatDate(inv.invoiceDate),
-          'เลขที่เอกสาร': '',
-          'อ้างอิงถึง': inv.claim.claimNo,
-          'ลูกค้า': inv.claim.insurance?.peakCustomerId || inv.claim.insurance?.id || '',
-          'เลขทะเบียน 13 หลัก': '',
-          'เลขสาขา 5 หลัก': '',
-          'เป็นใบกำกับภาษี': '',
-          'ประเภทราคา': 1,
-          'สินค้า/บริการ': 'P00033',
-          'บัญชี': ACCOUNT_REVENUE_PARTS,
-          'คำอธิบาย': `ค่าอะไหล่|${inv.claim.carPlate}|${inv.claim.insurance?.name || ''}`,
-          'จำนวน': 1,
-          'ราคาต่อหน่วย': inv.partsTotal,
-          'ส่วนลดต่อหน่วย': 0,
-          'อัตราภาษี': '7%',
-          'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 0,
-          'หมายเหตุ': remark,
-          'กลุ่มจัดประเภท': ''
-        })
-        seq++
+        let hasAdded = false
+        if (inv.laborTotal > 0) {
+          rows.push({
+            'ลำดับที่*': seq,
+            'วันที่เอกสาร': formatDate(inv.invoiceDate),
+            'เลขที่เอกสาร': '',
+            'อ้างอิงถึง': inv.claim.claimNo,
+            'ลูกค้า': inv.claim.insurance?.peakCustomerId || inv.claim.insurance?.id || '',
+            'เลขทะเบียน 13 หลัก': '',
+            'เลขสาขา 5 หลัก': '',
+            'เป็นใบกำกับภาษี': '',
+            'ประเภทราคา': 1,
+            'สินค้า/บริการ': 'P00035',
+            'บัญชี': ACCOUNT_REVENUE_LABOR,
+            'คำอธิบาย': `ค่าแรง|${inv.claim.carPlate}|${inv.claim.insurance?.name || ''}`,
+            'จำนวน': 1,
+            'ราคาต่อหน่วย': inv.laborTotal,
+            'ส่วนลดต่อหน่วย': 0,
+            'อัตราภาษี': '7%',
+            'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 0,
+            'หมายเหตุ': remark,
+            'กลุ่มจัดประเภท': ''
+          })
+          hasAdded = true
+        }
+        if (inv.partsTotal > 0) {
+          rows.push({
+            'ลำดับที่*': seq,
+            'วันที่เอกสาร': formatDate(inv.invoiceDate),
+            'เลขที่เอกสาร': '',
+            'อ้างอิงถึง': inv.claim.claimNo,
+            'ลูกค้า': inv.claim.insurance?.peakCustomerId || inv.claim.insurance?.id || '',
+            'เลขทะเบียน 13 หลัก': '',
+            'เลขสาขา 5 หลัก': '',
+            'เป็นใบกำกับภาษี': '',
+            'ประเภทราคา': 1,
+            'สินค้า/บริการ': 'P00033',
+            'บัญชี': ACCOUNT_REVENUE_PARTS,
+            'คำอธิบาย': `ค่าอะไหล่|${inv.claim.carPlate}|${inv.claim.insurance?.name || ''}`,
+            'จำนวน': 1,
+            'ราคาต่อหน่วย': inv.partsTotal,
+            'ส่วนลดต่อหน่วย': 0,
+            'อัตราภาษี': '7%',
+            'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 0,
+            'หมายเหตุ': remark,
+            'กลุ่มจัดประเภท': ''
+          })
+          hasAdded = true
+        }
+        
+        if (hasAdded) {
+          seq++
+        }
       }
       return NextResponse.json({ rows, filename: 'AR_Import_Invoice.xlsx' })
     }

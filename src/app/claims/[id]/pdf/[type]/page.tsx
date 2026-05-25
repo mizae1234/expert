@@ -205,22 +205,34 @@ export default function PDFMockPage() {
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-gray-200">
-              <td className="py-4 px-2 text-gray-600">1</td>
-              <td className="py-4 px-2">
-                <strong>ค่าแรงซ่อมรถยนต์</strong>
-                <p className="text-gray-500 text-xs mt-1">ตามใบเสนอราคาที่ได้รับอนุมัติ ทะเบียน {claim.carPlate}</p>
-              </td>
-              <td className="py-4 px-2 text-right">{formatCurrency(inv.laborTotal)}</td>
-            </tr>
-            <tr className="border-b border-gray-200">
-              <td className="py-4 px-2 text-gray-600">2</td>
-              <td className="py-4 px-2">
-                <strong>ค่าอะไหล่รถยนต์</strong>
-                <p className="text-gray-500 text-xs mt-1">ตามใบเสนอราคาที่ได้รับอนุมัติ ทะเบียน {claim.carPlate}</p>
-              </td>
-              <td className="py-4 px-2 text-right">{formatCurrency(inv.partsTotal)}</td>
-            </tr>
+            {(() => {
+              const rows = []
+              if (inv.laborTotal > 0) {
+                rows.push(
+                  <tr key="labor" className="border-b border-gray-200">
+                    <td className="py-4 px-2 text-gray-600">{rows.length + 1}</td>
+                    <td className="py-4 px-2">
+                      <strong>ค่าแรงซ่อมรถยนต์</strong>
+                      <p className="text-gray-500 text-xs mt-1">ตามใบเสนอราคาที่ได้รับอนุมัติ ทะเบียน {claim.carPlate}</p>
+                    </td>
+                    <td className="py-4 px-2 text-right">{formatCurrency(inv.laborTotal)}</td>
+                  </tr>
+                )
+              }
+              if (inv.partsTotal > 0) {
+                rows.push(
+                  <tr key="parts" className="border-b border-gray-200">
+                    <td className="py-4 px-2 text-gray-600">{rows.length + 1}</td>
+                    <td className="py-4 px-2">
+                      <strong>ค่าอะไหล่รถยนต์</strong>
+                      <p className="text-gray-500 text-xs mt-1">ตามใบเสนอราคาที่ได้รับอนุมัติ ทะเบียน {claim.carPlate}</p>
+                    </td>
+                    <td className="py-4 px-2 text-right">{formatCurrency(inv.partsTotal)}</td>
+                  </tr>
+                )
+              }
+              return rows
+            })()}
           </tbody>
         </table>
 
