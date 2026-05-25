@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
 
     const insurances = await prisma.insurance.findMany()
     const vendors = await prisma.vendor.findMany({ where: { vendorType: 'GARAGE' } })
-
     const cleanName = (name: string) => {
       if (!name) return ''
       return name
@@ -25,6 +24,8 @@ export async function POST(request: NextRequest) {
         .replace(/\s+/g, '')
         .trim()
     }
+
+    const defaultGarage = vendors.find(v => cleanName(v.name).includes('เอ็กซ์เพิร์ท')) || vendors[0]
 
     let importedCount = 0
     let skippedCount = 0
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
         }
 
         const insuranceId = matchedIns?.id || insurances[0]?.id
-        const garageId = matchedGar?.id || vendors[0]?.id
+        const garageId = matchedGar?.id || defaultGarage?.id
 
         if (!insuranceId || !garageId) {
           console.error(`Skipping row due to missing default insurance/garage for claimNo: ${claimNo}`)
