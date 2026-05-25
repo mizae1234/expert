@@ -24,13 +24,16 @@ export async function POST(
       return NextResponse.json({ error: 'มีใบวางบิลอยู่แล้ว กรุณาลบใบเดิมก่อนสร้างใหม่' }, { status: 400 })
     }
 
-    // Generate readable sequential invoice number
-    const year = new Date().getFullYear()
+    // Generate readable sequential invoice number in IVT-YYYYMMXXXXX format
+    const now = new Date()
+    const yyyymm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
+    const prefix = `IVT-${yyyymm}`
     const count = await prisma.insuranceInvoice.count({
-      where: { invoiceNo: { startsWith: `INV-${year}-` } }
+      where: { invoiceNo: { startsWith: 'IVT-' } }
     })
-    const seqNo = String(count + 1).padStart(6, '0')
-    const invoiceNo = body.invoiceNo || `INV-${year}-${seqNo}`
+    const nextNo = 23 + count
+    const seqNo = String(nextNo).padStart(5, '0')
+    const invoiceNo = body.invoiceNo || `${prefix}${seqNo}`
 
     const newInvoice = await prisma.insuranceInvoice.create({
       data: {

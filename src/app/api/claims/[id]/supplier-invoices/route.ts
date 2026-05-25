@@ -24,8 +24,8 @@ export async function POST(
     const body = await request.json()
     
     const subtotal = (body.items || []).reduce((s: number, item: any) => s + (item.totalPrice || 0), 0)
-    const vatAmount = body.vatAmount ?? Math.round(subtotal * 0.07)
-    const totalAmount = subtotal + vatAmount
+    const vatAmount = body.vatAmount ?? (Math.round(subtotal * 0.07 * 100) / 100)
+    const totalAmount = Math.round((subtotal + vatAmount) * 100) / 100
 
     // Auto-generate sequential invoice number if not provided
     let invoiceNo = body.invoiceNo

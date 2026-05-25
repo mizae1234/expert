@@ -276,8 +276,8 @@ export default function ClaimDetailPage() {
   const partsTotal = parts.reduce((s, p) => s + p.priceApprove * p.quantity, 0)
   const laborTotal = labors.reduce((s, l) => s + l.priceApprove, 0)
   const subtotal = partsTotal + laborTotal
-  const vat = Math.round(subtotal * 0.07)
-  const grand = subtotal + vat
+  const vat = Math.round(subtotal * 0.07 * 100) / 100
+  const grand = Math.round((subtotal + vat) * 100) / 100
   const apVendor = claim.supplierInvoices?.reduce((s: number, inv: any) => s + inv.totalAmount, 0) || 0
   const arReceived = claim.insuranceInvoice?.grandTotal || 0
   const grossProfit = arReceived - apVendor
@@ -396,20 +396,29 @@ export default function ClaimDetailPage() {
     }
   }
 
-  const handleCreateInsuranceInvoice = async () => {
+  const handleCreateInsuranceInvoice = async (customData?: {
+    laborTotal: number
+    partsTotal: number
+    subtotal: number
+    vatAmount: number
+    grandTotal: number
+  }) => {
     try {
-      const sub = partsTotal + laborTotal
-      const vatAmt = Math.round(sub * 0.07)
-      
+      const laborTot = customData ? customData.laborTotal : laborTotal
+      const partsTot = customData ? customData.partsTotal : partsTotal
+      const sub = customData ? customData.subtotal : (laborTot + partsTot)
+      const vatAmt = customData ? customData.vatAmount : (Math.round(sub * 0.07 * 100) / 100)
+      const grand = customData ? customData.grandTotal : (Math.round((sub + vatAmt) * 100) / 100)
+
       const res = await fetch(`/api/claims/${claim.id}/insurance-invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          laborTotal,
-          partsTotal,
+          laborTotal: laborTot,
+          partsTotal: partsTot,
           subtotal: sub,
           vatAmount: vatAmt,
-          grandTotal: sub + vatAmt
+          grandTotal: grand
         })
       })
 
@@ -474,8 +483,8 @@ export default function ClaimDetailPage() {
     const laborTot = qtLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
     const partTot = qtParts.filter(p => p.selected).reduce((sum, p) => sum + ((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)), 0)
     const sub = partTot + laborTot
-    const vatAmt = qtCustomVat !== '' ? Number(qtCustomVat) : Math.round(sub * 0.07)
-    const grand = qtCustomGrand !== '' ? Number(qtCustomGrand) : (sub + vatAmt)
+    const vatAmt = qtCustomVat !== '' ? Number(qtCustomVat) : Math.round(sub * 0.07 * 100) / 100
+    const grand = qtCustomGrand !== '' ? Number(qtCustomGrand) : Math.round((sub + vatAmt) * 100) / 100
     
     const payload = {
       quotationNo: qtNo,
@@ -538,7 +547,7 @@ export default function ClaimDetailPage() {
     
     // Create new supplement from current parts/labors
     const sub = partsTotal + laborTotal
-    const vatAmt = Math.round(sub * 0.07)
+    const vatAmt = Math.round(sub * 0.07 * 100) / 100
     const supNo = `${oldQt.quotationNo}-S${quotations.filter(q => q.quotationNo.startsWith(oldQt.quotationNo)).length}`
     
     const payload = {
@@ -551,7 +560,7 @@ export default function ClaimDetailPage() {
       partsTotal,
       subtotal: sub,
       vatAmount: vatAmt,
-      grandTotal: sub + vatAmt,
+      grandTotal: Math.round((sub + vatAmt) * 100) / 100,
       note: supplementReason || 'มีรายการซ่อมเพิ่มเติม',
       status: 'DRAFT',
       createdBy: 'Admin'

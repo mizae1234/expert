@@ -50,19 +50,20 @@ export async function GET(request: NextRequest) {
         if (!insurance?.peakCustomerId) continue
         const inv = claim.insuranceInvoice
         allRows.push({
-          ลำดับที่: seq++, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: inv.invoiceNo,
+          ลำดับที่: seq, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: '',
           อ้างอิงถึง: claim.claimNo, ลูกค้า: insurance.peakCustomerId,
-          สินค้า: 'P001', บัญชี: conf.ACCOUNT_REVENUE_LABOR,
+          สินค้า: 'P00035', บัญชี: conf.ACCOUNT_REVENUE_LABOR,
           คำอธิบาย: `ค่าแรง|${claim.carPlate}|${insurance.name}`,
           จำนวน: 1, 'ราคา/หน่วย': inv.laborTotal, อัตราภาษี: '7%',
         })
         allRows.push({
-          ลำดับที่: seq++, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: inv.invoiceNo,
+          ลำดับที่: seq, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: '',
           อ้างอิงถึง: claim.claimNo, ลูกค้า: insurance.peakCustomerId,
-          สินค้า: 'P002', บัญชี: conf.ACCOUNT_REVENUE_PARTS,
+          สินค้า: 'P00033', บัญชี: conf.ACCOUNT_REVENUE_PARTS,
           คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${insurance.name}`,
           จำนวน: 1, 'ราคา/หน่วย': inv.partsTotal, อัตราภาษี: '7%',
         })
+        seq++
       }
       return NextResponse.json({ template: 'Import_Invoice', filename: `Batch_AR_Invoice.xlsx`, rows: allRows })
     }
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
             'เลขสาขา 5 หลัก': vendor.branchCode || '00000',
             เลขที่ใบกำกับฯ: si.invoiceNo, วันที่ใบกำกับฯ: formatDate(si.invoiceDate),
             วันที่บันทึกภาษีซื้อ: formatDate(si.invoiceDate), ประเภทราคา: 1,
-            'สินค้า/บริการ': 'P002', บัญชี: conf.ACCOUNT_COST_PARTS,
+            'สินค้า/บริการ': 'P00033', บัญชี: conf.ACCOUNT_COST_PARTS,
             คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${claim.claimNo}`,
             จำนวน: 1, 'ราคา/หน่วย': si.totalAmount / 1.07, อัตราภาษี: '7%',
             'หัก ณ ที่จ่าย': 0, ชำระโดย: '', จำนวนเงินที่ชำระ: 0,
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
             'เลขสาขา 5 หลัก': garage.branchCode || '00000',
             เลขที่ใบกำกับฯ: gi.invoiceNo, วันที่ใบกำกับฯ: formatDate(gi.invoiceDate),
             วันที่บันทึกภาษีซื้อ: formatDate(gi.invoiceDate), ประเภทราคา: 1,
-            'สินค้า/บริการ': 'P001', บัญชี: conf.ACCOUNT_COST_LABOR,
+            'สินค้า/บริการ': 'P00035', บัญชี: conf.ACCOUNT_COST_LABOR,
             คำอธิบาย: `ค่าแรง|${claim.carPlate}|${claim.claimNo}`,
             จำนวน: 1, 'ราคา/หน่วย': gi.totalAmount / 1.07, อัตราภาษี: '7%',
             'หัก ณ ที่จ่าย': 0, ชำระโดย: '', จำนวนเงินที่ชำระ: 0,

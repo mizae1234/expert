@@ -59,16 +59,16 @@ export async function POST(req: NextRequest) {
       for (const inv of invoices) {
         const remark = buildRemark(inv.claim)
         rows.push({
-          'ลำดับที่*': seq++,
+          'ลำดับที่*': seq,
           'วันที่เอกสาร': formatDate(inv.invoiceDate),
-          'เลขที่เอกสาร': inv.invoiceNo,
+          'เลขที่เอกสาร': '',
           'อ้างอิงถึง': inv.claim.claimNo,
           'ลูกค้า': inv.claim.insurance?.peakCustomerId || inv.claim.insurance?.id || '',
           'เลขทะเบียน 13 หลัก': '',
           'เลขสาขา 5 หลัก': '',
           'เป็นใบกำกับภาษี': '',
           'ประเภทราคา': 1,
-          'สินค้า/บริการ': 'P001',
+          'สินค้า/บริการ': 'P00035',
           'บัญชี': ACCOUNT_REVENUE_LABOR,
           'คำอธิบาย': `ค่าแรง|${inv.claim.carPlate}|${inv.claim.insurance?.name || ''}`,
           'จำนวน': 1,
@@ -80,16 +80,16 @@ export async function POST(req: NextRequest) {
           'กลุ่มจัดประเภท': ''
         })
         rows.push({
-          'ลำดับที่*': seq++,
+          'ลำดับที่*': seq,
           'วันที่เอกสาร': formatDate(inv.invoiceDate),
-          'เลขที่เอกสาร': inv.invoiceNo,
+          'เลขที่เอกสาร': '',
           'อ้างอิงถึง': inv.claim.claimNo,
           'ลูกค้า': inv.claim.insurance?.peakCustomerId || inv.claim.insurance?.id || '',
           'เลขทะเบียน 13 หลัก': '',
           'เลขสาขา 5 หลัก': '',
           'เป็นใบกำกับภาษี': '',
           'ประเภทราคา': 1,
-          'สินค้า/บริการ': 'P002',
+          'สินค้า/บริการ': 'P00033',
           'บัญชี': ACCOUNT_REVENUE_PARTS,
           'คำอธิบาย': `ค่าอะไหล่|${inv.claim.carPlate}|${inv.claim.insurance?.name || ''}`,
           'จำนวน': 1,
@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
           'หมายเหตุ': remark,
           'กลุ่มจัดประเภท': ''
         })
+        seq++
       }
       return NextResponse.json({ rows, filename: 'AR_Import_Invoice.xlsx' })
     }
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
           'วันที่ใบกำกับฯ (ถ้ามี)': formatDate(si.invoiceDate),
           'วันที่บันทึกภาษีซื้อ (ถ้ามี)': formatDate(si.invoiceDate),
           'ประเภทราคา': 1,
-          'สินค้า/บริการ': 'P002',
+          'สินค้า/บริการ': 'P00033',
           'บัญชี': ACCOUNT_COST_PARTS,
           'คำอธิบาย': `ค่าอะไหล่|${si.claim.carPlate}|${si.claim.claimNo}`,
           'จำนวน': 1,
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest) {
           'วันที่ใบกำกับฯ (ถ้ามี)': formatDate(gi.invoiceDate),
           'วันที่บันทึกภาษีซื้อ (ถ้ามี)': formatDate(gi.invoiceDate),
           'ประเภทราคา': 1,
-          'สินค้า/บริการ': 'P001',
+          'สินค้า/บริการ': 'P00035',
           'บัญชี': ACCOUNT_COST_LABOR,
           'คำอธิบาย': `ค่าแรง|${gi.claim.carPlate}|${gi.claim.claimNo}`,
           'จำนวน': 1,

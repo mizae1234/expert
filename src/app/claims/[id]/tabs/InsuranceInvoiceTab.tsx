@@ -5,15 +5,37 @@ import { TrendingUp, CheckCircle2, AlertTriangle, Trash2, Plus, Download } from 
 import { formatCurrency } from '@/lib/utils'
 import { formatDate } from '@/lib/date'
 import { ClaimTabProps } from './types'
+import { useState, useEffect } from 'react'
 
 interface InsuranceInvoiceTabProps extends ClaimTabProps {
-  handleCreateInsuranceInvoice: () => Promise<void>
+  handleCreateInsuranceInvoice: (customData?: { laborTotal: number, partsTotal: number, subtotal: number, vatAmount: number, grandTotal: number }) => Promise<void>
   handleDeleteInsuranceInvoice: () => Promise<void>
   setConfirmModal: (val: { title: string, message: string, onConfirm: () => void } | null) => void
   setShowReceiveARModal: (val: boolean) => void
 }
 
-export default function InsuranceInvoiceTab({ claim, partsTotal, laborTotal, handleCreateInsuranceInvoice, handleDeleteInsuranceInvoice, setConfirmModal, setShowReceiveARModal }: InsuranceInvoiceTabProps) {
+export default function InsuranceInvoiceTab({
+  claim,
+  partsTotal,
+  laborTotal,
+  handleCreateInsuranceInvoice,
+  handleDeleteInsuranceInvoice,
+  setConfirmModal,
+  setShowReceiveARModal
+}: InsuranceInvoiceTabProps) {
+  const [editParts, setEditParts] = useState<number>(partsTotal)
+  const [editLabor, setEditLabor] = useState<number>(laborTotal)
+
+  useEffect(() => {
+    setEditParts(partsTotal)
+    setEditLabor(laborTotal)
+  }, [partsTotal, laborTotal])
+
+  // Calculations with 2 decimal places (not rounded to integers)
+  const sub = editParts + editLabor
+  const vat = Math.round(sub * 0.07 * 100) / 100
+  const grand = Math.round((sub + vat) * 100) / 100
+
   return (
     <div className="space-y-6">
       {/* ─── Section AR: วางบิลประกัน ─── */}
@@ -39,8 +61,7 @@ export default function InsuranceInvoiceTab({ claim, partsTotal, laborTotal, han
                 const statusFlow = ['RECEIVED', 'PARTS_CHECK', 'PO_ISSUED', 'GOODS_RECEIVED', 'INVOICE_SENT', 'AP_PAID', 'AR_RECEIVED', 'CLOSED']
                 const idx = statusFlow.indexOf(claim.status)
                 const ready = idx >= 1 // >= PARTS_CHECK
-                const sub = partsTotal + laborTotal
-                const vat = Math.round(sub * 0.07)
+                
                 if (!ready) return (
                   <div className="text-center py-8 text-[#94a3b8]">
                     <AlertTriangle className="w-10 h-10 mx-auto mb-2 opacity-40 text-amber-400" />
@@ -48,18 +69,61 @@ export default function InsuranceInvoiceTab({ claim, partsTotal, laborTotal, han
                     <p className="text-xs mt-1">บ.ประกันยังไม่อนุมัติรายการอะไหล่/ค่าแรง</p>
                   </div>
                 )
+                
                 return (
                   <div className="space-y-4">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <p className="text-sm font-medium text-green-700 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />พร้อมออกใบวางบิล</p>
                       <p className="text-xs text-green-600 mt-1">บ.ประกันอนุมัติรายการแล้ว — ไม่ต้องรอ Supplier Invoice</p>
                     </div>
-                    <div className="bg-[#f8faff] rounded-lg p-4 space-y-2">
-                      {[['ค่าอะไหล่', partsTotal], ['ค่าแรง', laborTotal], ['Subtotal', sub], ['VAT 7%', vat], ['Grand Total', sub + vat]].map(([l, v]) => (
-                        <div key={String(l)} className="flex justify-between"><span className="text-sm text-[#475569]">{l}</span><span className={`text-sm font-semibold ${l === 'Grand Total' ? 'text-[#1d4ed8] text-base' : 'text-[#0f172a]'}`}>฿{formatCurrency(v as number)}</span></div>
-                      ))}
+                    
+                    <div className="bg-[#f8faff] rounded-lg p-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-semibold text-[#475569]">ค่าอะไหล่ (แก้ไขได้)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-full mt-1.5 p-2 text-sm border rounded-md font-semibold text-[#0f172a]"
+                            value={editParts}
+                            onChange={e => setEditParts(Number(e.target.value) || 0)}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-[#475569]">ค่าแรง (แก้ไขได้)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-full mt-1.5 p-2 text-sm border rounded-md font-semibold text-[#0f172a]"
+                            value={editLabor}
+                            onChange={e => setEditLabor(Number(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="border-t pt-3 space-y-2">
+                        <div className="flex justify-between text-sm text-[#475569]">
+                          <span>Subtotal:</span>
+                          <span className="font-semibold text-[#0f172a]">฿{formatCurrency(sub)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-[#475569]">
+                          <span>VAT 7%:</span>
+                          <span className="font-semibold text-[#0f172a]">฿{formatCurrency(vat)}</span>
+                        </div>
+                        <div className="flex justify-between text-base font-bold text-blue-700 pt-2 border-t mt-1">
+                          <span>ยอดรวมทั้งสิ้น (Grand Total):</span>
+                          <span>฿{formatCurrency(grand)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <Button className="bg-[#1d4ed8] w-full" onClick={handleCreateInsuranceInvoice}><Plus className="w-4 h-4 mr-1" />สร้างใบวางบิลประกัน</Button>
+                    
+                    <Button className="bg-[#1d4ed8] w-full" onClick={() => handleCreateInsuranceInvoice({
+                      laborTotal: editLabor,
+                      partsTotal: editParts,
+                      subtotal: sub,
+                      vatAmount: vat,
+                      grandTotal: grand
+                    })}><Plus className="w-4 h-4 mr-1" />สร้างใบวางบิลประกัน</Button>
                   </div>
                 )
               })()}
