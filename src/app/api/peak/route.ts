@@ -57,7 +57,8 @@ export async function GET() {
         insuranceName: inv.claim.insurance.name,
         invoiceDate: inv.invoiceDate,
         grandTotal: inv.grandTotal,
-        isSynced: false // Mock for now
+        isSynced: inv.isSynced,
+        syncedAt: inv.syncedAt
       })),
       apInvoices: [
         ...supplierInvoices.map(inv => ({
@@ -67,7 +68,8 @@ export async function GET() {
           vendorName: inv.vendor.name,
           invoiceDate: inv.invoiceDate,
           totalAmount: inv.totalAmount,
-          isSynced: false,
+          isSynced: inv.isSynced,
+          syncedAt: inv.syncedAt,
           type: 'SUPPLIER'
         })),
         ...garageInvoices.map(inv => ({
@@ -77,7 +79,8 @@ export async function GET() {
           vendorName: inv.garage?.name || 'อู่ซ่อม',
           invoiceDate: inv.createdAt,
           totalAmount: inv.totalAmount,
-          isSynced: false,
+          isSynced: inv.isSynced,
+          syncedAt: inv.syncedAt,
           type: 'GARAGE'
         }))
       ].sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()),
@@ -89,7 +92,8 @@ export async function GET() {
         amount: exp.amount,
         date: exp.date,
         createdBy: exp.createdBy,
-        isSynced: false
+        isSynced: exp.isSynced,
+        syncedAt: exp.syncedAt
       }))
     })
   } catch (error: any) {

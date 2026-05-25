@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Cloud, CheckCircle2, AlertTriangle, RefreshCw, Search } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import { formatDate } from '@/lib/date'
+import { formatDate, formatDateTime } from '@/lib/date'
 
 export default function PeakSyncPage() {
   const [loading, setLoading] = useState(true)
@@ -31,19 +31,20 @@ export default function PeakSyncPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
+  const refreshData = async () => {
+    try {
+      const res = await fetch('/api/peak')
+      const data = await res.json()
+      setArInvoices(data.arInvoices || [])
+      setApInvoices(data.apInvoices || [])
+      setExpenses(data.expenses || [])
+    } catch (err) {
+      console.error('Failed to refresh data:', err)
+    }
+  }
+
   useEffect(() => {
-    fetch('/api/peak')
-      .then(res => res.json())
-      .then(data => {
-        setArInvoices(data.arInvoices || [])
-        setApInvoices(data.apInvoices || [])
-        setExpenses(data.expenses || [])
-        setLoading(false)
-      })
-      .catch(err => {
-        console.error(err)
-        setLoading(false)
-      })
+    refreshData().finally(() => setLoading(false))
   }, [])
 
   if (loading) {
@@ -79,6 +80,7 @@ export default function PeakSyncPage() {
       
       setArSelections({})
       showToast(`✅ Export ข้อมูล ${selectedIds.length} รายการ สำเร็จ`)
+      refreshData()
     } catch (err: any) {
       showToast('❌ ' + err.message)
     } finally {
@@ -111,6 +113,7 @@ export default function PeakSyncPage() {
       
       setApSelections({})
       showToast(`✅ Export ข้อมูล ${selectedIds.length} รายการ สำเร็จ`)
+      refreshData()
     } catch (err: any) {
       showToast('❌ ' + err.message)
     } finally {
@@ -143,6 +146,7 @@ export default function PeakSyncPage() {
       
       setExpenseSelections({})
       showToast(`✅ Export ข้อมูล ${selectedIds.length} รายการ สำเร็จ`)
+      refreshData()
     } catch (err: any) {
       showToast('❌ ' + err.message)
     } finally {
@@ -309,7 +313,12 @@ export default function PeakSyncPage() {
                       <TableCell className="text-right font-semibold">฿{formatCurrency(inv.grandTotal)}</TableCell>
                       <TableCell className="text-center">
                         {inv.isSynced ? (
-                          <Badge className="bg-green-100 text-green-700 border-none gap-1"><CheckCircle2 className="w-3 h-3" />Synced</Badge>
+                          <div className="flex flex-col items-center gap-0.5">
+                            <Badge className="bg-green-100 text-green-700 border-none gap-1"><CheckCircle2 className="w-3 h-3" />Synced</Badge>
+                            {inv.syncedAt && (
+                              <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{formatDateTime(inv.syncedAt)}</span>
+                            )}
+                          </div>
                         ) : (
                           <Badge className="bg-gray-100 text-gray-600 border-none gap-1"><AlertTriangle className="w-3 h-3" />รอส่ง</Badge>
                         )}
@@ -388,7 +397,12 @@ export default function PeakSyncPage() {
                       <TableCell className="text-right font-semibold">฿{formatCurrency(inv.totalAmount)}</TableCell>
                       <TableCell className="text-center">
                         {inv.isSynced ? (
-                          <Badge className="bg-green-100 text-green-700 border-none gap-1"><CheckCircle2 className="w-3 h-3" />Synced</Badge>
+                          <div className="flex flex-col items-center gap-0.5">
+                            <Badge className="bg-green-100 text-green-700 border-none gap-1"><CheckCircle2 className="w-3 h-3" />Synced</Badge>
+                            {inv.syncedAt && (
+                              <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{formatDateTime(inv.syncedAt)}</span>
+                            )}
+                          </div>
                         ) : (
                           <Badge className="bg-gray-100 text-gray-600 border-none gap-1"><AlertTriangle className="w-3 h-3" />รอส่ง</Badge>
                         )}
@@ -473,7 +487,12 @@ export default function PeakSyncPage() {
                       <TableCell className="text-right font-semibold">฿{formatCurrency(exp.amount)}</TableCell>
                       <TableCell className="text-center">
                         {exp.isSynced ? (
-                          <Badge className="bg-green-100 text-green-700 border-none gap-1"><CheckCircle2 className="w-3 h-3" />Synced</Badge>
+                          <div className="flex flex-col items-center gap-0.5">
+                            <Badge className="bg-green-100 text-green-700 border-none gap-1"><CheckCircle2 className="w-3 h-3" />Synced</Badge>
+                            {exp.syncedAt && (
+                              <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{formatDateTime(exp.syncedAt)}</span>
+                            )}
+                          </div>
                         ) : (
                           <Badge className="bg-gray-100 text-gray-600 border-none gap-1"><AlertTriangle className="w-3 h-3" />รอส่ง</Badge>
                         )}

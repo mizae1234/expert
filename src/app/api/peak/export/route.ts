@@ -107,11 +107,15 @@ export async function POST(req: NextRequest) {
           })
           hasAdded = true
         }
-        
         if (hasAdded) {
           seq++
         }
       }
+
+      await prisma.insuranceInvoice.updateMany({
+        where: { id: { in: ids } },
+        data: { isSynced: true, syncedAt: new Date() }
+      })
       return NextResponse.json({ rows, filename: 'AR_Import_Invoice.xlsx' })
     }
 
@@ -181,9 +185,17 @@ export async function POST(req: NextRequest) {
           'จำนวนเงินที่ชำระ': 0,
           'ภ.ง.ด. (ถ้ามี)': '53',
           'หมายเหตุ': remark,
-          'กลุ่มจัดประเภท': ''
         })
       }
+
+      await prisma.supplierInvoice.updateMany({
+        where: { id: { in: supplierInvoices.map(si => si.id) } },
+        data: { isSynced: true, syncedAt: new Date() }
+      })
+      await prisma.garageInvoice.updateMany({
+        where: { id: { in: garageInvoices.map(gi => gi.id) } },
+        data: { isSynced: true, syncedAt: new Date() }
+      })
       return NextResponse.json({ rows, filename: 'AP_Import_Purchase.xlsx' })
     }
 
@@ -218,9 +230,13 @@ export async function POST(req: NextRequest) {
           'จำนวนเงินที่ชำระ': 0,
           'ภ.ง.ด. (ถ้ามี)': '',
           'หมายเหตุ': remark,
-          'กลุ่มจัดประเภท': ''
         })
       }
+
+      await prisma.claimExpense.updateMany({
+        where: { id: { in: ids } },
+        data: { isSynced: true, syncedAt: new Date() }
+      })
       return NextResponse.json({ rows, filename: 'Expense_Import.xlsx' })
     }
 

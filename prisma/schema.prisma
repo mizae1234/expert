@@ -240,6 +240,8 @@ model SupplierInvoice {
   apPayment       APPayment?
   items           SupplierInvoiceItem[]
   paymentRequests PaymentRequest[]
+  isSynced        Boolean               @default(false)
+  syncedAt        DateTime?
   createdAt       DateTime              @default(now())
 }
 
@@ -260,6 +262,8 @@ model InsuranceInvoice {
   cancelledAt     DateTime?
   arPayment       ARPayment?
   paymentRequests PaymentRequest[]
+  isSynced        Boolean          @default(false)
+  syncedAt        DateTime?
   createdAt       DateTime         @default(now())
 }
 
@@ -435,6 +439,8 @@ model GarageInvoice {
   vatAmount   Float
   totalAmount Float
   pdfUrl      String?
+  isSynced        Boolean             @default(false)
+  syncedAt        DateTime?
   createdAt       DateTime            @default(now())
   paymentRequests PaymentRequest[]
 }
@@ -592,6 +598,8 @@ model ClaimExpense {
   note        String?
   billable    Boolean  @default(false) // include in insurance invoice?
   createdBy   String   @default("system")
+  isSynced    Boolean  @default(false)
+  syncedAt    DateTime?
   createdAt   DateTime @default(now())
 }
 
