@@ -43,6 +43,33 @@ export default function PeakSyncPage() {
     }
   }
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingVal, setEditingVal] = useState('')
+  const [editingType, setEditingType] = useState<'AR' | 'SUPPLIER' | 'GARAGE' | null>(null)
+
+  const handleSaveDocNo = async (id: string, type: 'AR' | 'SUPPLIER' | 'GARAGE') => {
+    if (!editingVal.trim()) {
+      showToast('❌ เลขที่เอกสารห้ามว่าง')
+      return
+    }
+    try {
+      const res = await fetch('/api/peak/update-doc-no', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, type, invoiceNo: editingVal })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update')
+      }
+      showToast('✅ แก้ไขเลขที่เอกสารสำเร็จ')
+      setEditingId(null)
+      refreshData()
+    } catch (err: any) {
+      showToast('❌ ' + err.message)
+    }
+  }
+
   useEffect(() => {
     refreshData().finally(() => setLoading(false))
   }, [])
@@ -305,7 +332,53 @@ export default function PeakSyncPage() {
                           onChange={e => setArSelections(prev => ({ ...prev, [inv.id]: e.target.checked }))}
                         />
                       </TableCell>
-                      <TableCell className="font-mono font-medium text-[#1d4ed8]">{inv.invoiceNo}</TableCell>
+                      <TableCell className="font-mono font-medium text-[#1d4ed8]">
+                        {editingId === inv.id && editingType === 'AR' ? (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              value={editingVal}
+                              onChange={(e) => setEditingVal(e.target.value)}
+                              className="h-8 w-36 font-mono text-xs"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveDocNo(inv.id, 'AR')
+                                if (e.key === 'Escape') setEditingId(null)
+                              }}
+                            />
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" 
+                              onClick={() => handleSaveDocNo(inv.id, 'AR')}
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" 
+                              onClick={() => setEditingId(null)}
+                            >
+                              <span className="text-xs">✕</span>
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 group">
+                            <span>{inv.invoiceNo}</span>
+                            <button
+                              onClick={() => {
+                                setEditingId(inv.id)
+                                setEditingVal(inv.invoiceNo || '')
+                                setEditingType('AR')
+                              }}
+                              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-opacity p-1"
+                              title="แก้ไขเลขที่เอกสาร"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </button>
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-[#475569]">{inv.claimNo}</TableCell>
                       <TableCell>{inv.insuranceName}</TableCell>
                       <TableCell className="text-xs text-[#475569]">{formatDate(inv.invoiceDate)}</TableCell>
@@ -388,7 +461,53 @@ export default function PeakSyncPage() {
                           onChange={e => setApSelections(prev => ({ ...prev, [inv.id]: e.target.checked }))}
                         />
                       </TableCell>
-                      <TableCell className="font-mono font-medium text-[#1d4ed8]">{inv.invoiceNo}</TableCell>
+                      <TableCell className="font-mono font-medium text-[#1d4ed8]">
+                        {editingId === inv.id && (editingType === 'SUPPLIER' || editingType === 'GARAGE') ? (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              value={editingVal}
+                              onChange={(e) => setEditingVal(e.target.value)}
+                              className="h-8 w-36 font-mono text-xs"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveDocNo(inv.id, inv.type)
+                                if (e.key === 'Escape') setEditingId(null)
+                              }}
+                            />
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" 
+                              onClick={() => handleSaveDocNo(inv.id, inv.type)}
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" 
+                              onClick={() => setEditingId(null)}
+                            >
+                              <span className="text-xs">✕</span>
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 group">
+                            <span>{inv.invoiceNo}</span>
+                            <button
+                              onClick={() => {
+                                setEditingId(inv.id)
+                                setEditingVal(inv.invoiceNo || '')
+                                setEditingType(inv.type)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-opacity p-1"
+                              title="แก้ไขเลขที่ Invoice"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </button>
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-[#475569]">{inv.claimNo}</TableCell>
                       <TableCell>{inv.vendorName}</TableCell>
                       <TableCell className="text-xs text-[#475569]">{formatDate(inv.invoiceDate || inv.createdAt)}</TableCell>
