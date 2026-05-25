@@ -179,7 +179,7 @@ export default function PeakSyncPage() {
   const toggleAllAR = (checked: boolean) => {
     const newSel: Record<string, boolean> = {}
     if (checked) {
-      filteredAR.filter(i => !i.isSynced).forEach(i => newSel[i.id] = true)
+      filteredAR.forEach(i => newSel[i.id] = true)
     }
     setArSelections(newSel)
   }
@@ -187,7 +187,7 @@ export default function PeakSyncPage() {
   const toggleAllAP = (checked: boolean) => {
     const newSel: Record<string, boolean> = {}
     if (checked) {
-      filteredAP.filter(i => !i.isSynced).forEach(i => newSel[i.id] = true)
+      filteredAP.forEach(i => newSel[i.id] = true)
     }
     setApSelections(newSel)
   }
@@ -195,7 +195,7 @@ export default function PeakSyncPage() {
   const toggleAllExpense = (checked: boolean) => {
     const newSel: Record<string, boolean> = {}
     if (checked) {
-      filteredExpense.filter(i => !i.isSynced).forEach(i => newSel[i.id] = true)
+      filteredExpense.forEach(i => newSel[i.id] = true)
     }
     setExpenseSelections(newSel)
   }
@@ -279,7 +279,7 @@ export default function PeakSyncPage() {
                         type="checkbox" 
                         className="w-4 h-4"
                         onChange={e => toggleAllAR(e.target.checked)}
-                        checked={filteredAR.filter(i => !i.isSynced).length > 0 && Object.keys(arSelections).filter(k => arSelections[k]).length === filteredAR.filter(i => !i.isSynced).length}
+                        checked={filteredAR.length > 0 && Object.keys(arSelections).filter(k => arSelections[k]).length === filteredAR.length}
                       />
                     </TableHead>
                     <TableHead>เลขที่เอกสาร</TableHead>
@@ -301,8 +301,7 @@ export default function PeakSyncPage() {
                         <input 
                           type="checkbox" 
                           className="w-4 h-4"
-                          disabled={inv.isSynced}
-                          checked={!!arSelections[inv.id] || inv.isSynced}
+                          checked={!!arSelections[inv.id]}
                           onChange={e => setArSelections(prev => ({ ...prev, [inv.id]: e.target.checked }))}
                         />
                       </TableCell>
@@ -363,7 +362,7 @@ export default function PeakSyncPage() {
                         type="checkbox" 
                         className="w-4 h-4"
                         onChange={e => toggleAllAP(e.target.checked)}
-                        checked={filteredAP.filter(i => !i.isSynced).length > 0 && Object.keys(apSelections).filter(k => apSelections[k]).length === filteredAP.filter(i => !i.isSynced).length}
+                        checked={filteredAP.length > 0 && Object.keys(apSelections).filter(k => apSelections[k]).length === filteredAP.length}
                       />
                     </TableHead>
                     <TableHead>เลขที่ Invoice</TableHead>
@@ -385,8 +384,7 @@ export default function PeakSyncPage() {
                         <input 
                           type="checkbox" 
                           className="w-4 h-4"
-                          disabled={inv.isSynced}
-                          checked={!!apSelections[inv.id] || inv.isSynced}
+                          checked={!!apSelections[inv.id]}
                           onChange={e => setApSelections(prev => ({ ...prev, [inv.id]: e.target.checked }))}
                         />
                       </TableCell>
@@ -447,7 +445,7 @@ export default function PeakSyncPage() {
                         type="checkbox" 
                         className="w-4 h-4"
                         onChange={e => toggleAllExpense(e.target.checked)}
-                        checked={filteredExpense.filter(i => !i.isSynced).length > 0 && Object.keys(expenseSelections).filter(k => expenseSelections[k]).length === filteredExpense.filter(i => !i.isSynced).length}
+                        checked={filteredExpense.length > 0 && Object.keys(expenseSelections).filter(k => expenseSelections[k]).length === filteredExpense.length}
                       />
                     </TableHead>
                     <TableHead>Claim No.</TableHead>
@@ -470,8 +468,7 @@ export default function PeakSyncPage() {
                         <input 
                           type="checkbox" 
                           className="w-4 h-4"
-                          disabled={exp.isSynced}
-                          checked={!!expenseSelections[exp.id] || exp.isSynced}
+                          checked={!!expenseSelections[exp.id]}
                           onChange={e => setExpenseSelections(prev => ({ ...prev, [exp.id]: e.target.checked }))}
                         />
                       </TableCell>
