@@ -674,7 +674,21 @@ export default function ClaimDetailPage() {
                   const res = await fetch(`/api/claims/${claim.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ parts, labors })
+                    body: JSON.stringify({
+                      parts,
+                      labors,
+                      claimNo: claim.claimNo,
+                      receiveNo: claim.receiveNo,
+                      transactionNo: claim.transactionNo,
+                      carPlate: claim.carPlate,
+                      province: claim.province,
+                      carBrand: claim.carBrand,
+                      carModel: claim.carModel,
+                      carVin: claim.carVin,
+                      insuredName: claim.insuredName,
+                      insuranceId: claim.insuranceId,
+                      garageId: claim.garageId,
+                    })
                   })
                   if (!res.ok) throw new Error('Failed to save')
                   const updatedData = await res.json()

@@ -113,7 +113,28 @@ export async function PUT(
   
   const updatedClaim = await prisma.claim.findUnique({
     where: { id: params.id },
-    include: { parts: true, labors: true }
+    include: {
+      insurance: { select: { id: true, name: true, branch: true, taxId: true, branchCode: true, peakCustomerId: true } },
+      garage: { select: { id: true, name: true, phone: true } },
+      parts: { include: { partMaster: { select: { id: true, partNo: true, partName: true, standardPrice: true } } } },
+      labors: true,
+      purchaseOrders: { include: { vendor: { select: { id: true, name: true } }, items: true } },
+      supplierInvoices: { include: { vendor: { select: { id: true, name: true } }, items: true, apPayment: { select: { id: true, paidAt: true, amount: true } } } },
+      garageInvoices: { include: { garage: { select: { id: true, name: true } }, items: true } },
+      insuranceInvoice: { include: { arPayment: { select: { id: true, receivedAt: true, amount: true } } } },
+      statusLogs: { orderBy: { createdAt: 'desc' }, take: 50 },
+      quotations: { include: { laborItems: true, partItems: true } },
+      expenses: { orderBy: { createdAt: 'desc' } },
+      documents: { orderBy: { createdAt: 'desc' }, take: 30 },
+      paymentRequests: { 
+        include: { 
+          supplierInvoice: { select: { id: true, invoiceNo: true, vendor: { select: { id: true, name: true } } } }, 
+          garageInvoice: { select: { id: true, invoiceNo: true, garage: { select: { id: true, name: true } } } }, 
+          insuranceInvoice: { select: { id: true, invoiceNo: true } }, 
+          billReceipt: true 
+        } 
+      },
+    }
   })
   
   return NextResponse.json(updatedClaim)
