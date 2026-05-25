@@ -22,3 +22,38 @@ export async function GET(
   
   return NextResponse.json(insurance)
 }
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json()
+    const updated = await prisma.insurance.update({
+      where: { id: params.id },
+      data: {
+        name: body.name,
+        branch: body.branch,
+        contactPerson: body.contactPerson,
+        taxId: body.taxId,
+        branchCode: body.branchCode,
+        isVatRegistered: String(body.isVatRegistered) === 'true',
+        peakCustomerId: body.peakCustomerId,
+        contactType: body.contactType,
+        nationality: body.nationality,
+        businessType: body.businessType,
+        creditTermAr: body.creditTermAr,
+        creditTermArDays: body.creditTermArDays !== undefined ? Number(body.creditTermArDays) : undefined,
+        creditTermAp: body.creditTermAp,
+        creditTermApDays: body.creditTermApDays !== undefined ? Number(body.creditTermApDays) : undefined,
+        accountArCode: body.accountArCode,
+        accountApCode: body.accountApCode,
+        creditLimitType: body.creditLimitType,
+        creditLimitAmount: body.creditLimitAmount !== undefined ? Number(body.creditLimitAmount) : undefined,
+      }
+    })
+    return NextResponse.json(updated)
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

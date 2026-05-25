@@ -11,7 +11,18 @@ import { ArrowLeft, Phone, MapPin, Building2, Save } from 'lucide-react'
 const DEFAULT_VENDOR = {
   name: '', vendorType: 'PARTS', phone: '', address: '', province: '',
   taxId: '', branchCode: '', peakVendorCode: '', whtType: 'NONE',
-  whtRate: 0, isVatRegistered: false, paymentTerms: 30, isActive: true
+  whtRate: 0, isVatRegistered: false, paymentTerms: 30, isActive: true,
+  contactType: 'ผู้ขาย',
+  nationality: 'ไทย',
+  businessType: 'บริษัทจำกัด',
+  creditTermAr: 'ตามการตั้งค่าของกิจการ',
+  creditTermArDays: 30,
+  creditTermAp: 'ตามการตั้งค่าของกิจการ',
+  creditTermApDays: 30,
+  accountArCode: '113101',
+  accountApCode: '212101',
+  creditLimitType: 'ไม่กำหนดวงเงิน',
+  creditLimitAmount: 0
 }
 
 export default function VendorDetailPage() {
@@ -174,6 +185,108 @@ export default function VendorDetailPage() {
                 <label className="text-xs text-[#94a3b8] font-medium">% หัก ณ ที่จ่าย</label>
                 <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.whtRate || 0} onChange={e => setVendor({...vendor, whtRate: Number(e.target.value)})} />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 text-indigo-700">
+                ตั้งค่าการเชื่อมต่อระบบบัญชี PEAK
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ประเภทผู้ติดต่อ *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.contactType || 'ผู้ขาย'} onChange={e => setVendor({...vendor, contactType: e.target.value})}>
+                  <option value="ไม่ระบุ">ไม่ระบุ</option>
+                  <option value="ลูกค้า">ลูกค้า</option>
+                  <option value="ผู้ขาย">ผู้ขาย</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">สัญชาติ *</label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.nationality || 'ไทย'} onChange={e => setVendor({...vendor, nationality: e.target.value})} />
+              </div>
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ประเภทกิจการ *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.businessType || 'บริษัทจำกัด'} onChange={e => setVendor({...vendor, businessType: e.target.value})}>
+                  <option value="บริษัทจำกัด">บริษัทจำกัด</option>
+                  <option value="บุคคลธรรมดา">บุคคลธรรมดา</option>
+                  <option value="ห้างหุ้นส่วนจำกัด">ห้างหุ้นส่วนจำกัด</option>
+                  <option value="ห้างหุ้นส่วนสามัญ">ห้างหุ้นส่วนสามัญ</option>
+                  <option value="ร้านค้า">ร้านค้า</option>
+                  <option value="คณะบุคคล">คณะบุคคล</option>
+                  <option value="บริษัทมหาชนจำกัด">บริษัทมหาชนจำกัด</option>
+                  <option value="มูลนิธิ">มูลนิธิ</option>
+                  <option value="สมาคม">สมาคม</option>
+                  <option value="กิจการร่วมค้า">กิจการร่วมค้า</option>
+                  <option value="อื่น ๆ">อื่น ๆ</option>
+                </select>
+              </div>
+              
+              <div className="border-t md:col-span-2 my-2"></div>
+              
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ครบกำหนดชำระใบแจ้งหนี้ *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.creditTermAr || 'ตามการตั้งค่าของกิจการ'} onChange={e => setVendor({...vendor, creditTermAr: e.target.value})}>
+                  <option value="ตามการตั้งค่าของกิจการ">ตามการตั้งค่าของกิจการ</option>
+                  <option value="X วันหลังวันที่ออกเอกสาร">X วันหลังวันที่ออกเอกสาร</option>
+                  <option value="วันที่ X ของเดือนถัดไป">วันที่ X ของเดือนถัดไป</option>
+                  <option value="สิ้นเดือนของวันที่ออกเอกสาร">สิ้นเดือนของวันที่ออกเอกสาร</option>
+                  <option value="สิ้นเดือนของเดือนถัดไป">สิ้นเดือนของเดือนถัดไป</option>
+                </select>
+              </div>
+              {(vendor.creditTermAr === 'X วันหลังวันที่ออกเอกสาร' || vendor.creditTermAr === 'วันที่ X ของเดือนถัดไป') && (
+                <div>
+                  <label className="text-xs text-[#94a3b8] font-medium">จำนวนวัน / วันที่ (ตัวแปร X)</label>
+                  <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.creditTermArDays ?? 30} onChange={e => setVendor({...vendor, creditTermArDays: Number(e.target.value)})} />
+                </div>
+              )}
+              
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ครบกำหนดบันทึกรายจ่าย *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.creditTermAp || 'ตามการตั้งค่าของกิจการ'} onChange={e => setVendor({...vendor, creditTermAp: e.target.value})}>
+                  <option value="ตามการตั้งค่าของกิจการ">ตามการตั้งค่าของกิจการ</option>
+                  <option value="X วันหลังวันที่ออกเอกสาร">X วันหลังวันที่ออกเอกสาร</option>
+                  <option value="วันที่ X ของเดือนถัดไป">วันที่ X ของเดือนถัดไป</option>
+                  <option value="สิ้นเดือนของวันที่ออกเอกสาร">สิ้นเดือนของวันที่ออกเอกสาร</option>
+                  <option value="สิ้นเดือนของเดือนถัดไป">สิ้นเดือนของเดือนถัดไป</option>
+                </select>
+              </div>
+              {(vendor.creditTermAp === 'X วันหลังวันที่ออกเอกสาร' || vendor.creditTermAp === 'วันที่ X ของเดือนถัดไป') && (
+                <div>
+                  <label className="text-xs text-[#94a3b8] font-medium">จำนวนวัน / วันที่ (ตัวแปร X)</label>
+                  <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.creditTermApDays ?? 30} onChange={e => setVendor({...vendor, creditTermApDays: Number(e.target.value)})} />
+                </div>
+              )}
+              
+              <div className="border-t md:col-span-2 my-2"></div>
+              
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ผังบัญชีลูกหนี้ (Account AR Code) *</label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md font-mono" placeholder="เช่น 113101" value={vendor.accountArCode || '113101'} onChange={e => setVendor({...vendor, accountArCode: e.target.value})} />
+              </div>
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ผังบัญชีเจ้าหนี้ (Account AP Code) *</label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md font-mono" placeholder="เช่น 212101" value={vendor.accountApCode || '212101'} onChange={e => setVendor({...vendor, accountApCode: e.target.value})} />
+              </div>
+              
+              <div className="border-t md:col-span-2 my-2"></div>
+              
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">กำหนดวงเงิน *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.creditLimitType || 'ไม่กำหนดวงเงิน'} onChange={e => setVendor({...vendor, creditLimitType: e.target.value})}>
+                  <option value="ค่าเริ่มต้น">ค่าเริ่มต้น</option>
+                  <option value="ไม่กำหนดวงเงิน">ไม่กำหนดวงเงิน</option>
+                  <option value="กำหนดเอง">กำหนดเอง</option>
+                </select>
+              </div>
+              {vendor.creditLimitType === 'กำหนดเอง' && (
+                <div>
+                  <label className="text-xs text-[#94a3b8] font-medium">จำนวนเงินวงเงิน (Credit Limit Amount)</label>
+                  <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={vendor.creditLimitAmount ?? 0} onChange={e => setVendor({...vendor, creditLimitAmount: Number(e.target.value)})} />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

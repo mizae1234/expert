@@ -12,7 +12,24 @@ import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils'
 import { formatDate } from '@/lib/date'
 
 const DEFAULT_INSURANCE = {
-  name: '', branch: 'สำนักงานใหญ่', contactPerson: '', taxId: '', branchCode: '00000', isVatRegistered: false, peakCustomerId: ''
+  name: '', 
+  branch: 'สำนักงานใหญ่', 
+  contactPerson: '', 
+  taxId: '', 
+  branchCode: '00000', 
+  isVatRegistered: false, 
+  peakCustomerId: '',
+  contactType: 'ลูกค้า',
+  nationality: 'ไทย',
+  businessType: 'บริษัทจำกัด',
+  creditTermAr: 'ตามการตั้งค่าของกิจการ',
+  creditTermArDays: 30,
+  creditTermAp: 'ตามการตั้งค่าของกิจการ',
+  creditTermApDays: 30,
+  accountArCode: '113101',
+  accountApCode: '212101',
+  creditLimitType: 'ไม่กำหนดวงเงิน',
+  creditLimitAmount: 0
 }
 
 export default function InsuranceDetailPage() {
@@ -133,6 +150,108 @@ export default function InsuranceDetailPage() {
                   <option value="false">No</option>
                 </select>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 text-indigo-700">
+                ตั้งค่าการเชื่อมต่อระบบบัญชี PEAK
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ประเภทผู้ติดต่อ *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.contactType || 'ลูกค้า'} onChange={e => setInsurance({...insurance, contactType: e.target.value})}>
+                  <option value="ไม่ระบุ">ไม่ระบุ</option>
+                  <option value="ลูกค้า">ลูกค้า</option>
+                  <option value="ผู้ขาย">ผู้ขาย</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">สัญชาติ *</label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.nationality || 'ไทย'} onChange={e => setInsurance({...insurance, nationality: e.target.value})} />
+              </div>
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ประเภทกิจการ *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.businessType || 'บริษัทจำกัด'} onChange={e => setInsurance({...insurance, businessType: e.target.value})}>
+                  <option value="บริษัทจำกัด">บริษัทจำกัด</option>
+                  <option value="บุคคลธรรมดา">บุคคลธรรมดา</option>
+                  <option value="ห้างหุ้นส่วนจำกัด">ห้างหุ้นส่วนจำกัด</option>
+                  <option value="ห้างหุ้นส่วนสามัญ">ห้างหุ้นส่วนสามัญ</option>
+                  <option value="ร้านค้า">ร้านค้า</option>
+                  <option value="คณะบุคคล">คณะบุคคล</option>
+                  <option value="บริษัทมหาชนจำกัด">บริษัทมหาชนจำกัด</option>
+                  <option value="มูลนิธิ">มูลนิธิ</option>
+                  <option value="สมาคม">สมาคม</option>
+                  <option value="กิจการร่วมค้า">กิจการร่วมค้า</option>
+                  <option value="อื่น ๆ">อื่น ๆ</option>
+                </select>
+              </div>
+              
+              <div className="border-t md:col-span-2 my-2"></div>
+              
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ครบกำหนดชำระใบแจ้งหนี้ *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.creditTermAr || 'ตามการตั้งค่าของกิจการ'} onChange={e => setInsurance({...insurance, creditTermAr: e.target.value})}>
+                  <option value="ตามการตั้งค่าของกิจการ">ตามการตั้งค่าของกิจการ</option>
+                  <option value="X วันหลังวันที่ออกเอกสาร">X วันหลังวันที่ออกเอกสาร</option>
+                  <option value="วันที่ X ของเดือนถัดไป">วันที่ X ของเดือนถัดไป</option>
+                  <option value="สิ้นเดือนของวันที่ออกเอกสาร">สิ้นเดือนของวันที่ออกเอกสาร</option>
+                  <option value="สิ้นเดือนของเดือนถัดไป">สิ้นเดือนของเดือนถัดไป</option>
+                </select>
+              </div>
+              {(insurance.creditTermAr === 'X วันหลังวันที่ออกเอกสาร' || insurance.creditTermAr === 'วันที่ X ของเดือนถัดไป') && (
+                <div>
+                  <label className="text-xs text-[#94a3b8] font-medium">จำนวนวัน / วันที่ (ตัวแปร X)</label>
+                  <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.creditTermArDays ?? 30} onChange={e => setInsurance({...insurance, creditTermArDays: Number(e.target.value)})} />
+                </div>
+              )}
+              
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ครบกำหนดบันทึกรายจ่าย *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.creditTermAp || 'ตามการตั้งค่าของกิจการ'} onChange={e => setInsurance({...insurance, creditTermAp: e.target.value})}>
+                  <option value="ตามการตั้งค่าของกิจการ">ตามการตั้งค่าของกิจการ</option>
+                  <option value="X วันหลังวันที่ออกเอกสาร">X วันหลังวันที่ออกเอกสาร</option>
+                  <option value="วันที่ X ของเดือนถัดไป">วันที่ X ของเดือนถัดไป</option>
+                  <option value="สิ้นเดือนของวันที่ออกเอกสาร">สิ้นเดือนของวันที่ออกเอกสาร</option>
+                  <option value="สิ้นเดือนของเดือนถัดไป">สิ้นเดือนของเดือนถัดไป</option>
+                </select>
+              </div>
+              {(insurance.creditTermAp === 'X วันหลังวันที่ออกเอกสาร' || insurance.creditTermAp === 'วันที่ X ของเดือนถัดไป') && (
+                <div>
+                  <label className="text-xs text-[#94a3b8] font-medium">จำนวนวัน / วันที่ (ตัวแปร X)</label>
+                  <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.creditTermApDays ?? 30} onChange={e => setInsurance({...insurance, creditTermApDays: Number(e.target.value)})} />
+                </div>
+              )}
+              
+              <div className="border-t md:col-span-2 my-2"></div>
+              
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ผังบัญชีลูกหนี้ (Account AR Code) *</label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md font-mono" placeholder="เช่น 113101" value={insurance.accountArCode || '113101'} onChange={e => setInsurance({...insurance, accountArCode: e.target.value})} />
+              </div>
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">ผังบัญชีเจ้าหนี้ (Account AP Code) *</label>
+                <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md font-mono" placeholder="เช่น 212101" value={insurance.accountApCode || '212101'} onChange={e => setInsurance({...insurance, accountApCode: e.target.value})} />
+              </div>
+              
+              <div className="border-t md:col-span-2 my-2"></div>
+              
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">กำหนดวงเงิน *</label>
+                <select className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.creditLimitType || 'ไม่กำหนดวงเงิน'} onChange={e => setInsurance({...insurance, creditLimitType: e.target.value})}>
+                  <option value="ค่าเริ่มต้น">ค่าเริ่มต้น</option>
+                  <option value="ไม่กำหนดวงเงิน">ไม่กำหนดวงเงิน</option>
+                  <option value="กำหนดเอง">กำหนดเอง</option>
+                </select>
+              </div>
+              {insurance.creditLimitType === 'กำหนดเอง' && (
+                <div>
+                  <label className="text-xs text-[#94a3b8] font-medium">จำนวนเงินวงเงิน (Credit Limit Amount)</label>
+                  <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.creditLimitAmount ?? 0} onChange={e => setInsurance({...insurance, creditLimitAmount: Number(e.target.value)})} />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

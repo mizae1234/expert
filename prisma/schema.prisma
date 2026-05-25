@@ -359,39 +359,61 @@ model ARPayment {
 }
 
 model Insurance {
-  id              String  @id @default(cuid())
-  name            String
-  branch          String?
-  taxId           String?
-  branchCode      String  @default("00000")
-  isVatRegistered Boolean @default(true)
-  contactPerson   String?
-  peakCustomerId  String?
-  claims          Claim[]
+  id                String  @id @default(cuid())
+  name              String
+  branch            String?
+  taxId             String?
+  branchCode        String  @default("00000")
+  isVatRegistered   Boolean @default(true)
+  contactPerson     String?
+  peakCustomerId    String?
+  contactType       String  @default("ลูกค้า")
+  nationality       String  @default("ไทย")
+  businessType      String  @default("บริษัทจำกัด")
+  creditTermAr      String  @default("ตามการตั้งค่าของกิจการ")
+  creditTermArDays  Int     @default(30)
+  creditTermAp      String  @default("ตามการตั้งค่าของกิจการ")
+  creditTermApDays  Int     @default(30)
+  accountArCode     String  @default("113101")
+  accountApCode     String  @default("212101")
+  creditLimitType   String  @default("ไม่กำหนดวงเงิน")
+  creditLimitAmount Float   @default(0)
+  claims            Claim[]
 }
 
 model Vendor {
-  id               String            @id @default(cuid())
-  name             String
-  vendorType       VendorType
-  taxId            String?
-  phone            String?
-  zone             String?
-  province         String?
-  address          String?
-  paymentTerms     Int               @default(30)
-  isActive         Boolean           @default(true)
-  purchaseOrders   PurchaseOrder[]
-  supplierInvoices SupplierInvoice[]
-  branchCode       String            @default("00000")
-  peakVendorCode   String?
-  isVatRegistered  Boolean           @default(true)
-  billingPct       Float             @default(100)
-  whtType          String            @default("53")
-  whtRate          Float             @default(0)
-  PartVendorPrice  PartVendorPrice[]
-  garageClaims     Claim[]           @relation("ClaimGarage")
-  garageInvoices   GarageInvoice[]   @relation("GarageInvoiceVendor")
+  id                String            @id @default(cuid())
+  name              String
+  vendorType        VendorType
+  taxId             String?
+  phone             String?
+  zone              String?
+  province          String?
+  address           String?
+  paymentTerms      Int               @default(30)
+  isActive          Boolean           @default(true)
+  purchaseOrders    PurchaseOrder[]
+  supplierInvoices  SupplierInvoice[]
+  branchCode        String            @default("00000")
+  peakVendorCode    String?
+  isVatRegistered   Boolean           @default(true)
+  billingPct        Float             @default(100)
+  whtType           String            @default("53")
+  whtRate           Float             @default(0)
+  contactType       String            @default("ผู้ขาย")
+  nationality       String            @default("ไทย")
+  businessType      String            @default("บริษัทจำกัด")
+  creditTermAr      String            @default("ตามการตั้งค่าของกิจการ")
+  creditTermArDays  Int               @default(30)
+  creditTermAp      String            @default("ตามการตั้งค่าของกิจการ")
+  creditTermApDays  Int               @default(30)
+  accountArCode     String            @default("113101")
+  accountApCode     String            @default("212101")
+  creditLimitType   String            @default("ไม่กำหนดวงเงิน")
+  creditLimitAmount Float             @default(0)
+  PartVendorPrice   PartVendorPrice[]
+  garageClaims      Claim[]           @relation("ClaimGarage")
+  garageInvoices    GarageInvoice[]   @relation("GarageInvoiceVendor")
 }
 
 enum VendorType {

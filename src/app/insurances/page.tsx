@@ -57,7 +57,10 @@ export default function InsurancesPage() {
                     <Building2 className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#0f172a] truncate">{ins.name}</p>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-[10px] font-mono bg-[#f1f5f9] text-[#475569] px-1.5 py-0.5 rounded font-semibold shrink-0">{ins.id}</span>
+                      <p className="text-sm font-semibold text-[#0f172a] truncate">{ins.name}</p>
+                    </div>
                     <p className="text-xs text-[#94a3b8]">{ins.branch}</p>
                   </div>
                 </div>
@@ -77,6 +80,7 @@ export default function InsurancesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>รหัส</TableHead>
                 <TableHead>ชื่อบริษัท</TableHead>
                 <TableHead>สาขา</TableHead>
                 <TableHead>เลขผู้เสียภาษี</TableHead>
@@ -88,11 +92,12 @@ export default function InsurancesPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
               ) : filtered.map(ins => {
                 const claimCount = ins.claims?.length || 0
                 return (
                   <TableRow key={ins.id}>
+                    <TableCell className="font-mono text-xs font-semibold text-[#475569]">{ins.id}</TableCell>
                     <TableCell className="font-semibold">{ins.name}</TableCell>
                     <TableCell>{ins.branch}</TableCell>
                     <TableCell className="font-mono text-xs">{ins.taxId}</TableCell>

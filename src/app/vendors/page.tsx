@@ -73,6 +73,7 @@ export default function VendorsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>รหัส</TableHead>
                     <TableHead>ชื่อ</TableHead>
                     <TableHead>เลขผู้เสียภาษี</TableHead>
                     <TableHead>โซน</TableHead>
@@ -85,9 +86,10 @@ export default function VendorsPage() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <SkeletonTableRows rows={6} cols={8} />
+                    <SkeletonTableRows rows={6} cols={9} />
                   ) : partsVendors.map(v => (
                     <TableRow key={v.id}>
+                      <TableCell className="font-mono text-xs font-semibold text-[#475569]">{v.id}</TableCell>
                       <TableCell className="font-semibold">{v.name}</TableCell>
                       <TableCell className="font-mono text-xs">{v.taxId}</TableCell>
                       <TableCell>{v.zone}</TableCell>
@@ -118,6 +120,7 @@ export default function VendorsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>รหัส</TableHead>
                     <TableHead>ชื่อ</TableHead>
                     <TableHead>เลขผู้เสียภาษี</TableHead>
                     <TableHead>โซน</TableHead>
@@ -130,9 +133,10 @@ export default function VendorsPage() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <SkeletonTableRows rows={6} cols={8} />
+                    <SkeletonTableRows rows={6} cols={9} />
                   ) : garageVendors.map(v => (
                     <TableRow key={v.id}>
+                      <TableCell className="font-mono text-xs font-semibold text-[#475569]">{v.id}</TableCell>
                       <TableCell className="font-semibold">{v.name}</TableCell>
                       <TableCell className="font-mono text-xs">{v.taxId}</TableCell>
                       <TableCell>{v.zone}</TableCell>

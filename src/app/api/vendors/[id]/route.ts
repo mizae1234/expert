@@ -25,6 +25,9 @@ export async function PUT(
     const updated = await prisma.vendor.update({
       where: { id: params.id },
       data: {
+        name: body.name,
+        vendorType: body.vendorType,
+        phone: body.phone,
         address: body.address,
         province: body.province,
         taxId: body.taxId,
@@ -32,8 +35,21 @@ export async function PUT(
         peakVendorCode: body.peakVendorCode,
         whtType: body.whtType,
         whtRate: Number(body.whtRate) || 0,
+        paymentTerms: body.paymentTerms !== undefined ? Number(body.paymentTerms) : undefined,
+        isActive: body.isActive !== undefined ? String(body.isActive) === 'true' : undefined,
         billingPct: body.billingPct !== undefined ? Number(body.billingPct) : undefined,
-        isVatRegistered: String(body.isVatRegistered) === 'true'
+        isVatRegistered: String(body.isVatRegistered) === 'true',
+        contactType: body.contactType,
+        nationality: body.nationality,
+        businessType: body.businessType,
+        creditTermAr: body.creditTermAr,
+        creditTermArDays: body.creditTermArDays !== undefined ? Number(body.creditTermArDays) : undefined,
+        creditTermAp: body.creditTermAp,
+        creditTermApDays: body.creditTermApDays !== undefined ? Number(body.creditTermApDays) : undefined,
+        accountArCode: body.accountArCode,
+        accountApCode: body.accountApCode,
+        creditLimitType: body.creditLimitType,
+        creditLimitAmount: body.creditLimitAmount !== undefined ? Number(body.creditLimitAmount) : undefined,
       }
     })
     return NextResponse.json(updated)

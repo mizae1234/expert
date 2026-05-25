@@ -26,7 +26,18 @@ export async function POST(request: NextRequest) {
         whtRate: Number(body.whtRate) || 0,
         isVatRegistered: Boolean(body.isVatRegistered),
         billingPct: Number(body.billingPct) || 100,
-        paymentTerms: body.paymentTerms || 30
+        paymentTerms: body.paymentTerms || 30,
+        contactType: body.contactType || 'ผู้ขาย',
+        nationality: body.nationality || 'ไทย',
+        businessType: body.businessType || 'บริษัทจำกัด',
+        creditTermAr: body.creditTermAr || 'ตามการตั้งค่าของกิจการ',
+        creditTermArDays: body.creditTermArDays !== undefined ? Number(body.creditTermArDays) : 30,
+        creditTermAp: body.creditTermAp || 'ตามการตั้งค่าของกิจการ',
+        creditTermApDays: body.creditTermApDays !== undefined ? Number(body.creditTermApDays) : 30,
+        accountArCode: body.accountArCode || '113101',
+        accountApCode: body.accountApCode || '212101',
+        creditLimitType: body.creditLimitType || 'ไม่กำหนดวงเงิน',
+        creditLimitAmount: body.creditLimitAmount !== undefined ? Number(body.creditLimitAmount) : 0,
       }
     })
     return NextResponse.json(vendor)

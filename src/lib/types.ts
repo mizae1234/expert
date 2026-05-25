@@ -32,6 +32,17 @@ export interface Insurance {
   peakCustomerId?: string
   branchCode?: string
   isVatRegistered?: boolean
+  contactType?: string
+  nationality?: string
+  businessType?: string
+  creditTermAr?: string
+  creditTermArDays?: number
+  creditTermAp?: string
+  creditTermApDays?: number
+  accountArCode?: string
+  accountApCode?: string
+  creditLimitType?: string
+  creditLimitAmount?: number
 }
 
 export interface Vendor {
@@ -47,6 +58,17 @@ export interface Vendor {
   branchCode?: string
   peakVendorCode?: string
   whtType?: string
+  contactType?: string
+  nationality?: string
+  businessType?: string
+  creditTermAr?: string
+  creditTermArDays?: number
+  creditTermAp?: string
+  creditTermApDays?: number
+  accountArCode?: string
+  accountApCode?: string
+  creditLimitType?: string
+  creditLimitAmount?: number
 }
 
 export interface Garage {
