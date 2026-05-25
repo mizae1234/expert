@@ -89,8 +89,35 @@ export async function POST(request: NextRequest) {
   }
 
   // Ensure insurance and garage exist
-  const defaultInsurance = await prisma.insurance.findFirst()
   const defaultGarage = await prisma.vendor.findFirst({ where: { vendorType: 'GARAGE' } })
+
+  const rawInsName = body.claim?.insuranceName?.value
+  let insuranceId = ''
+  if (rawInsName) {
+    const cleanName = (name: string) => {
+      if (!name) return ''
+      return name
+        .replace(/บริษัท|จำกัด|มหาชน|บมจ\.|หจก\./g, '')
+        .replace(/\s+/g, '')
+        .trim()
+    }
+    const cleanSearch = cleanName(rawInsName)
+    const insurances = await prisma.insurance.findMany()
+    let matchedIns = insurances.find(ins => {
+      const dbClean = cleanName(ins.name)
+      return dbClean.includes(cleanSearch) || cleanSearch.includes(dbClean)
+    })
+
+    if (!matchedIns) {
+      matchedIns = await prisma.insurance.create({
+        data: { name: rawInsName }
+      })
+    }
+    insuranceId = matchedIns.id
+  } else {
+    const defaultInsurance = await prisma.insurance.findFirst()
+    insuranceId = defaultInsurance?.id || ''
+  }
 
   try {
     const newClaim = await prisma.claim.create({
@@ -99,7 +126,7 @@ export async function POST(request: NextRequest) {
         status: 'RECEIVED',
         receiveNo: body.claim?.receiveNo?.value || '',
         transactionNo: body.claim?.transactionNo?.value || '',
-        insuranceId: defaultInsurance?.id || '',
+        insuranceId,
         garageId: defaultGarage?.id || '',
         carPlate: body.car?.plate?.value || '',
         carBrand: body.car?.brand?.value || '',
