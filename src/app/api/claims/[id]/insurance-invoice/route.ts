@@ -8,7 +8,7 @@ export async function POST(
   try {
     const claim = await prisma.claim.findUnique({
       where: { id: params.id },
-      include: { parts: true, labors: true }
+      include: { parts: true, labors: true, insurance: true }
     })
     
     if (!claim) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -35,11 +35,17 @@ export async function POST(
     const seqNo = String(nextNo).padStart(5, '0')
     const invoiceNo = body.invoiceNo || `${prefix}${seqNo}`
 
+    const invoiceDate = new Date(body.invoiceDate || Date.now())
+    const creditTermDays = claim.insurance?.creditTermArDays ?? 30
+    const dueDate = new Date(invoiceDate)
+    dueDate.setDate(dueDate.getDate() + creditTermDays)
+
     const newInvoice = await prisma.insuranceInvoice.create({
       data: {
         claimId: params.id,
         invoiceNo,
-        invoiceDate: new Date(body.invoiceDate || Date.now()),
+        invoiceDate,
+        dueDate,
         laborTotal: body.laborTotal,
         partsTotal: body.partsTotal,
         subtotal: body.subtotal,

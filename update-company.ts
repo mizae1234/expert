@@ -11,7 +11,8 @@ async function main() {
     province: "กรุงเทพฯ",
     postalCode: "10310",
     branchCode: "00000",
-    branchName: "สำนักงานใหญ่"
+    branchName: "สำนักงานใหญ่",
+    logoUrl: "/logo_expert.png"
   }
 
   // Check if a company profile exists

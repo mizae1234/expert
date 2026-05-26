@@ -367,6 +367,7 @@ model Insurance {
   name              String
   branch            String?
   taxId             String?
+  address           String?
   branchCode        String  @default("00000")
   isVatRegistered   Boolean @default(true)
   contactPerson     String?

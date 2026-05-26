@@ -28,6 +28,7 @@ export interface Insurance {
   name: string
   branch?: string
   taxId?: string
+  address?: string
   contactPerson?: string
   peakCustomerId?: string
   branchCode?: string

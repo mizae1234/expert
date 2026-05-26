@@ -12,7 +12,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Full-screen pages (no sidebar)
-  if (pathname === '/' || (pathname && pathname.includes('/pdf'))) {
+  if (pathname === '/' || (pathname && (pathname.includes('/pdf') || pathname.includes('/print-')))) {
     return <ToastProvider>{children}</ToastProvider>
   }
 

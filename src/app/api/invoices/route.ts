@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
           id: true,
           claimNo: true,
           carPlate: true,
-          insurance: { select: { id: true, name: true } }
+          insurance: { select: { id: true, name: true, creditTermArDays: true } }
         }
       }
     },

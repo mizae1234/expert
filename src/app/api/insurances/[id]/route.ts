@@ -36,6 +36,7 @@ export async function PUT(
         branch: body.branch,
         contactPerson: body.contactPerson,
         taxId: body.taxId,
+        address: body.address,
         branchCode: body.branchCode,
         isVatRegistered: String(body.isVatRegistered) === 'true',
         peakCustomerId: body.peakCustomerId,

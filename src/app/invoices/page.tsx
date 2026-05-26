@@ -21,7 +21,17 @@ export default function InvoicesPage() {
   const [activeModal, setActiveModal] = useState<{ type: 'send' | 'pay', inv: any } | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 15
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({})
+  const [bulkModal, setBulkModal] = useState<'pay' | null>(null)
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
+
+  // Column-specific Filters
+  const [filterInvoiceNo, setFilterInvoiceNo] = useState('')
+  const [filterInsurance, setFilterInsurance] = useState('')
+  const [filterClaimNo, setFilterClaimNo] = useState('')
+  const [filterCarPlate, setFilterCarPlate] = useState('')
 
   const fetchInvoices = () => {
     setLoading(true)
@@ -79,7 +89,13 @@ export default function InvoicesPage() {
   const getDisplayStatus = (inv: (typeof allInvoices)[0]) => {
     if (inv.status === 'CANCELLED') return 'CANCELLED'
     if (inv.status === 'PAID') return 'PAID'
-    if (inv.dueDate && new Date(inv.dueDate) < today) return 'OVERDUE'
+    const computedDueDate = inv.dueDate ? new Date(inv.dueDate) : (() => {
+      const termDays = inv.claim?.insurance?.creditTermArDays ?? 30
+      const d = new Date(inv.invoiceDate)
+      d.setDate(d.getDate() + termDays)
+      return d
+    })()
+    if (computedDueDate < today) return 'OVERDUE'
     if (inv.status === 'SENT') return 'SENT'
     return 'DRAFT'
   }
@@ -91,13 +107,108 @@ export default function InvoicesPage() {
     else if (tab === 'overdue') list = list.filter(i => i.displayStatus === 'OVERDUE')
     else if (tab === 'paid') list = list.filter(i => i.displayStatus === 'PAID')
     else if (tab === 'cancelled') list = list.filter(i => i.displayStatus === 'CANCELLED')
+    
+    // Global search (safe navigation included)
     if (search) {
       const s = search.toLowerCase()
-      list = list.filter(i => i.invoiceNo.toLowerCase().includes(s) || i.claim.claimNo.toLowerCase().includes(s) || i.claim.carPlate.toLowerCase().includes(s) || i.claim.insurance.name.toLowerCase().includes(s))
+      list = list.filter(i => 
+        (i.invoiceNo?.toLowerCase() || '').includes(s) || 
+        (i.claim?.claimNo?.toLowerCase() || '').includes(s) || 
+        (i.claim?.carPlate?.toLowerCase() || '').includes(s) || 
+        (i.claim?.insurance?.name?.toLowerCase() || '').includes(s)
+      )
     }
+
+    // Column-specific filters
+    if (filterInvoiceNo) {
+      const s = filterInvoiceNo.toLowerCase()
+      list = list.filter(i => (i.invoiceNo?.toLowerCase() || '').includes(s))
+    }
+    if (filterInsurance) {
+      const s = filterInsurance.toLowerCase()
+      list = list.filter(i => (i.claim?.insurance?.name?.toLowerCase() || '').includes(s))
+    }
+    if (filterClaimNo) {
+      const s = filterClaimNo.toLowerCase()
+      list = list.filter(i => (i.claim?.claimNo?.toLowerCase() || '').includes(s))
+    }
+    if (filterCarPlate) {
+      const s = filterCarPlate.toLowerCase()
+      list = list.filter(i => (i.claim?.carPlate?.toLowerCase() || '').includes(s))
+    }
+
     return list
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allInvoices, tab, search])
+  }, [allInvoices, tab, search, filterInvoiceNo, filterInsurance, filterClaimNo, filterCarPlate])
+
+  useEffect(() => {
+    setCurrentPage(1)
+    setSelectedIds({})
+  }, [tab, search, filterInvoiceNo, filterInsurance, filterClaimNo, filterCarPlate])
+
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage
+    return filtered.slice(start, start + itemsPerPage)
+  }, [filtered, currentPage])
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage)
+
+  const displayPages = useMemo(() => {
+    const pageNumbers = []
+    for (let i = 1; i <= totalPages; i++) pageNumbers.push(i)
+    if (totalPages <= 5) return pageNumbers
+    let start = Math.max(1, currentPage - 2)
+    let end = Math.min(totalPages, start + 4)
+    if (end - start < 4) {
+      start = Math.max(1, end - 4)
+    }
+    return pageNumbers.slice(start - 1, end)
+  }, [totalPages, currentPage])
+
+  const selectedCount = Object.keys(selectedIds).filter(id => selectedIds[id]).length
+  const selectedList = Object.keys(selectedIds).filter(id => selectedIds[id])
+
+  const handleToggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds(prev => ({ ...prev, [id]: checked }))
+  }
+
+  const handleToggleAll = (checked: boolean) => {
+    setSelectedIds(prev => {
+      const newSel = { ...prev }
+      paginatedData.forEach(inv => {
+        if (checked) {
+          newSel[inv.id] = true
+        } else {
+          delete newSel[inv.id]
+        }
+      })
+      return newSel
+    })
+  }
+
+  const handlePrintBillingNote = () => {
+    window.open(`/invoices/print-billing-note?ids=${selectedList.join(',')}`, '_blank')
+  }
+
+  const handleBulkPay = async () => {
+    try {
+      setIsSaving(true)
+      const res = await fetch('/api/invoices/batch-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedList, status: 'PAID' })
+      })
+      if (!res.ok) throw new Error('Failed to update status')
+      showToast(`✅ บันทึกรับชำระเงิน ${selectedCount} ใบ สำเร็จ`)
+      setSelectedIds({})
+      setBulkModal(null)
+      fetchInvoices()
+    } catch (e) {
+      showToast('❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const all = allInvoices.map(inv => ({ ...inv, displayStatus: getDisplayStatus(inv) }))
   const pendingCount = all.filter(i => i.displayStatus === 'SENT').length
@@ -166,7 +277,7 @@ export default function InvoicesPage() {
 
       {/* Tabs + Search */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <Tabs value={tab} onValueChange={v => setTab(v as ARTab)}>
               <TabsList className="bg-white border">
@@ -180,14 +291,78 @@ export default function InvoicesPage() {
             </Tabs>
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
-              <Input placeholder="ค้นหา Invoice, Claim, ทะเบียน..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-64 bg-white" />
+              <Input placeholder="ค้นหาด่วนทั้งหมด..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-64 bg-white" />
+            </div>
+          </div>
+
+          {/* Column-specific Filters Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
+            <div>
+              <label className="text-[10px] font-semibold text-[#475569] uppercase tracking-wider">เลขที่ Invoice</label>
+              <Input 
+                placeholder="ค้นหาเลขที่ Invoice..." 
+                value={filterInvoiceNo} 
+                onChange={e => setFilterInvoiceNo(e.target.value)} 
+                className="h-8 text-xs bg-slate-50/50 hover:bg-slate-50 focus:bg-white mt-1 border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-[#475569] uppercase tracking-wider">บ.ประกัน</label>
+              <Input 
+                placeholder="ค้นหาบริษัทประกัน..." 
+                value={filterInsurance} 
+                onChange={e => setFilterInsurance(e.target.value)} 
+                className="h-8 text-xs bg-slate-50/50 hover:bg-slate-50 focus:bg-white mt-1 border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-[#475569] uppercase tracking-wider">Claim No.</label>
+              <Input 
+                placeholder="ค้นหา Claim No..." 
+                value={filterClaimNo} 
+                onChange={e => setFilterClaimNo(e.target.value)} 
+                className="h-8 text-xs bg-slate-50/50 hover:bg-slate-50 focus:bg-white mt-1 border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-[#475569] uppercase tracking-wider">ทะเบียน</label>
+              <Input 
+                placeholder="ค้นหาทะเบียนรถ..." 
+                value={filterCarPlate} 
+                onChange={e => setFilterCarPlate(e.target.value)} 
+                className="h-8 text-xs bg-slate-50/50 hover:bg-slate-50 focus:bg-white mt-1 border-slate-200"
+              />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {selectedCount > 0 && (
+            <div className="bg-blue-50/70 border-b border-blue-100 p-3 px-6 flex items-center justify-between animate-fade-in">
+              <span className="text-sm font-medium text-blue-800">เลือกแล้ว {selectedCount} รายการ</span>
+              <div className="flex gap-2">
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5" onClick={handlePrintBillingNote}>
+                  <Download className="w-3.5 h-3.5" />
+                  ออกใบวางบิลรวม
+                </Button>
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-xs gap-1.5" onClick={() => setBulkModal('pay')}>
+                  <DollarSign className="w-3.5 h-3.5" />
+                  บันทึกรับชำระเงินกลุ่ม
+                </Button>
+              </div>
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow className="bg-[#f8faff]">
+                <TableHead className="w-12 text-center">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-gray-300"
+                    onChange={e => handleToggleAll(e.target.checked)}
+                    checked={paginatedData.length > 0 && paginatedData.every(inv => selectedIds[inv.id])}
+                  />
+                </TableHead>
+                <TableHead className="text-center w-[70px]">ลำดับที่</TableHead>
                 <TableHead>เลขที่ Invoice</TableHead>
                 <TableHead>บ.ประกัน</TableHead>
                 <TableHead>Claim No.</TableHead>
@@ -201,17 +376,35 @@ export default function InvoicesPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-12 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-12 text-[#94a3b8]"><Receipt className="w-10 h-10 mx-auto mb-2 opacity-30" /><p>ไม่พบข้อมูล</p></TableCell></TableRow>
-              ) : filtered.map(inv => (
+                <TableRow><TableCell colSpan={11} className="text-center py-12 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
+              ) : paginatedData.length === 0 ? (
+                <TableRow><TableCell colSpan={11} className="text-center py-12 text-[#94a3b8]"><Receipt className="w-10 h-10 mx-auto mb-2 opacity-30" /><p>ไม่พบข้อมูล</p></TableCell></TableRow>
+              ) : paginatedData.map((inv, index) => (
                 <TableRow key={inv.id} className={`hover:bg-blue-50/30 cursor-pointer ${inv.displayStatus === 'OVERDUE' ? 'bg-red-50/30' : ''}`}>
+                  <TableCell className="text-center" onClick={e => e.stopPropagation()}>
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                      checked={!!selectedIds[inv.id]}
+                      onChange={e => handleToggleSelect(inv.id, e.target.checked)}
+                    />
+                  </TableCell>
+                  <TableCell className="text-center text-xs font-medium text-[#475569]">
+                    {(currentPage - 1) * itemsPerPage + index + 1}
+                  </TableCell>
                   <TableCell className="font-mono font-medium text-[#1d4ed8]">{inv.invoiceNo}</TableCell>
                   <TableCell className="text-sm">{inv.claim.insurance.name}</TableCell>
                   <TableCell><Link href={`/claims/${inv.claimId}`} className="text-[#1d4ed8] hover:underline text-sm">{inv.claim.claimNo}</Link></TableCell>
                   <TableCell className="text-sm">{inv.claim.carPlate}</TableCell>
                   <TableCell className="text-sm">{formatDate(inv.invoiceDate)}</TableCell>
-                  <TableCell className={`text-sm ${inv.displayStatus === 'OVERDUE' ? 'text-red-600 font-semibold' : ''}`}>{inv.dueDate ? formatDate(inv.dueDate) : '—'}</TableCell>
+                   <TableCell className={`text-sm ${inv.displayStatus === 'OVERDUE' ? 'text-red-600 font-semibold' : ''}`}>
+                    {formatDate(inv.dueDate || (() => {
+                      const termDays = inv.claim?.insurance?.creditTermArDays ?? 30
+                      const d = new Date(inv.invoiceDate)
+                      d.setDate(d.getDate() + termDays)
+                      return d
+                    })())}
+                  </TableCell>
                   <TableCell className="text-right font-semibold">฿{formatCurrency(inv.grandTotal)}</TableCell>
                   <TableCell className="text-center">{statusBadge(inv.displayStatus)}</TableCell>
                   <TableCell className="text-center">
@@ -229,6 +422,44 @@ export default function InvoicesPage() {
               ))}
             </TableBody>
           </Table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t bg-gray-50/50">
+              <div className="text-xs text-[#64748b]">
+                แสดง {(currentPage - 1) * itemsPerPage + 1} ถึง {Math.min(currentPage * itemsPerPage, filtered.length)} จาก {filtered.length} รายการ
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs bg-white"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  ก่อนหน้า
+                </Button>
+                {displayPages.map(page => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    className={`h-8 w-8 text-xs ${currentPage === page ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "bg-white"}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs bg-white"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  ถัดไป
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -257,6 +488,21 @@ export default function InvoicesPage() {
               <div className="flex gap-3 justify-end mt-6">
                 <Button variant="outline" onClick={() => setActiveModal(null)} disabled={isSaving}>ยกเลิก</Button>
                 <Button className="bg-green-600 hover:bg-green-700" onClick={() => handlePay(activeModal.inv)} disabled={isSaving}>{isSaving ? 'กำลังบันทึก...' : 'ยืนยันรับชำระแล้ว'}</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {bulkModal === 'pay' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader><CardTitle className="text-lg text-green-600">บันทึกรับชำระเงินกลุ่ม</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm mb-4">ยืนยันว่าได้รับเงินค่าใบแจ้งหนี้จำนวน <span className="font-bold text-green-600">{selectedCount} ใบ</span> แล้วใช่หรือไม่?</p>
+              <div className="flex gap-3 justify-end mt-6">
+                <Button variant="outline" onClick={() => setBulkModal(null)} disabled={isSaving}>ยกเลิก</Button>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={handleBulkPay} disabled={isSaving}>{isSaving ? 'กำลังบันทึก...' : 'ยืนยันรับชำระเงินทั้งหมด'}</Button>
               </div>
             </CardContent>
           </Card>

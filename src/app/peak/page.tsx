@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +28,11 @@ export default function PeakSyncPage() {
   
   const [toast, setToast] = useState<string | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
+
+  const [currentPageAR, setCurrentPageAR] = useState(1)
+  const [currentPageAP, setCurrentPageAP] = useState(1)
+  const [currentPageExpense, setCurrentPageExpense] = useState(1)
+  const itemsPerPage = 15
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
@@ -74,13 +79,6 @@ export default function PeakSyncPage() {
     refreshData().finally(() => setLoading(false))
   }, [])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 animate-pulse">
-        <p className="text-[#94a3b8]">กำลังโหลดข้อมูล...</p>
-      </div>
-    )
-  }
 
   const handleSyncAR = async () => {
     const selectedIds = Object.keys(arSelections).filter(k => arSelections[k])
@@ -203,6 +201,72 @@ export default function PeakSyncPage() {
            (i.createdBy || '').toLowerCase().includes(s)
   })
 
+  useEffect(() => {
+    setCurrentPageAR(1)
+  }, [searchAR])
+
+  useEffect(() => {
+    setCurrentPageAP(1)
+  }, [searchAP])
+
+  useEffect(() => {
+    setCurrentPageExpense(1)
+  }, [searchExpense])
+
+  // Paginated AR
+  const paginatedAR = useMemo(() => {
+    const start = (currentPageAR - 1) * itemsPerPage
+    return filteredAR.slice(start, start + itemsPerPage)
+  }, [filteredAR, currentPageAR])
+  const totalPagesAR = Math.ceil(filteredAR.length / itemsPerPage)
+  const displayPagesAR = useMemo(() => {
+    const pageNumbers = []
+    for (let i = 1; i <= totalPagesAR; i++) pageNumbers.push(i)
+    if (totalPagesAR <= 5) return pageNumbers
+    let start = Math.max(1, currentPageAR - 2)
+    let end = Math.min(totalPagesAR, start + 4)
+    if (end - start < 4) {
+      start = Math.max(1, end - 4)
+    }
+    return pageNumbers.slice(start - 1, end)
+  }, [totalPagesAR, currentPageAR])
+
+  // Paginated AP
+  const paginatedAP = useMemo(() => {
+    const start = (currentPageAP - 1) * itemsPerPage
+    return filteredAP.slice(start, start + itemsPerPage)
+  }, [filteredAP, currentPageAP])
+  const totalPagesAP = Math.ceil(filteredAP.length / itemsPerPage)
+  const displayPagesAP = useMemo(() => {
+    const pageNumbers = []
+    for (let i = 1; i <= totalPagesAP; i++) pageNumbers.push(i)
+    if (totalPagesAP <= 5) return pageNumbers
+    let start = Math.max(1, currentPageAP - 2)
+    let end = Math.min(totalPagesAP, start + 4)
+    if (end - start < 4) {
+      start = Math.max(1, end - 4)
+    }
+    return pageNumbers.slice(start - 1, end)
+  }, [totalPagesAP, currentPageAP])
+
+  // Paginated Expense
+  const paginatedExpense = useMemo(() => {
+    const start = (currentPageExpense - 1) * itemsPerPage
+    return filteredExpense.slice(start, start + itemsPerPage)
+  }, [filteredExpense, currentPageExpense])
+  const totalPagesExpense = Math.ceil(filteredExpense.length / itemsPerPage)
+  const displayPagesExpense = useMemo(() => {
+    const pageNumbers = []
+    for (let i = 1; i <= totalPagesExpense; i++) pageNumbers.push(i)
+    if (totalPagesExpense <= 5) return pageNumbers
+    let start = Math.max(1, currentPageExpense - 2)
+    let end = Math.min(totalPagesExpense, start + 4)
+    if (end - start < 4) {
+      start = Math.max(1, end - 4)
+    }
+    return pageNumbers.slice(start - 1, end)
+  }, [totalPagesExpense, currentPageExpense])
+
   const toggleAllAR = (checked: boolean) => {
     const newSel: Record<string, boolean> = {}
     if (checked) {
@@ -235,6 +299,14 @@ export default function PeakSyncPage() {
     consumable: 'ค่าวัสดุสิ้นเปลือง',
     subcontract: 'ค่าจ้างช่วง',
     other: 'อื่นๆ',
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 animate-pulse">
+        <p className="text-[#94a3b8]">กำลังโหลดข้อมูล...</p>
+      </div>
+    )
   }
 
   return (
@@ -309,6 +381,7 @@ export default function PeakSyncPage() {
                         checked={filteredAR.length > 0 && Object.keys(arSelections).filter(k => arSelections[k]).length === filteredAR.length}
                       />
                     </TableHead>
+                    <TableHead className="text-center w-[70px]">ลำดับที่</TableHead>
                     <TableHead>เลขที่เอกสาร</TableHead>
                     <TableHead>Claim No.</TableHead>
                     <TableHead>ลูกค้า (บ.ประกัน)</TableHead>
@@ -318,11 +391,11 @@ export default function PeakSyncPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAR.length === 0 ? (
+                  {paginatedAR.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={7} className="text-center py-12 text-[#94a3b8]">ไม่มีรายการใบแจ้งหนี้</TableCell>
+                       <TableCell colSpan={8} className="text-center py-12 text-[#94a3b8]">ไม่มีรายการใบแจ้งหนี้</TableCell>
                      </TableRow>
-                  ) : filteredAR.map((inv: any) => (
+                  ) : paginatedAR.map((inv: any, index: number) => (
                     <TableRow key={inv.id} className={arSelections[inv.id] ? 'bg-blue-50/50' : ''}>
                       <TableCell className="text-center">
                         <input 
@@ -331,6 +404,9 @@ export default function PeakSyncPage() {
                           checked={!!arSelections[inv.id]}
                           onChange={e => setArSelections(prev => ({ ...prev, [inv.id]: e.target.checked }))}
                         />
+                      </TableCell>
+                      <TableCell className="text-center text-xs font-medium text-[#475569]">
+                        {(currentPageAR - 1) * itemsPerPage + index + 1}
                       </TableCell>
                       <TableCell className="font-mono font-medium text-[#1d4ed8]">
                         {editingId === inv.id && editingType === 'AR' ? (
@@ -399,6 +475,44 @@ export default function PeakSyncPage() {
                   ))}
                 </TableBody>
               </Table>
+              {totalPagesAR > 1 && (
+                <div className="flex items-center justify-between p-4 border-t bg-gray-50/50">
+                  <div className="text-xs text-[#64748b]">
+                    แสดง {(currentPageAR - 1) * itemsPerPage + 1} ถึง {Math.min(currentPageAR * itemsPerPage, filteredAR.length)} จาก {filteredAR.length} รายการ
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white"
+                      onClick={() => setCurrentPageAR(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPageAR === 1}
+                    >
+                      ก่อนหน้า
+                    </Button>
+                    {displayPagesAR.map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPageAR === page ? "default" : "outline"}
+                        size="sm"
+                        className={`h-8 w-8 text-xs ${currentPageAR === page ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "bg-white"}`}
+                        onClick={() => setCurrentPageAR(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white"
+                      onClick={() => setCurrentPageAR(prev => Math.min(prev + 1, totalPagesAR))}
+                      disabled={currentPageAR === totalPagesAR}
+                    >
+                      ถัดไป
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -438,6 +552,7 @@ export default function PeakSyncPage() {
                         checked={filteredAP.length > 0 && Object.keys(apSelections).filter(k => apSelections[k]).length === filteredAP.length}
                       />
                     </TableHead>
+                    <TableHead className="text-center w-[70px]">ลำดับที่</TableHead>
                     <TableHead>เลขที่ Invoice</TableHead>
                     <TableHead>Claim No.</TableHead>
                     <TableHead>ผู้จำหน่าย (Vendor)</TableHead>
@@ -447,11 +562,11 @@ export default function PeakSyncPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAP.length === 0 ? (
+                  {paginatedAP.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={7} className="text-center py-12 text-[#94a3b8]">ไม่มีรายการใบรับสินค้า (AP)</TableCell>
+                       <TableCell colSpan={8} className="text-center py-12 text-[#94a3b8]">ไม่มีรายการใบรับสินค้า (AP)</TableCell>
                      </TableRow>
-                  ) : filteredAP.map((inv: any) => (
+                  ) : paginatedAP.map((inv: any, index: number) => (
                     <TableRow key={inv.id} className={apSelections[inv.id] ? 'bg-blue-50/50' : ''}>
                       <TableCell className="text-center">
                         <input 
@@ -460,6 +575,9 @@ export default function PeakSyncPage() {
                           checked={!!apSelections[inv.id]}
                           onChange={e => setApSelections(prev => ({ ...prev, [inv.id]: e.target.checked }))}
                         />
+                      </TableCell>
+                      <TableCell className="text-center text-xs font-medium text-[#475569]">
+                        {(currentPageAP - 1) * itemsPerPage + index + 1}
                       </TableCell>
                       <TableCell className="font-mono font-medium text-[#1d4ed8]">
                         {editingId === inv.id && (editingType === 'SUPPLIER' || editingType === 'GARAGE') ? (
@@ -528,6 +646,44 @@ export default function PeakSyncPage() {
                   ))}
                 </TableBody>
               </Table>
+              {totalPagesAP > 1 && (
+                <div className="flex items-center justify-between p-4 border-t bg-gray-50/50">
+                  <div className="text-xs text-[#64748b]">
+                    แสดง {(currentPageAP - 1) * itemsPerPage + 1} ถึง {Math.min(currentPageAP * itemsPerPage, filteredAP.length)} จาก {filteredAP.length} รายการ
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white"
+                      onClick={() => setCurrentPageAP(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPageAP === 1}
+                    >
+                      ก่อนหน้า
+                    </Button>
+                    {displayPagesAP.map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPageAP === page ? "default" : "outline"}
+                        size="sm"
+                        className={`h-8 w-8 text-xs ${currentPageAP === page ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "bg-white"}`}
+                        onClick={() => setCurrentPageAP(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white"
+                      onClick={() => setCurrentPageAP(prev => Math.min(prev + 1, totalPagesAP))}
+                      disabled={currentPageAP === totalPagesAP}
+                    >
+                      ถัดไป
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -535,27 +691,7 @@ export default function PeakSyncPage() {
         {/* Tab: Expenses */}
         <TabsContent value="expense">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between py-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                รายการค่าใช้จ่ายเพิ่มเติม (Expenses)
-              </CardTitle>
-              <div className="flex items-center gap-4">
-                <div className="relative w-64">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <Input 
-                    placeholder="ค้นหา Claim, รายละเอียด, ผู้บันทึก..." 
-                    value={searchExpense}
-                    onChange={(e) => setSearchExpense(e.target.value)}
-                    className="pl-9 h-9 bg-gray-50 border-gray-200"
-                  />
-                </div>
-                <Button size="sm" className="bg-[#1d4ed8]" disabled={isSyncing} onClick={handleSyncExpense}>
-                  {isSyncing ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Cloud className="w-4 h-4 mr-1.5" />}
-                  Export Excel ({Object.keys(expenseSelections).filter(k => expenseSelections[k]).length})
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
+                   <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[#f8faff]">
@@ -567,6 +703,7 @@ export default function PeakSyncPage() {
                         checked={filteredExpense.length > 0 && Object.keys(expenseSelections).filter(k => expenseSelections[k]).length === filteredExpense.length}
                       />
                     </TableHead>
+                    <TableHead className="text-center w-[70px]">ลำดับที่</TableHead>
                     <TableHead>Claim No.</TableHead>
                     <TableHead>ประเภท</TableHead>
                     <TableHead>รายละเอียด</TableHead>
@@ -577,11 +714,11 @@ export default function PeakSyncPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredExpense.length === 0 ? (
+                  {paginatedExpense.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={8} className="text-center py-12 text-[#94a3b8]">ไม่มีรายการค่าใช้จ่าย</TableCell>
+                       <TableCell colSpan={9} className="text-center py-12 text-[#94a3b8]">ไม่มีรายการค่าใช้จ่าย</TableCell>
                      </TableRow>
-                  ) : filteredExpense.map((exp: any) => (
+                  ) : paginatedExpense.map((exp: any, index: number) => (
                     <TableRow key={exp.id} className={expenseSelections[exp.id] ? 'bg-blue-50/50' : ''}>
                       <TableCell className="text-center">
                         <input 
@@ -590,6 +727,9 @@ export default function PeakSyncPage() {
                           checked={!!expenseSelections[exp.id]}
                           onChange={e => setExpenseSelections(prev => ({ ...prev, [exp.id]: e.target.checked }))}
                         />
+                      </TableCell>
+                      <TableCell className="text-center text-xs font-medium text-[#475569]">
+                        {(currentPageExpense - 1) * itemsPerPage + index + 1}
                       </TableCell>
                       <TableCell className="font-mono font-medium text-[#1d4ed8]">{exp.claimNo}</TableCell>
                       <TableCell>
@@ -617,6 +757,44 @@ export default function PeakSyncPage() {
                   ))}
                 </TableBody>
               </Table>
+              {totalPagesExpense > 1 && (
+                <div className="flex items-center justify-between p-4 border-t bg-gray-50/50">
+                  <div className="text-xs text-[#64748b]">
+                    แสดง {(currentPageExpense - 1) * itemsPerPage + 1} ถึง {Math.min(currentPageExpense * itemsPerPage, filteredExpense.length)} จาก {filteredExpense.length} รายการ
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white"
+                      onClick={() => setCurrentPageExpense(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPageExpense === 1}
+                    >
+                      ก่อนหน้า
+                    </Button>
+                    {displayPagesExpense.map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPageExpense === page ? "default" : "outline"}
+                        size="sm"
+                        className={`h-8 w-8 text-xs ${currentPageExpense === page ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "bg-white"}`}
+                        onClick={() => setCurrentPageExpense(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white"
+                      onClick={() => setCurrentPageExpense(prev => Math.min(prev + 1, totalPagesExpense))}
+                      disabled={currentPageExpense === totalPagesExpense}
+                    >
+                      ถัดไป
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

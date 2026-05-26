@@ -16,6 +16,7 @@ const DEFAULT_INSURANCE = {
   branch: 'สำนักงานใหญ่', 
   contactPerson: '', 
   taxId: '', 
+  address: '',
   branchCode: '00000', 
   isVatRegistered: false, 
   peakCustomerId: '',
@@ -131,6 +132,10 @@ export default function InsuranceDetailPage() {
                 <label className="text-xs text-[#94a3b8] font-medium">สาขา</label>
                 <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.branch || ''} onChange={e => setInsurance({...insurance, branch: e.target.value})} />
               </div>
+              <div className="col-span-2">
+                <label className="text-xs text-[#94a3b8] font-medium">ที่อยู่ในการวางบิล</label>
+                <textarea rows={2} className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.address || ''} onChange={e => setInsurance({...insurance, address: e.target.value})} />
+              </div>
               <div>
                 <label className="text-xs text-[#94a3b8] font-medium">ชื่อผู้ติดต่อ</label>
                 <input type="text" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.contactPerson || ''} onChange={e => setInsurance({...insurance, contactPerson: e.target.value})} />
@@ -149,6 +154,10 @@ export default function InsuranceDetailPage() {
                   <option value="true">Yes</option>
                   <option value="false">No</option>
                 </select>
+              </div>
+              <div>
+                <label className="text-xs text-[#94a3b8] font-medium">เครดิตเทอม (วัน)</label>
+                <input type="number" className="w-full mt-1.5 p-2 text-sm border rounded-md" value={insurance.creditTermArDays ?? 30} onChange={e => setInsurance({...insurance, creditTermArDays: Number(e.target.value)})} />
               </div>
             </CardContent>
           </Card>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +24,9 @@ const typeBadge = (t: string) => t === 'AR' ? 'bg-blue-100 text-blue-700' : 'bg-
 export default function PaymentsPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 15
 
   useEffect(() => {
     fetch('/api/payments').then(res => res.json()).then(data => {
@@ -54,9 +57,39 @@ export default function PaymentsPage() {
     )
   })
 
-  const pending = filteredRequests.filter(r => r.status === 'PENDING_APPROVAL')
-  const approved = filteredRequests.filter(r => r.status === 'APPROVED')
-  const rejected = filteredRequests.filter(r => r.status === 'REJECTED')
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchQuery])
+
+  const pending = useMemo(() => filteredRequests.filter(r => r.status === 'PENDING_APPROVAL'), [filteredRequests])
+  const approved = useMemo(() => filteredRequests.filter(r => r.status === 'APPROVED'), [filteredRequests])
+  const rejected = useMemo(() => filteredRequests.filter(r => r.status === 'REJECTED'), [filteredRequests])
+
+  const activeList = useMemo(() => {
+    if (activeTab === 'pending') return pending
+    if (activeTab === 'approved') return approved
+    if (activeTab === 'rejected') return rejected
+    return filteredRequests
+  }, [activeTab, pending, approved, rejected, filteredRequests])
+
+  const paginatedList = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage
+    return activeList.slice(start, start + itemsPerPage)
+  }, [activeList, currentPage])
+
+  const totalPages = Math.ceil(activeList.length / itemsPerPage)
+
+  const displayPages = useMemo(() => {
+    const pageNumbers = []
+    for (let i = 1; i <= totalPages; i++) pageNumbers.push(i)
+    if (totalPages <= 5) return pageNumbers
+    let start = Math.max(1, currentPage - 2)
+    let end = Math.min(totalPages, start + 4)
+    if (end - start < 4) {
+      start = Math.max(1, end - 4)
+    }
+    return pageNumbers.slice(start - 1, end)
+  }, [totalPages, currentPage])
 
   const [isSaving, setIsSaving] = useState(false)
 
@@ -103,10 +136,13 @@ export default function PaymentsPage() {
     }
   }
 
-  const renderRow = (pr: any) => (
-    <TableRow key={pr.id}>
-      <TableCell className="text-xs text-[#94a3b8]">{formatDate(pr.createdAt)}</TableCell>
-      <TableCell><Badge className={`${typeBadge(pr.requestType)} border-none text-[10px]`}>{typeLabel(pr.requestType)}</Badge></TableCell>
+  const renderRow = (pr: any, index: number) => {
+    const seq = (currentPage - 1) * itemsPerPage + index + 1
+    return (
+      <TableRow key={pr.id}>
+        <TableCell className="text-center text-xs font-medium text-[#475569]">{seq}</TableCell>
+        <TableCell className="text-xs text-[#94a3b8]">{formatDate(pr.createdAt)}</TableCell>
+        <TableCell><Badge className={`${typeBadge(pr.requestType)} border-none text-[10px]`}>{typeLabel(pr.requestType)}</Badge></TableCell>
       <TableCell>
         <a href={`/claims/${pr.claimId}?tab=supplier-inv`} target="_blank" rel="noreferrer" className="font-semibold text-[#1d4ed8] hover:underline">
           {pr.claimNo}
@@ -132,7 +168,8 @@ export default function PaymentsPage() {
         </div>
       </TableCell>
     </TableRow>
-  )
+    )
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -176,7 +213,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="pending">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList><TabsTrigger value="pending">รออนุมัติ ({pending.length})</TabsTrigger><TabsTrigger value="approved">อนุมัติแล้ว ({approved.length})</TabsTrigger><TabsTrigger value="rejected">ถูกปฏิเสธ ({rejected.length})</TabsTrigger><TabsTrigger value="all">ทั้งหมด ({filteredRequests.length})</TabsTrigger></TabsList>
         {['pending', 'approved', 'rejected', 'all'].map(tab => (
           <TabsContent key={tab} value={tab}>
@@ -185,6 +222,7 @@ export default function PaymentsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-[#f8faff]">
+                      <TableHead className="text-center w-[70px]">ลำดับที่</TableHead>
                       <TableHead>วันที่</TableHead><TableHead>ประเภท</TableHead><TableHead>Claim No.</TableHead>
                       <TableHead>ทะเบียน</TableHead><TableHead>ผู้รับเงิน</TableHead><TableHead>Invoice No.</TableHead>
                       <TableHead className="text-right">ยอด</TableHead><TableHead>สร้างโดย</TableHead>
@@ -193,14 +231,52 @@ export default function PaymentsPage() {
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={10} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
-                    ) : (tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : filteredRequests).length === 0 ? (
-                      <TableRow><TableCell colSpan={10} className="text-center py-8 text-[#94a3b8]">ไม่พบข้อมูล</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={11} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
+                    ) : paginatedList.length === 0 ? (
+                      <TableRow><TableCell colSpan={11} className="text-center py-8 text-[#94a3b8]">ไม่พบข้อมูล</TableCell></TableRow>
                     ) : (
-                      (tab === 'pending' ? pending : tab === 'approved' ? approved : tab === 'rejected' ? rejected : filteredRequests).map(renderRow)
+                      paginatedList.map((pr, index) => renderRow(pr, index))
                     )}
                   </TableBody>
                 </Table>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between p-4 border-t bg-gray-50/50">
+                    <div className="text-xs text-[#64748b]">
+                      แสดง {(currentPage - 1) * itemsPerPage + 1} ถึง {Math.min(currentPage * itemsPerPage, activeList.length)} จาก {activeList.length} รายการ
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs bg-white"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                      >
+                        ก่อนหน้า
+                      </Button>
+                      {displayPages.map(page => (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          className={`h-8 w-8 text-xs ${currentPage === page ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "bg-white"}`}
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs bg-white"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                      >
+                        ถัดไป
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

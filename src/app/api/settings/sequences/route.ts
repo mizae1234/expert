@@ -7,7 +7,8 @@ const DEFAULT_SEQUENCES = [
   { docType: 'PO_LABOR', prefix: 'PL' },
   { docType: 'QUOTATION', prefix: 'QT' },
   { docType: 'INVOICE', prefix: 'INV' },
-  { docType: 'RECEIPT', prefix: 'RC' }
+  { docType: 'RECEIPT', prefix: 'RC' },
+  { docType: 'BILLING_NOTE', prefix: 'BN' }
 ]
 
 export async function GET() {

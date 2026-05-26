@@ -217,7 +217,21 @@ export default function ReportsPage() {
                 </div>
               ))}
             </div>
-            <SkeletonTableRows rows={6} cols={6} />
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <SkeletonTableRows rows={6} cols={6} />
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       ) : (!data || (data as any).error) ? (
