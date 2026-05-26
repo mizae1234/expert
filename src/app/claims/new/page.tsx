@@ -235,6 +235,21 @@ export default function NewClaimPage() {
   }
 
   const handleSave = async () => {
+    if (data?.parts && Array.isArray(data.parts)) {
+      const emptyPartIndex = data.parts.findIndex((p: any) => !p.partName?.value?.trim())
+      if (emptyPartIndex !== -1) {
+        showToast(`❌ กรุณาระบุชื่ออะไหล่ให้ครบทุกรายการ (รายการที่ ${emptyPartIndex + 1})`)
+        return
+      }
+    }
+    if (data?.labors && Array.isArray(data.labors)) {
+      const emptyLaborIndex = data.labors.findIndex((l: any) => !l.description?.value?.trim())
+      if (emptyLaborIndex !== -1) {
+        showToast(`❌ กรุณาระบุชื่อรายการค่าแรงให้ครบทุกรายการ (รายการที่ ${emptyLaborIndex + 1})`)
+        return
+      }
+    }
+
     try {
       const res = await fetch('/api/claims', {
         method: 'POST',
@@ -721,7 +736,7 @@ export default function NewClaimPage() {
                   {labors.map((l: any, i: number) => (
                     <tr key={i} className="border-b border-gray-50 hover:bg-[#f8faff]">
                       <td className="p-3 text-[#94a3b8]">{i + 1}</td>
-                      <td className="p-3"><input className={cn("w-full bg-white border rounded px-2 py-1.5 text-sm outline-none focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={l.description.value} onChange={e => updateLaborReview(i, 'description', e.target.value)} /></td>
+                      <td className="p-3"><input className={cn("w-full bg-white border rounded px-2 py-1.5 text-sm outline-none focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", !l.description.value?.trim() ? "border-red-500 focus:border-red-500 focus:ring-red-200" : isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={l.description.value} onChange={e => updateLaborReview(i, 'description', e.target.value)} /></td>
                       <td className="p-3"><input className={cn("w-24 bg-white border rounded px-2 py-1.5 text-sm outline-none focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={l.damageLevel.value} onChange={e => updateLaborReview(i, 'damageLevel', e.target.value)} /></td>
                       <td className="p-3 text-right"><input type="text" inputMode="decimal" className={cn("w-16 bg-white border rounded px-2 py-1.5 text-sm outline-none text-right focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={l.discountPct.value} onChange={e => updateLaborReview(i, 'discountPct', e.target.value)} /></td>
                       <td className="p-3 text-right"><input type="text" inputMode="decimal" className={cn("w-24 bg-white border rounded px-2 py-1.5 text-sm outline-none text-right focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={l.priceOffer.value} onChange={e => updateLaborReview(i, 'priceOffer', e.target.value)} /></td>
@@ -859,7 +874,7 @@ export default function NewClaimPage() {
                     <tr key={i} className="border-b border-gray-50 hover:bg-[#f8faff]">
                       <td className="p-3 text-[#94a3b8]">{i + 1}</td>
                       <td className="p-3"><input className={cn("w-28 bg-white border rounded px-2 py-1.5 outline-none font-mono text-xs focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={p.partNo.value} onChange={e => updatePartReview(i, 'partNo', e.target.value)} /></td>
-                      <td className="p-3"><input className={cn("w-32 bg-white border rounded px-2 py-1.5 text-sm outline-none focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={p.partName.value} onChange={e => updatePartReview(i, 'partName', e.target.value)} list="parts-master-list" /></td>
+                      <td className="p-3"><input className={cn("w-32 bg-white border rounded px-2 py-1.5 text-sm outline-none focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", !p.partName.value?.trim() ? "border-red-500 focus:border-red-500 focus:ring-red-200" : isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={p.partName.value} onChange={e => updatePartReview(i, 'partName', e.target.value)} list="parts-master-list" /></td>
                       <td className="p-3 text-right"><input type="text" inputMode="decimal" className={cn("w-24 bg-white border rounded px-2 py-1.5 text-sm outline-none text-right focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={p.priceFull.value} onChange={e => updatePartReview(i, 'priceFull', e.target.value)} /></td>
                       <td className="p-3 text-center"><input type="text" inputMode="numeric" className={cn("w-16 bg-white border rounded px-2 py-1.5 text-sm outline-none text-center focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={p.quantity.value} onChange={e => updatePartReview(i, 'quantity', e.target.value)} /></td>
                       <td className="p-3"><input className={cn("w-20 bg-white border rounded px-2 py-1.5 text-sm outline-none focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 transition-all shadow-sm", isManualMode ? "border-gray-200" : "border-blue-200 hover:border-blue-300")} value={p.damageType.value} onChange={e => updatePartReview(i, 'damageType', e.target.value)} /></td>

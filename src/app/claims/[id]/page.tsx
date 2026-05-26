@@ -670,6 +670,21 @@ export default function ClaimDetailPage() {
                 <X className="w-4 h-4 mr-1.5" />ยกเลิก
               </Button>
               <Button size="sm" onClick={async () => { 
+                if (parts && Array.isArray(parts)) {
+                  const emptyPartIndex = parts.findIndex(p => !p.partName?.trim())
+                  if (emptyPartIndex !== -1) {
+                    showToast(`❌ กรุณาระบุชื่ออะไหล่ให้ครบทุกรายการ (รายการที่ ${emptyPartIndex + 1})`)
+                    return
+                  }
+                }
+                if (labors && Array.isArray(labors)) {
+                  const emptyLaborIndex = labors.findIndex(l => !l.description?.trim())
+                  if (emptyLaborIndex !== -1) {
+                    showToast(`❌ กรุณาระบุชื่อรายการค่าแรงให้ครบทุกรายการ (รายการที่ ${emptyLaborIndex + 1})`)
+                    return
+                  }
+                }
+
                 try {
                   const res = await fetch(`/api/claims/${claim.id}`, {
                     method: 'PUT',
@@ -690,15 +705,18 @@ export default function ClaimDetailPage() {
                       garageId: claim.garageId,
                     })
                   })
-                  if (!res.ok) throw new Error('Failed to save')
+                  if (!res.ok) {
+                    const errData = await res.json()
+                    throw new Error(errData.error || 'Failed to save')
+                  }
                   const updatedData = await res.json()
                   setOriginalClaim(updatedData)
                   setParts(updatedData.parts || [])
                   setLabors(updatedData.labors || [])
                   setEditMode(false)
                   showToast('บันทึกข้อมูลเรียบร้อย')
-                } catch (err) {
-                  setErrorModalMsg('เกิดข้อผิดพลาดในการบันทึก')
+                } catch (err: any) {
+                  setErrorModalMsg(err.message || 'เกิดข้อผิดพลาดในการบันทึก')
                 }
               }}>
                 <Save className="w-4 h-4 mr-1.5" />บันทึก
@@ -853,7 +871,7 @@ export default function ClaimDetailPage() {
                     {parts.map((part, idx) => (
                       <TableRow key={part.id}>
                         <TableCell>{editMode ? <Input list="part-no-list" className="h-8 min-w-[120px] font-mono text-xs" value={part.partNo} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], partNo: e.target.value }; setParts(n) }} /> : <span className="font-mono text-xs">{part.partNo}</span>}</TableCell>
-                        <TableCell>{editMode ? <Input list="parts-list" className="h-8 min-w-[200px]" value={part.partName} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], partName: e.target.value }; setParts(n) }} /> : <span className="font-medium">{part.partName}</span>}</TableCell>
+                        <TableCell>{editMode ? <Input list="parts-list" className={cn("h-8 min-w-[200px]", !part.partName?.trim() && "border-red-500 focus-visible:ring-red-500")} value={part.partName} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], partName: e.target.value }; setParts(n) }} /> : <span className="font-medium">{part.partName}</span>}</TableCell>
                         <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[100px] text-right" value={part.priceFullAmt || ''} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], priceFullAmt: +e.target.value }; setParts(n) }} /> : formatCurrency(part.priceFullAmt)}</TableCell>
                         <TableCell className="text-center">{editMode ? <Input type="number" className="h-8 min-w-[60px] text-center" value={part.quantity || ''} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], quantity: +e.target.value }; setParts(n) }} /> : part.quantity}</TableCell>
                         <TableCell>{editMode ? <Input list="damage-type-list" className="h-8 min-w-[80px]" value={part.damageType} onChange={e => { const n = [...parts]; n[idx] = { ...n[idx], damageType: e.target.value }; setParts(n) }} /> : <Badge variant="outline" className="text-[10px]">{part.damageType}</Badge>}</TableCell>
@@ -908,7 +926,7 @@ export default function ClaimDetailPage() {
                   <TableBody>
                     {labors.map((labor, idx) => (
                       <TableRow key={labor.id}>
-                        <TableCell>{editMode ? <Input list="labors-list" className="h-8 min-w-[200px]" value={labor.description} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], description: e.target.value }; setLabors(n) }} /> : <span className="font-medium">{labor.description}</span>}</TableCell>
+                        <TableCell>{editMode ? <Input list="labors-list" className={cn("h-8 min-w-[200px]", !labor.description?.trim() && "border-red-500 focus-visible:ring-red-500")} value={labor.description} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], description: e.target.value }; setLabors(n) }} /> : <span className="font-medium">{labor.description}</span>}</TableCell>
                         <TableCell>{editMode ? <Input list="damage-level-list" className="h-8 min-w-[100px]" value={labor.damageLevel} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], damageLevel: e.target.value }; setLabors(n) }} /> : <Badge variant="outline" className="text-[10px]">{labor.damageLevel}</Badge>}</TableCell>
                         <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[70px] text-right" value={labor.discountPct || ''} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], discountPct: +e.target.value }; setLabors(n) }} /> : `${labor.discountPct}%`}</TableCell>
                         <TableCell className="text-right">{editMode ? <Input type="number" className="h-8 min-w-[100px] text-right" value={labor.priceOffer || ''} onChange={e => { const n = [...labors]; n[idx] = { ...n[idx], priceOffer: +e.target.value }; setLabors(n) }} /> : formatCurrency(labor.priceOffer)}</TableCell>

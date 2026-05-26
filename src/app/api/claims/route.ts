@@ -119,6 +119,23 @@ export async function POST(request: NextRequest) {
     insuranceId = defaultInsurance?.id || ''
   }
 
+  // Validate parts have names and labors have descriptions
+  const partsArray = body.parts || []
+  for (let i = 0; i < partsArray.length; i++) {
+    const p = partsArray[i]
+    if (!p.partName?.value?.trim()) {
+      return NextResponse.json({ error: `กรุณาระบุชื่ออะไหล่ให้ครบทุกรายการ (รายการที่ ${i + 1})` }, { status: 400 })
+    }
+  }
+
+  const laborsArray = body.labors || []
+  for (let i = 0; i < laborsArray.length; i++) {
+    const l = laborsArray[i]
+    if (!l.description?.value?.trim()) {
+      return NextResponse.json({ error: `กรุณาระบุชื่อรายการค่าแรงให้ครบทุกรายการ (รายการที่ ${i + 1})` }, { status: 400 })
+    }
+  }
+
   try {
     const newClaim = await prisma.claim.create({
       data: {

@@ -44,6 +44,25 @@ export async function PUT(
   const body = await request.json()
   const { parts, labors, ...claimData } = body
   
+  // Validate parts have names and labors have descriptions
+  if (parts && Array.isArray(parts)) {
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i]
+      if (!p.partName?.trim()) {
+        return NextResponse.json({ error: `กรุณาระบุชื่ออะไหล่ให้ครบทุกรายการ (รายการที่ ${i + 1})` }, { status: 400 })
+      }
+    }
+  }
+
+  if (labors && Array.isArray(labors)) {
+    for (let i = 0; i < labors.length; i++) {
+      const l = labors[i]
+      if (!l.description?.trim()) {
+        return NextResponse.json({ error: `กรุณาระบุชื่อรายการค่าแรงให้ครบทุกรายการ (รายการที่ ${i + 1})` }, { status: 400 })
+      }
+    }
+  }
+
   // 1. Update basic claim data if provided
   if (Object.keys(claimData).length > 0) {
     await prisma.claim.update({
