@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Building2, Save, Upload, FileText, Hash, CreditCard, CheckCircle2 } from 'lucide-react'
+import { Building2, Save, Upload, FileText, Hash, CreditCard, CheckCircle2, Users, Plus, Pencil, Trash2 } from 'lucide-react'
 import { CompanyProfile, DocumentSequence } from '@/lib/types'
 import { uploadToR2 } from '@/lib/upload'
 
@@ -29,20 +29,67 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
+  const [users, setUsers] = useState<any[]>([])
+  const [userModalOpen, setUserModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<any | null>(null)
+  const [userForm, setUserForm] = useState({ username: '', name: '', password: '', role: 'STAFF', isActive: true })
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
   useEffect(() => {
     Promise.all([
       fetch('/api/vendors').then(r => r.json()).catch(() => []),
       fetch('/api/insurances?simple=true').then(r => r.json()).catch(() => []),
       fetch('/api/settings/company').then(r => r.json()).catch(() => ({})),
       fetch('/api/settings/sequences').then(r => r.json()).catch(() => []),
-    ]).then(([vnd, ins, compData, seqData]) => {
+      fetch('/api/users').then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([vnd, ins, compData, seqData, userData]) => {
       setVendorsList(vnd)
       setInsurancesList(ins)
       if (!compData.error && compData.id) setCompany(compData)
       if (Array.isArray(seqData)) setSequences(seqData)
+      if (Array.isArray(userData)) setUsers(userData)
       setLoading(false)
     })
   }, [])
+
+  const handleSaveUser = async () => {
+    if (!userForm.username || !userForm.name || (!editingUser && !userForm.password)) {
+      showToast('⚠️ กรุณากรอกข้อมูลให้ครบถ้วน')
+      return
+    }
+
+    try {
+      const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users'
+      const method = editingUser ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userForm)
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save user')
+
+      showToast(editingUser ? '✅ แก้ไขผู้ใช้งานเรียบร้อย' : '✅ เพิ่มผู้ใช้งานเรียบร้อย')
+      setUserModalOpen(false)
+      fetch('/api/users').then(r => r.ok ? r.json() : []).then(data => setUsers(data))
+    } catch (err: any) {
+      showToast(`❌ เกิดข้อผิดพลาด: ${err.message}`)
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to delete user')
+
+      showToast(`✅ ${data.message || 'ลบผู้ใช้งานเรียบร้อย'}`)
+      fetch('/api/users').then(r => r.ok ? r.json() : []).then(data => setUsers(data))
+    } catch (err: any) {
+      showToast(`❌ เกิดข้อผิดพลาด: ${err.message}`)
+    }
+  }
 
   const saveCompany = async () => {
     const missing = []
@@ -107,6 +154,7 @@ export default function SettingsPage() {
           <TabsTrigger value="company" className="flex items-center gap-1.5"><Building2 className="w-4 h-4" />ข้อมูลบริษัท</TabsTrigger>
           <TabsTrigger value="sequences" className="flex items-center gap-1.5"><Hash className="w-4 h-4" />เลขที่เอกสาร</TabsTrigger>
           <TabsTrigger value="peak" className="flex items-center gap-1.5"><CreditCard className="w-4 h-4" />PEAK Integration</TabsTrigger>
+          <TabsTrigger value="users" className="flex items-center gap-1.5"><Users className="w-4 h-4" />ผู้ใช้งาน</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Company Profile */}
@@ -407,7 +455,210 @@ export default function SettingsPage() {
             <Button className="bg-[#1d4ed8]" onClick={() => showToast('บันทึก PEAK Config เรียบร้อย')}><Save className="w-4 h-4 mr-1.5" />บันทึก</Button>
           </div>
         </TabsContent>
+
+        {/* Tab 4: User Management */}
+        <TabsContent value="users">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[#1d4ed8]" />
+                  จัดการผู้ใช้งานระบบ
+                </CardTitle>
+                <p className="text-xs text-[#94a3b8] mt-1">กำหนดสิทธิ์เข้าใช้งานของเจ้าหน้าที่ในระบบ</p>
+              </div>
+              <Button 
+                onClick={() => {
+                  setEditingUser(null)
+                  setUserForm({ username: '', name: '', password: '', role: 'STAFF', isActive: true })
+                  setUserModalOpen(true)
+                }}
+                className="bg-[#1d4ed8]"
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                เพิ่มผู้ใช้งาน
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-xl overflow-hidden bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-[#f8faff]">
+                      <TableHead>ชื่อผู้ใช้งาน (Username)</TableHead>
+                      <TableHead>ชื่อ-นามสกุล</TableHead>
+                      <TableHead>สิทธิ์การใช้งาน (Role)</TableHead>
+                      <TableHead>สถานะ</TableHead>
+                      <TableHead className="text-right">จัดการ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-gray-500 py-6">
+                          ไม่พบข้อมูลผู้ใช้งาน หรือคุณไม่มีสิทธิ์เข้าถึงหน้านี้
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      users.map((u) => (
+                        <TableRow key={u.id}>
+                          <TableCell className="font-mono font-medium">{u.username}</TableCell>
+                          <TableCell>{u.name}</TableCell>
+                          <TableCell>
+                            <Badge className={
+                              u.role === 'ADMIN' ? 'bg-red-50 text-red-600 border-none' :
+                              u.role === 'ACCOUNTANT' ? 'bg-blue-50 text-blue-600 border-none' :
+                              'bg-gray-50 text-gray-600 border-none'
+                            }>
+                              {u.role === 'ADMIN' ? 'Admin' : u.role === 'ACCOUNTANT' ? 'Accountant' : 'Staff'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={u.isActive ? 'bg-green-50 text-green-600 border-none' : 'bg-gray-50 text-gray-400 border-none'}>
+                              {u.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right space-x-1.5">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-8 px-2.5 rounded-lg border-gray-200"
+                              onClick={() => {
+                                setEditingUser(u)
+                                setUserForm({ username: u.username, name: u.name, password: '', role: u.role, isActive: u.isActive })
+                                setUserModalOpen(true)
+                              }}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              แก้ไข
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-8 px-2.5 rounded-lg text-red-600 hover:bg-red-50 border-gray-200"
+                              onClick={() => setConfirmDeleteId(u.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              ลบ
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Add / Edit User Modal */}
+      {userModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <Card className="w-full max-w-md shadow-2xl border-none m-4">
+            <CardHeader>
+              <CardTitle className="text-base">
+                {editingUser ? `แก้ไขผู้ใช้งาน: ${editingUser.username}` : 'เพิ่มผู้ใช้งานใหม่'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#475569]">ชื่อผู้ใช้งาน (Username)</label>
+                <Input 
+                  value={userForm.username} 
+                  onChange={e => setUserForm(p => ({ ...p, username: e.target.value.toLowerCase().replace(/\s/g, '') }))} 
+                  disabled={!!editingUser}
+                  placeholder="english_only"
+                  className="bg-white font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#475569]">ชื่อ-นามสกุล</label>
+                <Input 
+                  value={userForm.name} 
+                  onChange={e => setUserForm(p => ({ ...p, name: e.target.value }))} 
+                  placeholder="ชื่อจริง นามสกุล"
+                  className="bg-white"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#475569]">
+                  {editingUser ? 'รหัสผ่านใหม่ (ว่างไว้หากไม่ต้องการเปลี่ยน)' : 'รหัสผ่าน'}
+                </label>
+                <Input 
+                  type="password"
+                  value={userForm.password} 
+                  onChange={e => setUserForm(p => ({ ...p, password: e.target.value }))} 
+                  placeholder="••••••••"
+                  className="bg-white"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#475569]">สิทธิ์การใช้งาน (Role)</label>
+                <select
+                  value={userForm.role}
+                  onChange={e => setUserForm(p => ({ ...p, role: e.target.value }))}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]"
+                >
+                  <option value="STAFF">Staff (จัดการ Claim/เสนอราคา)</option>
+                  <option value="ACCOUNTANT">Accountant (ฝ่ายบัญชี/การเงิน/รายงาน/PEAK)</option>
+                  <option value="ADMIN">Admin (จัดการระบบ/สิทธิ์ผู้ใช้/ทั้งหมด)</option>
+                </select>
+              </div>
+
+              {editingUser && (
+                <div className="flex items-center justify-between py-2 border-t border-gray-50 mt-2">
+                  <label className="text-sm font-medium text-[#475569]">เปิดใช้งานสถานะ (Active)</label>
+                  <input 
+                    type="checkbox" 
+                    checked={userForm.isActive}
+                    onChange={e => setUserForm(p => ({ ...p, isActive: e.target.checked }))}
+                    className="w-4 h-4 rounded text-[#1d4ed8] focus:ring-[#1d4ed8]"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 border-t pt-4 mt-4">
+                <Button variant="outline" className="border-gray-200" onClick={() => setUserModalOpen(false)}>
+                  ยกเลิก
+                </Button>
+                <Button className="bg-[#1d4ed8]" onClick={handleSaveUser}>
+                  บันทึก
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <Card className="w-full max-w-sm shadow-2xl border-none m-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-red-600">ยืนยันการลบผู้ใช้งาน</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600 mb-6">คุณต้องการลบผู้ใช้งานนี้ออกจากระบบใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้</p>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" className="border-gray-200" onClick={() => setConfirmDeleteId(null)}>
+                  ยกเลิก
+                </Button>
+                <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={async () => {
+                  const id = confirmDeleteId
+                  setConfirmDeleteId(null)
+                  await handleDeleteUser(id)
+                }}>
+                  ยืนยันการลบ
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {toast && (
         <div className={`fixed top-6 right-6 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-4 font-medium flex items-center gap-2 ${toast.includes('❌') || toast.includes('⚠️') ? 'bg-red-600' : 'bg-green-600'}`}>

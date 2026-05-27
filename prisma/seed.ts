@@ -25,11 +25,33 @@ async function main() {
   await prisma.paymentRequest.deleteMany()
   await prisma.aRPayment.deleteMany()
   await prisma.aPPayment.deleteMany()
+  await prisma.claimStatusLog.deleteMany()
+  await prisma.extractionLog.deleteMany()
+  await prisma.claimExpense.deleteMany()
+  await prisma.claimDocument.deleteMany()
   await prisma.claim.deleteMany()
   await prisma.vendor.deleteMany()
   await prisma.insurance.deleteMany()
 
   await prisma.partMaster.deleteMany()
+  await prisma.user.deleteMany()
+
+  // Seed default admin: admin / admin123
+  const crypto = require('crypto')
+  const salt = 'd9b7f3eb3c4f526b7d288d6c8b9d2e1c'
+  const hash = crypto.pbkdf2Sync('admin123', salt, 1000, 64, 'sha512').toString('hex')
+  const hashedPassword = `pbkdf2$1000$${salt}$${hash}`
+
+  await prisma.user.create({
+    data: {
+      username: 'admin',
+      password: hashedPassword,
+      name: 'ผู้ดูแลระบบสูงสุด',
+      role: 'ADMIN',
+      isActive: true,
+    }
+  })
+  console.log('Created default admin: admin / admin123')
 
   // Seed Insurances
   for (const ins of mockInsurances) {

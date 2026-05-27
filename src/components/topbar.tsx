@@ -1,7 +1,8 @@
 "use client"
 
-import { usePathname } from 'next/navigation'
-import { Bell, Search, User } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Bell, Search, User as UserIcon, LogOut, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 
 const breadcrumbMap: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -16,6 +17,50 @@ const breadcrumbMap: Record<string, string> = {
 
 export default function Topbar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [user, setUser] = useState<{ name: string; role: string; username: string } | null>(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.user) {
+          setUser(data.user)
+        }
+      })
+      .catch(console.error)
+  }, [])
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      router.push('/login')
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const getRoleLabel = (role?: string) => {
+    switch (role) {
+      case 'ADMIN': return 'ผู้ดูแลระบบ'
+      case 'ACCOUNTANT': return 'ฝ่ายบัญชี'
+      case 'STAFF': return 'เจ้าหน้าที่ทั่วไป'
+      default: return 'ผู้ใช้ทั่วไป'
+    }
+  }
 
   const getBreadcrumbs = () => {
     if (!pathname) return ['Dashboard']
@@ -69,17 +114,40 @@ export default function Topbar() {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
         </button>
 
-        {/* User */}
-        <div className="flex items-center gap-2 ml-2">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1d4ed8] to-[#3b82f6] flex items-center justify-center">
-            <User className="w-4 h-4 text-white" />
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-sm font-medium text-[#0f172a]">Admin</p>
-            <p className="text-[11px] text-[#94a3b8]">ผู้ดูแลระบบ</p>
-          </div>
+        {/* User Dropdown */}
+        <div className="relative ml-2" ref={dropdownRef}>
+          <button 
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex items-center gap-2 text-left hover:bg-slate-50 p-1.5 rounded-xl transition-all"
+          >
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1d4ed8] to-[#3b82f6] flex items-center justify-center shadow-inner">
+              <UserIcon className="w-4 h-4 text-white" />
+            </div>
+            <div className="hidden sm:block">
+              <p className="text-sm font-medium text-[#0f172a] leading-tight">{user?.name || 'Admin'}</p>
+              <p className="text-[11px] text-[#94a3b8]">{getRoleLabel(user?.role)}</p>
+            </div>
+            <ChevronDown className="w-4 h-4 text-gray-400 hidden sm:block ml-1" />
+          </button>
+
+          {dropdownOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="px-4 py-2 border-b border-gray-50 sm:hidden">
+                <p className="text-sm font-medium text-[#0f172a]">{user?.name || 'Admin'}</p>
+                <p className="text-xs text-[#94a3b8]">{getRoleLabel(user?.role)}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>ออกจากระบบ</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
   )
 }
+

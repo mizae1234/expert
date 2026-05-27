@@ -43,6 +43,18 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const [stats, setStats] = useState({ claims: 0, invoices: 0, payments: 0 })
+  const [role, setRole] = useState<string>('STAFF')
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.user) {
+          setRole(data.user.role)
+        }
+      })
+      .catch(console.error)
+  }, [])
 
   useEffect(() => {
     fetch('/api/stats')
@@ -102,6 +114,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     },
   ]
 
+  const filteredNavGroups = currentNavGroups.map((group) => {
+    const items = group.items.filter((item) => {
+      if (role === 'STAFF') {
+        return !['/invoices', '/payments', '/peak', '/reports', '/settings'].includes(item.href)
+      }
+      if (role === 'ACCOUNTANT') {
+        return !['/claims', '/settings'].includes(item.href)
+      }
+      return true
+    })
+    return { ...group, items }
+  }).filter((group) => group.items.length > 0)
+
   return (
     <aside
       className={cn(
@@ -124,7 +149,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Navigation — Grouped */}
       <nav className="flex-1 px-3 py-2 overflow-y-auto">
-        {currentNavGroups.map((group) => (
+        {filteredNavGroups.map((group) => (
           <div key={group.label}>
             {/* Group label */}
             {!collapsed && (

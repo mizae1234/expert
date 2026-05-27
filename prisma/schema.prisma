@@ -617,3 +617,21 @@ model ClaimDocument {
   uploadedBy  String   @default("Admin")
   createdAt   DateTime @default(now())
 }
+
+enum UserRole {
+  ADMIN
+  ACCOUNTANT
+  STAFF
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // Hashed password
+  name      String
+  role      UserRole @default(STAFF)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
