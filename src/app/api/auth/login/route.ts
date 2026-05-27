@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       name: 'expert-token',
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       sameSite: 'lax',
       path: '/',
       maxAge: 28800 // 8 hours
