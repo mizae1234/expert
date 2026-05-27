@@ -18,31 +18,35 @@ export default function POTab({
   setPurchaseOrders,
   vendors,
   showToast,
-  setErrorModalMsg
+  setErrorModalMsg,
+  setConfirmModal
 }: ClaimTabProps) {
   const [showCreatePOModal, setShowCreatePOModal] = useState(false)
   const [editPOId, setEditPOId] = useState<string | null>(null)
-  const [confirmCancelPOId, setConfirmCancelPOId] = useState<string | null>(null)
 
-  const handleCancelPOSubmit = async () => {
-    if (!confirmCancelPOId) return
-    try {
-      const res = await fetch(`/api/claims/${claim.id}/pos/${confirmCancelPOId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' })
-      })
-      if (!res.ok) {
-        const errData = await res.json()
-        throw new Error(errData.error || 'Failed to cancel PO')
+  const handleCancelPO = (poId: string, poNo: string) => {
+    setConfirmModal({
+      title: 'ยกเลิกใบสั่งซื้อ',
+      message: `คุณต้องการยกเลิกใบสั่งซื้อ ${poNo} ใช่หรือไม่? (สถานะจะถูกเปลี่ยนเป็น "ยกเลิก")`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/claims/${claim.id}/pos/${poId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'CANCELLED' })
+          })
+          if (!res.ok) {
+            const errData = await res.json()
+            throw new Error(errData.error || 'Failed to cancel PO')
+          }
+          const updatedPO = await res.json()
+          setPurchaseOrders(prev => prev.map(p => p.id === poId ? updatedPO : p))
+          showToast('ยกเลิกใบสั่งซื้อสำเร็จ')
+        } catch (err: any) {
+          setErrorModalMsg(`เกิดข้อผิดพลาดในการยกเลิก PO: ${err.message}`)
+        }
       }
-      const updatedPO = await res.json()
-      setPurchaseOrders(prev => prev.map(p => p.id === confirmCancelPOId ? updatedPO : p))
-      showToast('ยกเลิกใบสั่งซื้อสำเร็จ')
-      setConfirmCancelPOId(null)
-    } catch (err: any) {
-      setErrorModalMsg(`เกิดข้อผิดพลาดในการยกเลิก PO: ${err.message}`)
-    }
+    })
   }
 
   return (
@@ -102,7 +106,7 @@ export default function POTab({
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-gray-500 hover:text-red-600"
-                              onClick={() => setConfirmCancelPOId(po.id)}
+                              onClick={() => handleCancelPO(po.id, po.poNo)}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
@@ -114,7 +118,7 @@ export default function POTab({
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-gray-500 hover:text-red-600"
-                              onClick={() => setConfirmCancelPOId(po.id)}
+                              onClick={() => handleCancelPO(po.id, po.poNo)}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
@@ -202,7 +206,7 @@ export default function POTab({
           )}
         </CardContent>
       </Card>
-
+ 
       <CreatePOModal
         isOpen={showCreatePOModal}
         onClose={() => {
@@ -220,27 +224,6 @@ export default function POTab({
         showToast={showToast}
         setErrorModalMsg={setErrorModalMsg}
       />
-
-      {/* Cancel PO Confirm Modal */}
-      {confirmCancelPOId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex items-center gap-3 bg-red-50 text-red-700">
-              <AlertTriangle className="w-5 h-5" />
-              <h3 className="font-semibold">ยกเลิกใบสั่งซื้อ</h3>
-            </div>
-            <div className="p-6 text-center text-[#475569]">
-              คุณต้องการยกเลิกใบสั่งซื้อนี้ใช่หรือไม่? (สถานะจะถูกเปลี่ยนเป็น "ยกเลิก")
-            </div>
-            <div className="p-4 border-t flex justify-end gap-2 bg-gray-50">
-              <Button variant="outline" onClick={() => setConfirmCancelPOId(null)}>ยกเลิก</Button>
-              <Button onClick={handleCancelPOSubmit} className="bg-red-600 hover:bg-red-700 text-white">
-                ยืนยันการยกเลิก
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

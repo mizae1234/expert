@@ -30,7 +30,6 @@ export default function DocumentsTab({ claim, showToast, setErrorModalMsg, setCo
   const [file, setFile] = useState<File | null>(null)
   const [description, setDescription] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [previewDoc, setPreviewDoc] = useState<{ fileName: string; fileUrl: string; fileType: string } | null>(null)
 
   const handleUpload = async () => {
     if (!file) {
@@ -83,68 +82,8 @@ export default function DocumentsTab({ claim, showToast, setErrorModalMsg, setCo
     })
   }
 
-  const handlePreview = (doc: any) => {
-    // PDF and images can be previewed inline; other types open in new tab
-    const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.fileUrl?.toLowerCase().includes('.pdf') || doc.fileType === 'pdf'
-    const isImage = !!(doc.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) || doc.fileUrl?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)/i) || doc.fileType === 'image')
-    
-    if (isPdf || isImage) {
-      setPreviewDoc({ fileName: doc.fileName, fileUrl: doc.fileUrl, fileType: isPdf ? 'pdf' : 'image' })
-    } else {
-      window.open(doc.fileUrl)
-    }
-  }
-
   return (
     <div className="space-y-6">
-      {/* Document Preview Modal */}
-      {previewDoc && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex flex-col" onClick={() => setPreviewDoc(null)}>
-          {/* Header Bar */}
-          <div className="flex items-center justify-between px-4 py-3 bg-[#0f172a]/90 backdrop-blur-sm border-b border-white/10" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-blue-400" />
-              <span className="text-white text-sm font-medium truncate max-w-[400px]">{previewDoc.fileName}</span>
-              <Badge className="border-none text-[10px] bg-white/10 text-white/70">{previewDoc.fileType.toUpperCase()}</Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-white/80 hover:text-white hover:bg-white/10 h-8 text-xs"
-                onClick={() => window.open(previewDoc.fileUrl)}
-              >
-                <Download className="w-3.5 h-3.5 mr-1" />ดาวน์โหลด
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-white/80 hover:text-white hover:bg-white/10 h-8 w-8 p-0"
-                onClick={() => setPreviewDoc(null)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-          {/* Content */}
-          <div className="flex-1 flex items-center justify-center p-4 overflow-auto" onClick={e => e.stopPropagation()}>
-            {previewDoc.fileType === 'pdf' ? (
-              <iframe
-                src={previewDoc.fileUrl}
-                className="w-full h-full max-w-5xl rounded-lg border border-white/10 bg-white"
-                style={{ minHeight: 'calc(100vh - 80px)' }}
-                title={previewDoc.fileName}
-              />
-            ) : (
-              <img
-                src={previewDoc.fileUrl}
-                alt={previewDoc.fileName}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              />
-            )}
-          </div>
-        </div>
-      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between py-3">
