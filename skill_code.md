@@ -80,9 +80,7 @@ src/
 │   │   │       └── reject/           # POST reject PR
 │   │   ├── payments/                 # Payment management
 │   │   │   ├── route.ts             # GET payment list
-│   │   │   ├── [id]/                # PUT payment detail
-│   │   │   ├── ap/                  # POST AP payment (stub)
-│   │   │   └── ar/                  # POST AR payment (stub)
+│   │   │   └── [id]/                # PUT payment detail
 │   │   ├── peak/                     # PEAK sync
 │   │   │   ├── route.ts             # GET sync list
 │   │   │   ├── export/              # POST export Excel
@@ -91,11 +89,7 @@ src/
 │   │   │   └── batch/               # GET batch PEAK export
 │   │   ├── pos/                      # PO management (standalone)
 │   │   │   └── [id]/
-│   │   │       ├── gr/              # POST goods receipt (stub)
 │   │   │       └── status/          # PATCH PO status (stub)
-│   │   ├── gr/                       # Goods Receipt
-│   │   │   └── [id]/
-│   │   │       └── do/              # POST delivery order (stub)
 │   │   ├── reports/                  # GET report data
 │   │   ├── settings/                 # System settings
 │   │   │   ├── company/             # GET/PUT company profile
@@ -285,15 +279,11 @@ graph TD
 | `/api/payment-requests/[id]/reject` | POST | Reject PR | Prisma ✅ |
 | `/api/payments` | GET | Payment requests list | Prisma ✅ |
 | `/api/payments/[id]` | PUT | Update payment status | Prisma ✅ |
-| `/api/payments/ap` | POST | AP payment (stub — no Prisma) | ⚠️ Stub |
-| `/api/payments/ar` | POST | AR payment (stub — no Prisma) | ⚠️ Stub |
 | `/api/peak` | GET | PEAK sync list (AR + AP) | Prisma ✅ |
 | `/api/peak/export` | POST | Export PEAK Excel data | Prisma ✅ |
 | `/api/peak/update-doc-no` | POST | Update invoice document number | Prisma ✅ |
 | `/api/peak-export/batch` | GET | Batch PEAK export | Prisma ✅ |
-| `/api/pos/[id]/gr` | POST | Create goods receipt (stub) | ⚠️ Stub |
 | `/api/pos/[id]/status` | PATCH | Update PO status (stub) | ⚠️ Stub |
-| `/api/gr/[id]/do` | POST | Create delivery order (stub) | ⚠️ Stub |
 | `/api/reports` | GET | Reports (filter: year, insurance, vendor) | Prisma ✅ |
 | `/api/settings/company` | GET/PUT | Company profile | Prisma ✅ |
 | `/api/settings/sequences` | GET/PUT | Document sequences | Prisma ✅ |
@@ -305,12 +295,8 @@ graph TD
 | `/api/parts-master` | GET/POST | Parts catalog | Prisma ✅ |
 | `/api/upload` | POST | File upload to R2 | R2 ✅ |
 
-> **⚠️ STUB API ROUTES** — 3 routes still return fake/in-memory data:
-> - `/api/payments/ap` — AP payment stub (returns generated ID, not persisted)
-> - `/api/payments/ar` — AR payment stub (returns generated ID, not persisted)
-> - `/api/pos/[id]/gr` — Goods receipt stub
+> **⚠️ STUB API ROUTES** — Only 1 route still returns fake/in-memory data:
 > - `/api/pos/[id]/status` — PO status update stub
-> - `/api/gr/[id]/do` — Delivery order stub
 
 ---
 
@@ -396,17 +382,20 @@ graph TD
 | 18 | Monolithic `claims/[id]/page.tsx` decomposed from 2,116 lines to 365 lines by extracting all modals (CreatePOModal, CreateQuotationModal, UploadSupplierInvoiceModal, CreatePRModal, RejectPRModal, StatusChangeModal) and tabs (PartsTab, POTab, SupplierInvTab). | ✅ Done |
 | N1 | Optimized New Claim page `/claims/new` (reduced from 979 to 503 lines) by extracting form review section to `ClaimFormReview.tsx` and lazy loading it using `next/dynamic` (First Load JS size reduced from 156 kB to 113 kB, chunk size 7.17 kB). | ✅ Done |
 | DB1 | Added performance database indexes (`@@index`) for Claim, ClaimPart, ClaimLabor, PurchaseOrder, SupplierInvoice, InsuranceInvoice, GarageInvoice, PaymentRequest, and ClaimExpense models. | ✅ Done |
+| CP1 | Added client-side image compression helper `compressImageIfNeeded` inside `src/lib/upload.ts` to automatically resize images (>150KB, up to 2048px width, JPEG 88% quality, PNG transparency preserved) for all R2 file uploads. | ✅ Done |
+| RP1 | Optimized reports API `/api/reports` to use database-level aggregations (`groupBy` + `_sum` + `_count`) and selective `select` queries, replacing memory-heavy client-side reduction. | ✅ Done |
+| SN1 | Added sequential PO and Quotation number generation using atomic transaction updates on the `DocumentSequence` database model, replacing timestamp-based base36 strings. | ✅ Done |
+| DL1 | Removed 4 unused dead mock routes `/api/payments/ap`, `/api/payments/ar`, `/api/pos/[id]/gr`, and `/api/gr/[id]/do`. | ✅ Done |
+| RT1 | Refactored duplicate toast and modal overlay states in page tabs (like `POTab.tsx` and `DocumentsTab.tsx`) to utilize the parent's global confirm dialog and toast notification handler. | ✅ Done |
 
 ### 🟡 Remaining (Lower Priority)
 
 | # | File | Issue | Impact |
 |---|------|-------|--------|
 | 17 | `sidebar.tsx` | **No retry for stats fetch** — Silent failure shows 0 badges. | Silent failure |
-| 19 | Multiple pages | **Toast duplicated** — Each page implements its own toast pattern. | Code duplication |
-| 20 | Multiple pages | **Modal duplicated** — Error/confirm modal patterns copy-pasted. | Code duplication |
 | 21 | `types.ts` usage | **`any` used 15+ times** — `useState<any[]>()` everywhere. | Type safety |
 | 22 | `invoices/page.tsx:96` | **eslint-disable** suppresses `exhaustive-deps`. | Lint suppression |
-| 23 | `payments/ap` + `payments/ar` + `pos/[id]/gr` + `pos/[id]/status` + `gr/[id]/do` | **5 STUB APIs** — Return fake data, not persisted to Prisma. | Data not saved |
+| 23 | `pos/[id]/status` | **1 STUB API** — Rest 4 stub APIs successfully deleted. | Data not saved |
 
 ---
 
@@ -465,23 +454,18 @@ All new/rewritten API routes now use try/catch with proper error responses.
 
 Both PEAK page and Reports page now use `await import('xlsx')` for dynamic loading.
 
-### 8.5 Document Number Generation ✅ PARTIALLY DONE
+### 8.5 Document Number Generation ✅ COMPLETED
 
-**Quotation / Billing Note** now uses `DocumentSequence` model:
+**PO, Quotation, and Billing Note** now use `DocumentSequence` model with an atomic `$transaction` increment:
 ```typescript
-// next-bn API route uses $transaction for atomic increment:
+// quotation API route uses $transaction for atomic increment:
 const seq = await prisma.$transaction(async (tx) => {
-  let s = await tx.documentSequence.findUnique({ where: { docType: 'BILLING_NOTE' } })
+  let s = await tx.documentSequence.findUnique({ where: { docType: 'QUOTATION' } })
   // ... create if not exists ...
   const nextNo = s.lastNo + 1
   await tx.documentSequence.update({ where: { id: s.id }, data: { lastNo: nextNo } })
   return { prefix: s.prefix, number: nextNo }
 })
-```
-
-**PO/Quotation** still uses timestamp-based numbering in frontend:
-```typescript
-const qtNo = `QT-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`
 ```
 
 ### 8.6 Type Safety (TODO)
@@ -627,7 +611,7 @@ Largest Pages by JS:
 | **Phase 2** | ~~Authentication system (JWT + Login + Middleware + RBAC)~~ | ✅ Done |
 | **Phase 3** | ~~Split `claims/[id]/page.tsx` into tab components and subcomponents~~ | ✅ Done |
 | **Phase 4** | ~~Replace `window.location.reload()` with state refresh~~ | ✅ Done |
-| **Phase 5** | Fix PO/QT/INV collision-prone numbering (timestamp-based) | 🔲 Pending |
+| **Phase 5** | ~~Fix PO/QT/INV collision-prone numbering (timestamp-based)~~ | ✅ Done (2026-05-28) |
 | **Phase 6** | Add proper TypeScript types (remove `any`) | 🔲 Pending |
 | **Phase 7** | ~~Dynamic import `xlsx`, optimize bundle~~ | ✅ Done |
 | **Phase 8** | ~~Create shared Toast + ConfirmDialog + ErrorDialog~~ | ✅ Done |
@@ -646,7 +630,7 @@ Largest Pages by JS:
 | **Phase 21** | ~~Invoice batch operations (batch fetch + status update)~~ | ✅ Done |
 | **Phase 22** | ~~PEAK doc number editing~~ | ✅ Done |
 | **Phase 23** | ~~Insurance & Vendor detail pages~~ | ✅ Done |
-| **Phase 24** | Migrate 5 stub APIs to Prisma | 🔲 Pending |
+| **Phase 24** | Migrate remaining stub APIs to Prisma / cleanup | 🟡 Partial (deleted 4 stubs) |
 | **Phase 25** | Delete `lib/mock/` directory | 🔲 Pending |
 
 ---
