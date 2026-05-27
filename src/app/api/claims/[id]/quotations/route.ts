@@ -9,10 +9,42 @@ export async function POST(
     const body = await request.json()
     const { laborItems, partItems, ...quotationData } = body
 
+    let quotationNo = quotationData.quotationNo
+    if (!quotationNo || !quotationNo.includes('-S')) {
+      const seq = await prisma.$transaction(async (tx) => {
+        let s = await tx.documentSequence.findUnique({
+          where: { docType: 'QUOTATION' }
+        })
+        
+        if (!s) {
+          s = await tx.documentSequence.create({
+            data: {
+              docType: 'QUOTATION',
+              prefix: 'QT',
+              lastNo: 0
+            }
+          })
+        }
+        
+        const nextNo = s.lastNo + 1
+        
+        await tx.documentSequence.update({
+          where: { id: s.id },
+          data: { lastNo: nextNo }
+        })
+        
+        return { prefix: s.prefix, number: nextNo }
+      })
+      
+      const now = new Date()
+      const yyyymm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
+      quotationNo = `${seq.prefix}-${yyyymm}${String(seq.number).padStart(5, '0')}`
+    }
+
     const newQt = await prisma.quotation.create({
       data: {
         claimId: params.id,
-        quotationNo: quotationData.quotationNo,
+        quotationNo: quotationNo,
         quotationDate: quotationData.quotationDate ? new Date(quotationData.quotationDate) : new Date(),
         validUntil: quotationData.validUntil ? new Date(quotationData.validUntil) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         laborTotal: Number(quotationData.laborTotal || 0),

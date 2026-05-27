@@ -29,11 +29,38 @@ export async function POST(
     // Generate sequential PO number if not provided
     let poNo = body.poNo
     if (!poNo) {
-      const year = new Date().getFullYear()
-      const count = await prisma.purchaseOrder.count({
-        where: { poNo: { startsWith: `PO-${year}-` } }
+      const poType = body.poType || 'PARTS'
+      const docType = poType === 'PARTS' ? 'PO_PARTS' : 'PO_LABOR'
+      const defaultPrefix = poType === 'PARTS' ? 'PO' : 'PL'
+
+      const seq = await prisma.$transaction(async (tx) => {
+        let s = await tx.documentSequence.findUnique({
+          where: { docType }
+        })
+        
+        if (!s) {
+          s = await tx.documentSequence.create({
+            data: {
+              docType,
+              prefix: defaultPrefix,
+              lastNo: 0
+            }
+          })
+        }
+        
+        const nextNo = s.lastNo + 1
+        
+        await tx.documentSequence.update({
+          where: { id: s.id },
+          data: { lastNo: nextNo }
+        })
+        
+        return { prefix: s.prefix, number: nextNo }
       })
-      poNo = `PO-${year}-${String(count + 1).padStart(6, '0')}`
+      
+      const now = new Date()
+      const yyyymm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
+      poNo = `${seq.prefix}-${yyyymm}${String(seq.number).padStart(5, '0')}`
     }
 
     // Calculate total with configurable VAT
