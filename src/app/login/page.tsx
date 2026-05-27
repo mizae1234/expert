@@ -27,17 +27,22 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password })
       })
 
-      const data = await res.json()
+      let data: any
+      try {
+        data = await res.json()
+      } catch {
+        throw new Error(`Server response: ${res.status} ${res.statusText} (ไม่ใช่ JSON)`)
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || 'การเข้าสู่ระบบล้มเหลว')
+        throw new Error(data.error || data.stack || `Server error: ${res.status}`)
       }
 
       setSuccess(true)
       // Use window.location for full page reload with cookie
       window.location.href = '/dashboard'
     } catch (err: any) {
-      setError(err.message)
+      setError(err.message || 'เกิดข้อผิดพลาด ไม่สามารถเชื่อมต่อ server ได้')
       setLoading(false)
     }
   }
