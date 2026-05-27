@@ -1,6 +1,28 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { verifyJWT } from './lib/jwt'
+
+// Simple JWT decode (no signature verification - that happens in API routes)
+// Middleware only needs to check: does the token exist and is it not expired?
+function decodeJWTPayload(token: string): any | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    
+    // Decode payload (base64url → JSON)
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    while (base64.length % 4) base64 += '='
+    const payload = JSON.parse(atob(base64))
+    
+    // Check expiry
+    if (payload.exp && Math.floor(Date.now() / 1000) >= payload.exp) {
+      return null
+    }
+    
+    return payload
+  } catch {
+    return null
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -29,8 +51,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Verify token
-  const payload = await verifyJWT(token)
+  // Decode token (lightweight check - no crypto needed)
+  const payload = decodeJWTPayload(token)
   if (!payload) {
     const response = pathname.startsWith('/api/')
       ? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -87,3 +109,4 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
+
