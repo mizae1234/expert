@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -32,11 +33,11 @@ export default function LoginPage() {
         throw new Error(data.error || 'การเข้าสู่ระบบล้มเหลว')
       }
 
-      router.push('/dashboard')
-      router.refresh()
+      setSuccess(true)
+      // Use window.location for full page reload with cookie
+      window.location.href = '/dashboard'
     } catch (err: any) {
       setError(err.message)
-    } finally {
       setLoading(false)
     }
   }
@@ -63,6 +64,13 @@ export default function LoginPage() {
               <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm font-medium flex items-center gap-2">
                 <span className="shrink-0">⚠️</span>
                 <span>{error}</span>
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-100 text-green-600 text-sm font-medium flex items-center gap-2">
+                <span className="shrink-0">✅</span>
+                <span>เข้าสู่ระบบสำเร็จ กำลังเปลี่ยนหน้า...</span>
               </div>
             )}
 
