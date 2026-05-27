@@ -1,8 +1,8 @@
 # Expert Body & Paint — Skill Code / Architecture Document
 
-> **Last Updated:** 2026-05-17  
+> **Last Updated:** 2026-05-27  
 > **System:** Insurance Claim Management + PEAK Accounting Integration  
-> **Stack:** Next.js 16 (App Router) • Prisma 7 • PostgreSQL • Cloudflare R2
+> **Stack:** Next.js 14.2 (App Router) • Prisma 5 • PostgreSQL • Cloudflare R2 • JWT Auth
 
 ---
 
@@ -31,66 +31,185 @@
 ```
 src/
 ├── app/
-│   ├── api/                     # Route Handlers (REST API)
-│   │   ├── ai/                  # AI extraction endpoints
-│   │   ├── claims/[id]/         # Claim CRUD + sub-resources
-│   │   ├── dashboard/           # Dashboard stats
-│   │   ├── insurances/          # Insurance CRUD
-│   │   ├── invoices/            # AR Invoice list + status
-│   │   ├── parts-master/        # Parts catalog
-│   │   ├── payment-requests/    # PR create + approve/reject
-│   │   ├── payments/            # Payment management
-│   │   ├── peak/                # PEAK sync list + export
-│   │   ├── reports/             # Report endpoints (with filter support)
-│   │   ├── stats/               # Sidebar badge counts
-│   │   ├── upload/              # File upload to R2
-│   │   └── vendors/             # Vendor CRUD
-│   ├── claims/                  # Claims pages
-│   │   ├── page.tsx             # Claims list (196 lines)
-│   │   ├── new/page.tsx         # New claim form
+│   ├── api/                          # Route Handlers (REST API)
+│   │   ├── ai/                       # AI extraction endpoints
+│   │   │   ├── extract-claim/        # Extract claim from image
+│   │   │   └── extract-supplier-invoice/  # Extract supplier invoice
+│   │   ├── auth/                     # Authentication endpoints
+│   │   │   ├── login/                # POST: JWT login
+│   │   │   ├── logout/               # POST: Clear cookie
+│   │   │   ├── me/                   # GET: Current user session
+│   │   │   └── debug/                # GET: JWT debug (temp)
+│   │   ├── claims/                   # Claim CRUD
+│   │   │   ├── route.ts              # GET/POST list & create
+│   │   │   ├── import/               # POST: Excel bulk import
+│   │   │   └── [id]/                 # Claim sub-resources
+│   │   │       ├── route.ts          # GET/PUT claim detail
+│   │   │       ├── status/           # PATCH/PUT status change
+│   │   │       ├── pos/              # GET/POST purchase orders
+│   │   │       ├── supplier-invoices/# POST supplier invoices
+│   │   │       ├── garage-invoices/  # POST garage invoices
+│   │   │       ├── insurance-invoice/# POST/DELETE AR invoice
+│   │   │       │   └── receive-payment/ # POST AR payment
+│   │   │       ├── quotations/       # POST/PUT quotations
+│   │   │       ├── parts/            # GET/POST claim parts
+│   │   │       ├── labors/           # GET/POST claim labors
+│   │   │       ├── payments/         # GET claim payments
+│   │   │       ├── pnl/              # GET profit & loss
+│   │   │       ├── peak-export/      # GET PEAK export data
+│   │   │       ├── expenses/         # GET/POST/DELETE claim expenses
+│   │   │       └── documents/        # GET/POST/DELETE claim documents
+│   │   ├── dashboard/                # Dashboard stats
+│   │   │   ├── route.ts             # GET main dashboard
+│   │   │   ├── summary/             # GET dashboard KPIs
+│   │   │   ├── by-status/           # GET claims by status
+│   │   │   └── by-insurance/        # GET revenue by insurance
+│   │   ├── garages/                  # GET garage vendors (filtered)
+│   │   ├── insurances/               # GET/POST insurances
+│   │   │   └── [id]/                # PUT/DELETE insurance detail
+│   │   ├── invoices/                 # AR Invoice management
+│   │   │   ├── route.ts             # GET invoice list
+│   │   │   ├── [id]/status/         # PUT update status
+│   │   │   ├── batch/               # GET batch fetch by IDs
+│   │   │   ├── batch-status/        # POST batch status update
+│   │   │   └── next-bn/             # POST generate next billing note no.
+│   │   ├── parts-master/             # GET/POST parts catalog
+│   │   ├── payment-requests/         # POST create + approve/reject
+│   │   │   └── [id]/
+│   │   │       ├── approve/          # POST approve PR
+│   │   │       └── reject/           # POST reject PR
+│   │   ├── payments/                 # Payment management
+│   │   │   ├── route.ts             # GET payment list
+│   │   │   ├── [id]/                # PUT payment detail
+│   │   │   ├── ap/                  # POST AP payment (stub)
+│   │   │   └── ar/                  # POST AR payment (stub)
+│   │   ├── peak/                     # PEAK sync
+│   │   │   ├── route.ts             # GET sync list
+│   │   │   ├── export/              # POST export Excel
+│   │   │   └── update-doc-no/       # POST update invoice number
+│   │   ├── peak-export/
+│   │   │   └── batch/               # GET batch PEAK export
+│   │   ├── pos/                      # PO management (standalone)
+│   │   │   └── [id]/
+│   │   │       ├── gr/              # POST goods receipt (stub)
+│   │   │       └── status/          # PATCH PO status (stub)
+│   │   ├── gr/                       # Goods Receipt
+│   │   │   └── [id]/
+│   │   │       └── do/              # POST delivery order (stub)
+│   │   ├── reports/                  # GET report data
+│   │   ├── settings/                 # System settings
+│   │   │   ├── company/             # GET/PUT company profile
+│   │   │   └── sequences/           # GET/PUT document sequences
+│   │   ├── stats/                    # GET sidebar badge counts
+│   │   ├── upload/                   # POST file upload to R2
+│   │   ├── users/                    # User management (ADMIN only)
+│   │   │   ├── route.ts             # GET/POST list & create users
+│   │   │   └── [id]/                # PUT/DELETE user
+│   │   └── vendors/                  # GET/POST vendors
+│   │       └── [id]/                 # PUT/DELETE vendor detail
+│   ├── claims/                       # Claims pages
+│   │   ├── page.tsx                  # Claims list (239 lines)
+│   │   ├── new/page.tsx              # New claim form (979 lines)
 │   │   └── [id]/
-│   │       ├── page.tsx         # Claim detail (~1,595 lines, reduced from 1,832)
-│   │       ├── tabs/            # Extracted tab components
-│   │       │   ├── index.ts     # Barrel export
-│   │       │   ├── types.ts     # Shared ClaimTabProps interface
-│   │       │   ├── ClaimInfoTab.tsx
-│   │       │   ├── PnLTab.tsx
-│   │       │   ├── TimelineTab.tsx
-│   │       │   ├── PaymentsTab.tsx
-│   │       │   └── InsuranceInvoiceTab.tsx
-│   │       └── pdf/[type]/      # PDF generation pages
-│   ├── dashboard/page.tsx       # Dashboard
-│   ├── insurances/              # Insurance management
-│   ├── invoices/page.tsx        # AR Invoice list (259 lines)
-│   ├── payments/page.tsx        # Payment approvals (267 lines)
-│   ├── peak/page.tsx            # PEAK sync dashboard (339 lines)
-│   ├── reports/                 # Reports (with filter + Excel export)
-│   ├── settings/                # System settings
-│   ├── vendors/                 # Vendor management
-│   ├── layout.tsx               # Root layout
-│   └── globals.css              # Global styles
+│   │       ├── page.tsx              # Claim detail (~2,116 lines)
+│   │       ├── tabs/                 # Extracted tab components
+│   │       │   ├── index.ts          # Barrel export (7 tabs)
+│   │       │   ├── types.ts          # Shared ClaimTabProps interface
+│   │       │   ├── ClaimInfoTab.tsx   # Tab 1: Claim info (182 lines)
+│   │       │   ├── ExpensesTab.tsx    # Tab: Additional expenses (243 lines)
+│   │       │   ├── DocumentsTab.tsx   # Tab: File attachments (267 lines)
+│   │       │   ├── PnLTab.tsx         # Tab: Profit & Loss (36 lines)
+│   │       │   ├── TimelineTab.tsx    # Tab: Status timeline (41 lines)
+│   │       │   ├── PaymentsTab.tsx    # Tab: Payment requests (87 lines)
+│   │       │   └── InsuranceInvoiceTab.tsx  # Tab: AR invoice (175 lines)
+│   │       └── pdf/[type]/           # PDF generation pages
+│   ├── dashboard/page.tsx            # Dashboard (242 lines)
+│   ├── insurances/                   # Insurance management
+│   │   ├── page.tsx                  # Insurance list (119 lines)
+│   │   └── [id]/page.tsx             # Insurance detail (326 lines)
+│   ├── invoices/                     # AR Invoice management
+│   │   ├── page.tsx                  # Invoice list (513 lines)
+│   │   └── print-billing-note/       # Billing note print page (950 lines)
+│   ├── login/page.tsx                # Login page (133 lines)
+│   ├── parts-master/page.tsx         # Parts catalog (230 lines)
+│   ├── payments/page.tsx             # Payment approvals (348 lines)
+│   ├── peak/page.tsx                 # PEAK sync dashboard (804 lines)
+│   ├── reports/page.tsx              # Reports (656 lines)
+│   ├── settings/page.tsx             # System settings (671 lines)
+│   ├── vendors/                      # Vendor management
+│   │   ├── page.tsx                  # Vendor list (166 lines)
+│   │   └── [id]/page.tsx             # Vendor detail (321 lines)
+│   ├── layout.tsx                    # Root layout
+│   └── globals.css                   # Global styles
 ├── components/
-│   ├── sidebar.tsx              # Main sidebar nav (dynamic counts)
-│   ├── topbar.tsx               # Top navigation bar
-│   ├── client-layout.tsx        # Client-side layout wrapper (+ ToastProvider)
-│   ├── toast-provider.tsx       # Global toast notification system
-│   ├── dialogs.tsx              # Shared ConfirmDialog + ErrorDialog
-│   └── ui/                      # shadcn/ui components
+│   ├── sidebar.tsx                   # Main sidebar nav (dynamic counts + RBAC filtering)
+│   ├── topbar.tsx                    # Top navigation bar (user dropdown + logout)
+│   ├── client-layout.tsx             # Client-side layout wrapper (+ ToastProvider)
+│   ├── toast-provider.tsx            # Global toast notification system
+│   ├── dialogs.tsx                   # Shared ConfirmDialog + ErrorDialog
+│   └── ui/                          # shadcn/ui components
+│       ├── badge.tsx
+│       ├── button.tsx
+│       ├── card.tsx
+│       ├── dialog.tsx
+│       ├── input.tsx
+│       ├── popover.tsx
+│       ├── select.tsx
+│       ├── skeleton.tsx
+│       ├── table.tsx
+│       ├── tabs.tsx
+│       └── thai-date-picker.tsx      # Custom date picker with Buddhist era
 ├── lib/
-│   ├── prisma.ts                # Prisma singleton
-│   ├── date.ts                  # Centralized date formatting (AD/ค.ศ.)
-│   ├── types.ts                 # TypeScript interfaces (552 lines)
-│   ├── utils.ts                 # Utility functions (70 lines)
-│   ├── upload.ts                # R2 upload helper
-│   ├── r2.ts                    # R2 client config
-│   └── mock/                    # Legacy mock data (NO LONGER IMPORTED — can be deleted)
+│   ├── auth.ts                       # Auth helpers (hashPassword, verifyPassword, getSession, requireAuth, requireRole)
+│   ├── jwt.ts                        # JWT sign/verify using Web Crypto API (HS256)
+│   ├── date.ts                       # Centralized date formatting (พ.ศ.)
+│   ├── types.ts                      # TypeScript interfaces (576 lines)
+│   ├── utils.ts                      # Utility functions (64 lines)
+│   ├── prisma.ts                     # Prisma singleton
+│   ├── upload.ts                     # R2 upload helper
+│   ├── r2.ts                         # R2 client config
+│   └── mock/                         # Legacy mock data (NO LONGER IMPORTED — can be deleted)
+├── middleware.ts                      # Auth middleware (JWT decode + RBAC per route)
 └── prisma/
-    └── schema.prisma            # Database schema (562 lines, 30+ models)
+    └── schema.prisma                 # Database schema (638 lines, 35+ models)
 ```
 
 ---
 
-## 2. Data Flow Overview
+## 2. Authentication & Authorization
+
+### 2.1 Auth Flow
+```mermaid
+graph TD
+    A[Login Page] -->|POST /api/auth/login| B[Verify Password]
+    B -->|Success| C[Sign JWT + Set HttpOnly Cookie]
+    C -->|Redirect| D[Dashboard]
+    
+    E[Every Request] -->|middleware.ts| F{Has Token?}
+    F -->|No| G[Redirect to /login]
+    F -->|Yes| H{Token Valid?}
+    H -->|No| I[Clear Cookie + Redirect]
+    H -->|Yes| J{Role Check}
+    J -->|Allowed| K[Allow Request]
+    J -->|Forbidden| L[403 / Redirect to /dashboard]
+```
+
+### 2.2 User Roles (RBAC)
+| Role | Access |
+|------|--------|
+| **ADMIN** | ทุกเมนู + Settings + User Management |
+| **ACCOUNTANT** | ทุกเมนูยกเว้น Settings + User Management |
+| **STAFF** | Dashboard, Claims, Insurances, Vendors, Parts Master เท่านั้น |
+
+### 2.3 Key Auth Files
+- **`lib/auth.ts`**: `hashPassword()` (pbkdf2), `verifyPassword()`, `getSession()`, `requireAuth()`, `requireRole()`
+- **`lib/jwt.ts`**: `signJWT()` / `verifyJWT()` using Web Crypto API (HS256, 8hr expiry)
+- **`middleware.ts`**: Lightweight JWT decode (no crypto) + Role-based route filtering
+- **Cookie:** `expert-token`, HttpOnly, SameSite=Lax, 8hr maxAge
+
+---
+
+## 3. Data Flow Overview
 
 ```mermaid
 graph TD
@@ -123,13 +242,18 @@ graph TD
 
 ---
 
-## 3. API Route Registry
+## 4. API Route Registry
 
 | Route | Method | Purpose | Data Source |
 |-------|--------|---------|-------------|
+| `/api/auth/login` | POST | JWT login | Prisma ✅ |
+| `/api/auth/logout` | POST | Clear auth cookie | Cookie ✅ |
+| `/api/auth/me` | GET | Current user session | Prisma ✅ |
+| `/api/auth/debug` | GET | JWT debug (temp) | In-memory ⚠️ |
 | `/api/claims` | GET/POST | List/Create claims | Prisma ✅ |
+| `/api/claims/import` | POST | Excel bulk import | Prisma ✅ |
 | `/api/claims/[id]` | GET/PUT | Claim detail/update | Prisma ✅ |
-| `/api/claims/[id]/status` | PATCH | Change claim status | Prisma ✅ |
+| `/api/claims/[id]/status` | PATCH/PUT | Change claim status | Prisma ✅ |
 | `/api/claims/[id]/pos` | GET/POST | Purchase orders | Prisma ✅ |
 | `/api/claims/[id]/pos/[poId]` | PUT/PATCH | Edit/cancel PO | Prisma ✅ |
 | `/api/claims/[id]/supplier-invoices` | POST | Create supplier invoice | Prisma ✅ |
@@ -142,31 +266,110 @@ graph TD
 | `/api/claims/[id]/labors` | GET/POST | Claim labors | Prisma ✅ |
 | `/api/claims/[id]/payments` | GET | Claim payments | Prisma ✅ |
 | `/api/claims/[id]/pnl` | GET | Claim P&L | Prisma ✅ |
+| `/api/claims/[id]/expenses` | GET/POST/DELETE | Claim additional expenses | Prisma ✅ |
+| `/api/claims/[id]/documents` | GET/POST/DELETE | Claim file attachments | Prisma ✅ |
+| `/api/dashboard` | GET | Main dashboard data | Prisma ✅ |
+| `/api/dashboard/summary` | GET | Dashboard KPIs | Prisma ✅ |
+| `/api/dashboard/by-status` | GET | Claims by status | Prisma ✅ |
+| `/api/dashboard/by-insurance` | GET | Revenue by insurance | Prisma ✅ |
+| `/api/garages` | GET | Garage vendors (vendorType=GARAGE) | Prisma ✅ |
+| `/api/insurances` | GET/POST | Insurance CRUD | Prisma ✅ |
+| `/api/insurances/[id]` | PUT/DELETE | Insurance detail | Prisma ✅ |
 | `/api/invoices` | GET | AR invoice list | Prisma ✅ |
 | `/api/invoices/[id]/status` | PUT | Update AR status | Prisma ✅ |
+| `/api/invoices/batch` | GET | Batch fetch invoices by IDs | Prisma ✅ |
+| `/api/invoices/batch-status` | POST | Batch update AR status | Prisma ✅ |
+| `/api/invoices/next-bn` | POST | Generate next billing note number | Prisma ✅ (DocumentSequence) |
 | `/api/payment-requests` | POST | Create payment request | Prisma ✅ |
 | `/api/payment-requests/[id]/approve` | POST | Approve PR | Prisma ✅ |
 | `/api/payment-requests/[id]/reject` | POST | Reject PR | Prisma ✅ |
 | `/api/payments` | GET | Payment requests list | Prisma ✅ |
 | `/api/payments/[id]` | PUT | Update payment status | Prisma ✅ |
+| `/api/payments/ap` | POST | AP payment (stub — no Prisma) | ⚠️ Stub |
+| `/api/payments/ar` | POST | AR payment (stub — no Prisma) | ⚠️ Stub |
 | `/api/peak` | GET | PEAK sync list (AR + AP) | Prisma ✅ |
 | `/api/peak/export` | POST | Export PEAK Excel data | Prisma ✅ |
+| `/api/peak/update-doc-no` | POST | Update invoice document number | Prisma ✅ |
 | `/api/peak-export/batch` | GET | Batch PEAK export | Prisma ✅ |
-| `/api/dashboard/summary` | GET | Dashboard KPIs | Prisma ✅ |
-| `/api/dashboard/by-status` | GET | Claims by status | Prisma ✅ |
-| `/api/dashboard/by-insurance` | GET | Revenue by insurance | Prisma ✅ |
+| `/api/pos/[id]/gr` | POST | Create goods receipt (stub) | ⚠️ Stub |
+| `/api/pos/[id]/status` | PATCH | Update PO status (stub) | ⚠️ Stub |
+| `/api/gr/[id]/do` | POST | Create delivery order (stub) | ⚠️ Stub |
 | `/api/reports` | GET | Reports (filter: year, insurance, vendor) | Prisma ✅ |
+| `/api/settings/company` | GET/PUT | Company profile | Prisma ✅ |
+| `/api/settings/sequences` | GET/PUT | Document sequences | Prisma ✅ |
 | `/api/stats` | GET | Sidebar badge counts | Prisma ✅ |
+| `/api/users` | GET/POST | User CRUD (ADMIN only) | Prisma ✅ |
+| `/api/users/[id]` | PUT/DELETE | User detail (ADMIN only) | Prisma ✅ |
 | `/api/vendors` | GET/POST | Vendor CRUD | Prisma ✅ |
-| `/api/insurances` | GET/POST | Insurance CRUD | Prisma ✅ |
+| `/api/vendors/[id]` | PUT/DELETE | Vendor detail | Prisma ✅ |
 | `/api/parts-master` | GET/POST | Parts catalog | Prisma ✅ |
 | `/api/upload` | POST | File upload to R2 | R2 ✅ |
 
-> **🎉 ALL API ROUTES NOW USE PRISMA — ZERO MOCK DATA DEPENDENCIES**
+> **⚠️ STUB API ROUTES** — 3 routes still return fake/in-memory data:
+> - `/api/payments/ap` — AP payment stub (returns generated ID, not persisted)
+> - `/api/payments/ar` — AR payment stub (returns generated ID, not persisted)
+> - `/api/pos/[id]/gr` — Goods receipt stub
+> - `/api/pos/[id]/status` — PO status update stub
+> - `/api/gr/[id]/do` — Delivery order stub
 
 ---
 
-## 4. Bug Report — Completed Fixes
+## 5. Prisma Schema Overview
+
+### Key Models (638 lines, 35+ models)
+
+| Model | Purpose | Key Relations |
+|-------|---------|---------------|
+| `Claim` | Central entity | Has many Parts, Labors, POs, Invoices, Expenses, Documents |
+| `ClaimPart` | Parts per claim | Belongs to Claim, optional PartMaster link |
+| `ClaimLabor` | Labor items per claim | Belongs to Claim |
+| `ClaimExpense` | Additional expenses (shipping, etc.) | Belongs to Claim |
+| `ClaimDocument` | File attachments per claim | Belongs to Claim |
+| `PurchaseOrder` | Purchase orders | Belongs to Claim + Vendor |
+| `POItem` | PO line items | Belongs to PurchaseOrder |
+| `GoodsReceipt` | Goods received | 1:1 with PurchaseOrder |
+| `DeliveryOrder` | Delivery confirmation | 1:1 with GoodsReceipt |
+| `SupplierInvoice` | Vendor invoices (AP) | Belongs to Claim + Vendor |
+| `SupplierInvoiceItem` | Invoice line items | Belongs to SupplierInvoice |
+| `GarageInvoice` | Garage labor invoices (AP) | Belongs to Claim + Vendor (garage) |
+| `GarageInvoiceItem` | Garage invoice items | Belongs to GarageInvoice |
+| `InsuranceInvoice` | AR billing to insurance | 1:1 with Claim (`@unique`) |
+| `PaymentRequest` | Payment approval workflow | Belongs to Claim + optional invoice links |
+| `BillReceipt` | Physical bill receipt tracking | 1:1 with PaymentRequest |
+| `APPayment` | AP payment record | Links to SupplierInvoice or PO or PaymentRequest |
+| `ARPayment` | AR payment record | Links to InsuranceInvoice + PaymentRequest |
+| `Insurance` | Insurance companies | Has many Claims |
+| `Vendor` | Parts suppliers + Garages | Dual role via `vendorType` (PARTS/GARAGE) |
+| `PartMaster` | Parts catalog | Has PartVendorPrice[], ClaimPart[] |
+| `PartVendorPrice` | Vendor-specific pricing | Links PartMaster to Vendor |
+| `Quotation` | Quote documents | Belongs to Claim, has QuotationLabor[] + QuotationPart[] |
+| `CompanyProfile` | Company settings | Singleton (findFirst) |
+| `DocumentSequence` | Auto-numbering | Unique docType (CLAIM, PO_PARTS, QUOTATION, INVOICE, etc.) |
+| `ClaimStatusLog` | Status change audit trail | Belongs to Claim |
+| `ExtractionLog` | AI extraction edit log | Belongs to Claim |
+| `StockMovement` | Inventory movements | Standalone |
+| `StockBalance` | Current stock levels | Standalone, unique partNo |
+| `User` | System users | Roles: ADMIN, ACCOUNTANT, STAFF |
+
+### Enums
+- `ClaimStatus`: RECEIVED → PARTS_CHECK → PO_ISSUED → GOODS_RECEIVED → INVOICE_SENT → AP_PAID → AR_RECEIVED → CLOSED | CANCELLED
+- `POType`: PARTS | LABOR
+- `DeliveryMode`: DIRECT_TO_GARAGE | SELF_DELIVERY
+- `POStatus`: DRAFT | SENT | RECEIVED | CANCELLED
+- `ARStatus`: PENDING | SENT | PARTIAL | PAID | CANCELLED
+- `QuotationStatus`: DRAFT | SENT | APPROVED | REJECTED | SUPERSEDED
+- `PaymentRequestType`: AP_VENDOR | AP_GARAGE | AR
+- `ApprovalStatus`: PENDING_APPROVAL | APPROVED | REJECTED
+- `PartPaymentStatus`: PENDING | INVOICED | PR_SENT | PAID
+- `LaborPaymentStatus`: PENDING | INVOICED | PR_SENT | PAID
+- `APPayType`: VENDOR | GARAGE
+- `VendorType`: PARTS | GARAGE
+- `UserRole`: ADMIN | ACCOUNTANT | STAFF
+- `PartMasterSource`: AUTO | MANUAL
+
+---
+
+## 6. Bug Report — Completed Fixes
 
 ### ✅ Fixed (2026-05-17)
 
@@ -190,102 +393,95 @@ graph TD
 
 | # | File | Issue | Impact |
 |---|------|-------|--------|
-| 12 | `claims/[id]/page.tsx:169` | **Non-unique PO number** — uses `purchaseOrders.length + 1`. | Duplicate PO numbers possible |
-| 13 | `claims/[id]/page.tsx:306` | **Non-unique QT number** — same pattern for quotations. | Duplicate QT numbers possible |
 | 17 | `sidebar.tsx` | **No retry for stats fetch** — Silent failure shows 0 badges. | Silent failure |
-| 18 | `claims/[id]/page.tsx` | **~1,810 lines single component** — 8 tabs, 7 modals, 30+ state vars. | Maintainability |
+| 18 | `claims/[id]/page.tsx` | **~2,116 lines** — Still large despite 7 tabs extracted. 30+ state vars, multiple modals in main file. | Maintainability |
 | 19 | Multiple pages | **Toast duplicated** — Each page implements its own toast pattern. | Code duplication |
 | 20 | Multiple pages | **Modal duplicated** — Error/confirm modal patterns copy-pasted. | Code duplication |
 | 21 | `types.ts` usage | **`any` used 15+ times** — `useState<any[]>()` everywhere. | Type safety |
 | 22 | `invoices/page.tsx:96` | **eslint-disable** suppresses `exhaustive-deps`. | Lint suppression |
+| 23 | `payments/ap` + `payments/ar` + `pos/[id]/gr` + `pos/[id]/status` + `gr/[id]/do` | **5 STUB APIs** — Return fake data, not persisted to Prisma. | Data not saved |
 
 ---
 
-## 5. Componentization Opportunities
+## 7. Componentization Status
 
-### Priority 1 — Extract Immediately
+### ✅ Completed — Extracted Tab Components (7 tabs)
 
-| Component | Current Location | Benefit |
-|-----------|-----------------|---------|
-| **`<Toast />`** | Inline in every page | Used in 5+ pages. Create global provider with `useToast()` hook. |
-| **`<ConfirmModal />`** | `claims/[id]/page.tsx:1684` | Generic confirm modal exists inline. Extract to `components/ui/confirm-modal.tsx`. |
-| **`<ErrorModal />`** | `claims/[id]/page.tsx:1666` | Same pattern in 3 pages. Extract to `components/ui/error-modal.tsx`. |
-| **`<StatusBadge />`** | Inline everywhere | `getStatusColor` + `getStatusLabel` combo used 10+ places. Create `<StatusBadge status="..." />`. |
-| **`<Money />`** | Inline everywhere | `฿${formatCurrency(amount)}` pattern repeated 50+ times. |
+| Component | File | Lines | Description |
+|-----------|------|-------|-------------|
+| `ClaimInfoTab` | `tabs/ClaimInfoTab.tsx` | 182 | Claim + car info |
+| `ExpensesTab` | `tabs/ExpensesTab.tsx` | 243 | Additional expenses management |
+| `DocumentsTab` | `tabs/DocumentsTab.tsx` | 267 | File attachments |
+| `InsuranceInvoiceTab` | `tabs/InsuranceInvoiceTab.tsx` | 175 | AR billing |
+| `PaymentsTab` | `tabs/PaymentsTab.tsx` | 87 | Payment requests |
+| `PnLTab` | `tabs/PnLTab.tsx` | 36 | Profit & Loss |
+| `TimelineTab` | `tabs/TimelineTab.tsx` | 41 | Status timeline |
 
-### Priority 2 — Break Up God Component
+### ✅ Completed — Shared Components
 
-The `claims/[id]/page.tsx` (~1,810 lines) should be split into:
+| Component | File | Description |
+|-----------|------|-------------|
+| `ToastProvider` | `components/toast-provider.tsx` | Global toast notification system |
+| `ConfirmDialog` | `components/dialogs.tsx` | Shared confirm modal |
+| `ErrorDialog` | `components/dialogs.tsx` | Shared error modal |
+| `ThaiDatePicker` | `components/ui/thai-date-picker.tsx` | Date picker with Buddhist era display |
 
-| New Component | Lines to Extract | Description |
-|---------------|-----------------|-------------|
-| `ClaimInfoTab.tsx` | ~560-600 | Tab 1: Claim + car info |
-| `PartsLaborTab.tsx` | ~602-780 | Tab 2: Parts/labor tables + quotation |
-| `PurchaseOrderTab.tsx` | ~783-901 | Tab 3: PO list + actions |
-| `SupplierInvoiceTab.tsx` | ~903-1225 | Tab 4: Supplier invoices + upload |
-| `InsuranceInvoiceTab.tsx` | ~1228-1321 | Tab 5: AR billing |
-| `PaymentsTab.tsx` | ~1323-1392 | Tab 6: Payment requests |
-| `PnLTab.tsx` | ~1394-1423 | Tab 7: Profit & Loss |
-| `TimelineTab.tsx` | ~1425-1458 | Tab 8: Status timeline |
-| `CreatePOModal.tsx` | ~1553-1621 | PO creation modal |
-| `CreateQuotationModal.tsx` | ~1461-1551 | Quotation creation modal |
+### 🟡 Still Remaining in Main Component
 
-### Priority 3 — Shared Data Table
-
-| Component | Pages Using | Benefit |
-|-----------|-------------|---------|
-| **`<DataTable />`** | Claims, Invoices, Payments, PEAK Sync | Generic table with sorting, search, pagination. |
+The `claims/[id]/page.tsx` (~2,116 lines) still contains:
+- PO creation/edit/cancel modals and handlers
+- Supplier invoice upload and modal
+- Garage invoice upload and modal
+- Quotation creation and supplement modals
+- Status change modal
+- Searchable select component (inline)
+- 30+ state variables
 
 ---
 
-## 6. Best Practices Improvements
+## 8. Best Practices Improvements
 
-### 6.1 ~~Remove All Mock Data Dependencies~~ ✅ COMPLETED
+### 8.1 ~~Remove All Mock Data Dependencies~~ ✅ COMPLETED
 
-All 10 mock-dependent API routes + 3 page components now use Prisma.
+All Prisma-backed API routes now use real data.
 The `lib/mock/` directory is no longer imported anywhere and can be safely deleted.
 
-### 6.2 API Error Handling ✅ IMPLEMENTED
+### 8.2 API Error Handling ✅ IMPLEMENTED
 
 All new/rewritten API routes now use try/catch with proper error responses.
 
-### 6.3 ~~Replace `window.location.reload()` with State Refresh~~ ✅ COMPLETED
+### 8.3 ~~Replace `window.location.reload()` with State Refresh~~ ✅ COMPLETED
 
-`refreshClaim()` function added to claims detail page. All 4 reload calls replaced.
+`refreshClaim()` function added to claims detail page. All reload calls replaced.
 
-### 6.4 ~~Dynamic Import for `xlsx`~~ ✅ COMPLETED
+### 8.4 ~~Dynamic Import for `xlsx`~~ ✅ COMPLETED
 
 Both PEAK page and Reports page now use `await import('xlsx')` for dynamic loading.
 
-### 6.5 Proper Document Number Generation (TODO)
+### 8.5 Document Number Generation ✅ PARTIALLY DONE
 
-**Current (collision-prone):**
+**Quotation / Billing Note** now uses `DocumentSequence` model:
 ```typescript
-const poNo = `PO-${new Date().getFullYear()}-${String(purchaseOrders.length + 1).padStart(4, '0')}`
-```
-
-**Recommended — use `DocumentSequence` model already in schema:**
-```typescript
-const seq = await prisma.documentSequence.update({
-  where: { docType: 'PO' },
-  data: { lastNo: { increment: 1 } },
+// next-bn API route uses $transaction for atomic increment:
+const seq = await prisma.$transaction(async (tx) => {
+  let s = await tx.documentSequence.findUnique({ where: { docType: 'BILLING_NOTE' } })
+  // ... create if not exists ...
+  const nextNo = s.lastNo + 1
+  await tx.documentSequence.update({ where: { id: s.id }, data: { lastNo: nextNo } })
+  return { prefix: s.prefix, number: nextNo }
 })
-const poNo = `${seq.prefix}${String(seq.lastNo).padStart(4, '0')}`
 ```
 
-### 6.6 Type Safety (TODO)
-
-Replace all `useState<any[]>([])` with proper types from `types.ts`:
-
+**PO/Quotation** still uses timestamp-based numbering in frontend:
 ```typescript
-// Bad
-const [parts, setParts] = useState<any[]>([])
-
-// Good  
-const [parts, setParts] = useState<ClaimPart[]>([])
+const qtNo = `QT-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`
 ```
 
-### 6.7 Create Shared `useFetch` Hook (TODO)
+### 8.6 Type Safety (TODO)
+
+Replace all `useState<any[]>([])` with proper types from `types.ts`.
+
+### 8.7 Create Shared `useFetch` Hook (TODO)
 
 ```typescript
 // hooks/useFetch.ts
@@ -312,26 +508,18 @@ export function useFetch<T>(url: string) {
 }
 ```
 
----
+### 8.8 Migrate Stub APIs to Prisma (TODO)
 
-## 7. Prisma Schema Notes
-
-### Key Relations
-- `Claim` is the central entity linking to all sub-resources
-- `InsuranceInvoice` is **1:1** with `Claim` (`@unique` on `claimId`)
-- `PaymentRequest` links to either `SupplierInvoice`, `GarageInvoice`, or `InsuranceInvoice`
-- `APPayment` and `ARPayment` are **1:1** with their respective invoice types
-- `DocumentSequence` model exists but is **not yet used** — should be adopted
-
-### Missing Indexes (Performance)
-Consider adding indexes on frequently queried fields:
-- `PaymentRequest.status` — filtered in sidebar + payments page
-- `InsuranceInvoice.status` — filtered in invoices page + peak sync
-- `Claim.status` — filtered in claims list
+5 API routes still return fake data:
+- `/api/payments/ap` — Should create `APPayment` in Prisma
+- `/api/payments/ar` — Should create `ARPayment` in Prisma
+- `/api/pos/[id]/gr` — Should create `GoodsReceipt` in Prisma
+- `/api/pos/[id]/status` — Should update `PurchaseOrder.status` in Prisma
+- `/api/gr/[id]/do` — Should create `DeliveryOrder` in Prisma
 
 ---
 
-## 8. PEAK Integration Architecture
+## 9. PEAK Integration Architecture
 
 ### Export Flow
 1. User selects invoices on `/peak` page
@@ -340,6 +528,14 @@ Consider adding indexes on frequently queried fields:
 4. Returns JSON rows + filename
 5. Frontend converts to Excel using `xlsx` library (dynamically imported)
 6. Browser downloads the `.xlsx` file
+
+### Document Number Update
+- `POST /api/peak/update-doc-no` allows editing invoice numbers
+- Handles 3 types: AR (InsuranceInvoice), SUPPLIER (SupplierInvoice), GARAGE (GarageInvoice)
+- Checks for duplicates before updating
+
+### Sync Tracking
+- `isSynced` + `syncedAt` fields on SupplierInvoice, GarageInvoice, InsuranceInvoice, ClaimExpense
 
 ### Template Columns (from real PEAK templates)
 
@@ -371,14 +567,66 @@ ACCOUNT_COST_PARTS    = '51102'  // ต้นทุนค่าอะไหล�
 
 ---
 
-## 9. Improvement Roadmap
+## 10. Invoice & Billing System
+
+### Billing Note Flow
+1. User selects multiple AR invoices on `/invoices` page
+2. Click "สร้างใบวางบิล" → calls `POST /api/invoices/next-bn` to generate sequential BN number
+3. Opens `/invoices/print-billing-note` page with selected invoice IDs
+4. Fetches invoices via `GET /api/invoices/batch?ids=...`
+5. Renders printable billing note with company profile from `/api/settings/company`
+
+### Batch Status Update
+- `POST /api/invoices/batch-status` updates multiple AR invoices at once (e.g., mark all as SENT)
+
+---
+
+## 11. Performance & Build Metrics
+
+### Build Output (2026-05-27)
+```
+Total Pages: ~35 pages + 60 API routes
+First Load JS shared: 87.4 kB
+Middleware: 26.9 kB
+
+Largest Pages by JS:
+├ /claims/new         50.3 kB  (156 kB total)
+├ /claims/[id]        28.9 kB  (140 kB total)
+├ /invoices/print-billing-note  13.3 kB (109 kB total)
+├ /settings           9.44 kB  (111 kB total)
+├ /peak               7.55 kB  (109 kB total)
+├ /invoices           7.28 kB  (118 kB total)
+├ /reports            6.9 kB   (111 kB total)
+├ /payments           6.92 kB  (108 kB total)
+```
+
+### Performance Notes
+- ✅ Build succeeds without errors
+- ✅ `xlsx` is dynamically imported (not in shared bundle)
+- ⚠️ `/claims/[id]/page.tsx` is 2,116 lines — largest component, could benefit from further decomposition
+- ⚠️ `/claims/new/page.tsx` is 979 lines with heaviest First Load JS (156 kB)
+- ⚠️ No DB indexes on frequently queried columns (see below)
+
+### Missing Indexes (Performance — TODO)
+Consider adding indexes on frequently queried/filtered fields:
+- `PaymentRequest.status` — filtered in sidebar + payments page
+- `InsuranceInvoice.status` — filtered in invoices page + peak sync
+- `Claim.status` — filtered in claims list
+- `Claim.createdAt` — sorted/filtered in claims list
+- `SupplierInvoice.isSynced` — filtered in PEAK sync
+- `GarageInvoice.isSynced` — filtered in PEAK sync
+
+---
+
+## 12. Improvement Roadmap
 
 | Phase | Task | Status |
 |-------|------|--------|
 | **Phase 1** | ~~Remove all mock data from API routes, migrate to Prisma~~ | ✅ Done |
-| **Phase 3** | ~~Split `claims/[id]/page.tsx` into tab components~~ | ✅ Done (5 tabs extracted) |
+| **Phase 2** | ~~Authentication system (JWT + Login + Middleware + RBAC)~~ | ✅ Done |
+| **Phase 3** | ~~Split `claims/[id]/page.tsx` into tab components~~ | ✅ Done (7 tabs) |
 | **Phase 4** | ~~Replace `window.location.reload()` with state refresh~~ | ✅ Done |
-| **Phase 5** | ~~Fix PO/QT/INV collision-prone numbering (timestamp-based)~~ | ✅ Done |
+| **Phase 5** | ~~Fix PO/QT/INV collision-prone numbering (timestamp-based)~~ | ✅ Partial (BN uses DocumentSequence) |
 | **Phase 6** | Add proper TypeScript types (remove `any`) | 🔲 Pending |
 | **Phase 7** | ~~Dynamic import `xlsx`, optimize bundle~~ | ✅ Done |
 | **Phase 8** | ~~Create shared Toast + ConfirmDialog + ErrorDialog~~ | ✅ Done |
@@ -389,13 +637,26 @@ ACCOUNT_COST_PARTS    = '51102'  // ต้นทุนค่าอะไหล�
 | **Phase 13** | ~~Date format standardization (ค.ศ. AD system-wide)~~ | ✅ Done |
 | **Phase 14** | ~~Insurance Invoice: Add PDF/PEAK download buttons~~ | ✅ Done |
 | **Phase 15** | ~~AR Receive: Add date picker for payment date~~ | ✅ Done |
+| **Phase 16** | ~~User Management (CRUD + roles)~~ | ✅ Done |
+| **Phase 17** | ~~Login Page + JWT Auth~~ | ✅ Done |
+| **Phase 18** | ~~Expenses & Documents tabs for Claims~~ | ✅ Done |
+| **Phase 19** | ~~Excel Import for Claims~~ | ✅ Done |
+| **Phase 20** | ~~Billing Note print page~~ | ✅ Done |
+| **Phase 21** | ~~Invoice batch operations (batch fetch + status update)~~ | ✅ Done |
+| **Phase 22** | ~~PEAK doc number editing~~ | ✅ Done |
+| **Phase 23** | ~~Insurance & Vendor detail pages~~ | ✅ Done |
+| **Phase 24** | Migrate 5 stub APIs to Prisma | 🔲 Pending |
+| **Phase 25** | Delete `lib/mock/` directory | 🔲 Pending |
 
 ---
 
-## 10. Environment & Deploy
+## 13. Environment & Deploy
 
 - **Dev:** `npm run dev` → `http://localhost:3000`
+- **Build:** `prisma generate && next build`
 - **Deploy:** `git push` → `bash deploy.sh` (SSH + Docker multi-stage build)
 - **DB:** PostgreSQL via `DATABASE_URL`
 - **Storage:** Cloudflare R2 via `R2_*` env vars
 - **AI:** Claude/OpenRouter via `ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`
+- **Auth:** JWT via `JWT_SECRET` env var (default fallback exists for dev)
+- **Stack:** Next.js 14.2.35, Prisma 5.22.0, React 18, TailwindCSS 3.4

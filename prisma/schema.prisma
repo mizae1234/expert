@@ -39,6 +39,11 @@ model Claim {
   quotations       Quotation[]
   expenses         ClaimExpense[]
   documents        ClaimDocument[]
+
+  @@index([insuranceId])
+  @@index([garageId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 enum ClaimStatus {
@@ -73,6 +78,9 @@ model ClaimPart {
   partMasterId         String?
   partMaster           PartMaster?           @relation(fields: [partMasterId], references: [id])
   supplierInvoiceItems SupplierInvoiceItem[]
+
+  @@index([claimId])
+  @@index([partMasterId])
 }
 
 enum PartPaymentStatus {
@@ -119,19 +127,21 @@ model PartVendorPrice {
 }
 
 model ClaimLabor {
-  id                 String              @id @default(cuid())
-  claimId            String
-  claim              Claim               @relation(fields: [claimId], references: [id])
-  description        String
-  damageLevel        String
-  discountPct        Float
-  priceOffer         Float
-  priceApprove       Float
-  round              Int                 @default(1)
-  status             String              @default("approved")
-  paymentStatus      LaborPaymentStatus  @default(PENDING)
+  id                   String                @id @default(cuid())
+  claimId              String
+  claim                Claim                 @relation(fields: [claimId], references: [id])
+  description          String
+  damageLevel          String
+  discountPct          Float
+  priceOffer           Float
+  priceApprove         Float
+  round                Int                   @default(1)
+  status               String                @default("approved")
+  paymentStatus        LaborPaymentStatus    @default(PENDING)
   garageInvoiceItems   GarageInvoiceItem[]
   supplierInvoiceItems SupplierInvoiceItem[]
+
+  @@index([claimId])
 }
 
 enum LaborPaymentStatus {
@@ -142,21 +152,24 @@ enum LaborPaymentStatus {
 }
 
 model PurchaseOrder {
-  id           String        @id @default(cuid())
-  claimId      String
-  claim        Claim         @relation(fields: [claimId], references: [id])
-  vendorId     String
-  vendor       Vendor        @relation(fields: [vendorId], references: [id])
-  poNo         String        @unique
-  poType       POType
-  deliveryMode DeliveryMode
+  id              String        @id @default(cuid())
+  claimId         String
+  claim           Claim         @relation(fields: [claimId], references: [id])
+  vendorId        String
+  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+  poNo            String        @unique
+  poType          POType
+  deliveryMode    DeliveryMode
   deliveryAddress String?
-  totalAmount  Float
-  status       POStatus      @default(DRAFT)
-  items        POItem[]
-  goodsReceipt GoodsReceipt?
-  apPayment    APPayment?
-  createdAt    DateTime      @default(now())
+  totalAmount     Float
+  status          POStatus      @default(DRAFT)
+  items           POItem[]
+  goodsReceipt    GoodsReceipt?
+  apPayment       APPayment?
+  createdAt       DateTime      @default(now())
+
+  @@index([claimId])
+  @@index([vendorId])
 }
 
 enum POType {
@@ -243,6 +256,9 @@ model SupplierInvoice {
   isSynced        Boolean               @default(false)
   syncedAt        DateTime?
   createdAt       DateTime              @default(now())
+
+  @@index([claimId])
+  @@index([vendorId])
 }
 
 model InsuranceInvoice {
@@ -265,6 +281,9 @@ model InsuranceInvoice {
   isSynced        Boolean          @default(false)
   syncedAt        DateTime?
   createdAt       DateTime         @default(now())
+
+  @@index([status])
+  @@index([invoiceDate])
 }
 
 enum ARStatus {
@@ -311,6 +330,11 @@ model PaymentRequest {
   billReceipt        BillReceipt?
   apPayment          APPayment?
   arPayment          ARPayment?
+
+  @@index([claimId])
+  @@index([supplierInvoiceId])
+  @@index([garageInvoiceId])
+  @@index([insuranceInvoiceId])
 }
 
 model BillReceipt {
@@ -426,24 +450,26 @@ enum VendorType {
   GARAGE
 }
 
-
 model GarageInvoice {
-  id          String              @id @default(cuid())
-  claimId     String
-  claim       Claim               @relation(fields: [claimId], references: [id])
-  garageId    String
-  garage      Vendor              @relation("GarageInvoiceVendor", fields: [garageId], references: [id])
-  invoiceNo   String              @unique
-  invoiceDate DateTime
-  items       GarageInvoiceItem[]
-  subtotal    Float
-  vatAmount   Float
-  totalAmount Float
-  pdfUrl      String?
+  id              String              @id @default(cuid())
+  claimId         String
+  claim           Claim               @relation(fields: [claimId], references: [id])
+  garageId        String
+  garage          Vendor              @relation("GarageInvoiceVendor", fields: [garageId], references: [id])
+  invoiceNo       String              @unique
+  invoiceDate     DateTime
+  items           GarageInvoiceItem[]
+  subtotal        Float
+  vatAmount       Float
+  totalAmount     Float
+  pdfUrl          String?
   isSynced        Boolean             @default(false)
   syncedAt        DateTime?
   createdAt       DateTime            @default(now())
   paymentRequests PaymentRequest[]
+
+  @@index([claimId])
+  @@index([garageId])
 }
 
 model GarageInvoiceItem {
@@ -588,20 +614,23 @@ model QuotationPart {
 
 // Additional expenses per claim (shipping, handling, misc)
 model ClaimExpense {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   claimId     String
-  claim       Claim    @relation(fields: [claimId], references: [id])
-  category    String   // e.g. "shipping", "handling", "other"
+  claim       Claim     @relation(fields: [claimId], references: [id])
+  category    String // e.g. "shipping", "handling", "other"
   description String
   amount      Float
-  date        DateTime @default(now())
-  receiptUrl  String?  // attached proof/receipt image
+  date        DateTime  @default(now())
+  receiptUrl  String? // attached proof/receipt image
   note        String?
-  billable    Boolean  @default(false) // include in insurance invoice?
-  createdBy   String   @default("system")
-  isSynced    Boolean  @default(false)
+  billable    Boolean   @default(false) // include in insurance invoice?
+  createdBy   String    @default("system")
+  isSynced    Boolean   @default(false)
   syncedAt    DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+
+  @@index([claimId])
+  @@index([category])
 }
 
 // General document attachments per claim
@@ -627,11 +656,10 @@ enum UserRole {
 model User {
   id        String   @id @default(cuid())
   username  String   @unique
-  password  String   // Hashed password
+  password  String // Hashed password
   name      String
   role      UserRole @default(STAFF)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-

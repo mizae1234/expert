@@ -212,6 +212,9 @@ export interface PurchaseOrder {
   poNo: string
   poType: POType
   deliveryMode: DeliveryMode
+  deliveryAddress?: string
+  includeVat?: boolean
+  vatPct?: number
   totalAmount: number
   status: POStatus
   items: POItem[]

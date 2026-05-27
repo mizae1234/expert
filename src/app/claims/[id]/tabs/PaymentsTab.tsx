@@ -1,16 +1,16 @@
+"use client"
+
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CreditCard, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
 import { ClaimTabProps } from './types'
+import { RejectPRModal } from '../components/RejectPRModal'
 
-interface PaymentsTabProps extends ClaimTabProps {
-  setRejectPRId: (id: string | null) => void
-  setRejectReason: (reason: string) => void
-}
-
-export default function PaymentsTab({ claim, showToast, setErrorModalMsg, refreshClaim, setRejectPRId, setRejectReason }: PaymentsTabProps) {
+export default function PaymentsTab({ claim, showToast, setErrorModalMsg, refreshClaim }: ClaimTabProps) {
+  const [rejectPRId, setRejectPRId] = useState<string | null>(null)
   const claimPRs = claim.paymentRequests || []
 
   if (claimPRs.length === 0) {
@@ -76,12 +76,21 @@ export default function PaymentsTab({ claim, showToast, setErrorModalMsg, refres
                     await refreshClaim()
                   } catch (err: any) { setErrorModalMsg(`เกิดข้อผิดพลาด: ${err.message}`) }
                 }}><CheckCircle2 className="w-3.5 h-3.5 mr-1" />อนุมัติจ่ายเงิน</Button>
-                <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => { setRejectPRId(pr.id); setRejectReason('') }}><XCircle className="w-3.5 h-3.5 mr-1" />ปฏิเสธ</Button>
+                <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setRejectPRId(pr.id)}><XCircle className="w-3.5 h-3.5 mr-1" />ปฏิเสธ</Button>
               </div>
             )}
           </CardContent>
         </Card>
       ))}
+
+      <RejectPRModal
+        isOpen={!!rejectPRId}
+        onClose={() => setRejectPRId(null)}
+        rejectPRId={rejectPRId}
+        showToast={showToast}
+        setErrorModalMsg={setErrorModalMsg}
+        refreshClaim={refreshClaim}
+      />
     </div>
   )
 }
