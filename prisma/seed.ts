@@ -7,56 +7,38 @@ import { mockPartsMaster } from '../src/lib/mock/parts-master'
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('Seeding Database...')
+  console.log('Seeding Database (safe mode - no deletions)...')
 
-  // Clear existing data (optional, but good for clean seed)
-  await prisma.supplierInvoiceItem.deleteMany()
-  await prisma.pOItem.deleteMany()
-  await prisma.supplierInvoice.deleteMany()
-  await prisma.purchaseOrder.deleteMany()
-  await prisma.garageInvoiceItem.deleteMany()
-  await prisma.garageInvoice.deleteMany()
-  await prisma.claimLabor.deleteMany()
-  await prisma.claimPart.deleteMany()
-  await prisma.quotationPart.deleteMany()
-  await prisma.quotationLabor.deleteMany()
-  await prisma.quotation.deleteMany()
-  await prisma.insuranceInvoice.deleteMany()
-  await prisma.paymentRequest.deleteMany()
-  await prisma.aRPayment.deleteMany()
-  await prisma.aPPayment.deleteMany()
-  await prisma.claimStatusLog.deleteMany()
-  await prisma.extractionLog.deleteMany()
-  await prisma.claimExpense.deleteMany()
-  await prisma.claimDocument.deleteMany()
-  await prisma.claim.deleteMany()
-  await prisma.vendor.deleteMany()
-  await prisma.insurance.deleteMany()
+  // ⚠️ NEVER use deleteMany() here — it will wipe production data!
 
-  await prisma.partMaster.deleteMany()
-  await prisma.user.deleteMany()
+  // Seed default admin (only if not exists)
+  const existingAdmin = await prisma.user.findUnique({ where: { username: 'admin' } })
+  if (!existingAdmin) {
+    const crypto = require('crypto')
+    const salt = 'd9b7f3eb3c4f526b7d288d6c8b9d2e1c'
+    const hash = crypto.pbkdf2Sync('admin123', salt, 1000, 64, 'sha512').toString('hex')
+    const hashedPassword = `pbkdf2$1000$${salt}$${hash}`
 
-  // Seed default admin: admin / admin123
-  const crypto = require('crypto')
-  const salt = 'd9b7f3eb3c4f526b7d288d6c8b9d2e1c'
-  const hash = crypto.pbkdf2Sync('admin123', salt, 1000, 64, 'sha512').toString('hex')
-  const hashedPassword = `pbkdf2$1000$${salt}$${hash}`
-
-  await prisma.user.create({
-    data: {
-      username: 'admin',
-      password: hashedPassword,
-      name: 'ผู้ดูแลระบบสูงสุด',
-      role: 'ADMIN',
-      isActive: true,
-    }
-  })
-  console.log('Created default admin: admin / admin123')
-
-  // Seed Insurances
-  for (const ins of mockInsurances) {
-    await prisma.insurance.create({
+    await prisma.user.create({
       data: {
+        username: 'admin',
+        password: hashedPassword,
+        name: 'ผู้ดูแลระบบสูงสุด',
+        role: 'ADMIN',
+        isActive: true,
+      }
+    })
+    console.log('Created default admin: admin / admin123')
+  } else {
+    console.log('Admin user already exists, skipping...')
+  }
+
+  // Seed Insurances (upsert - skip if exists)
+  for (const ins of mockInsurances) {
+    await prisma.insurance.upsert({
+      where: { id: ins.id },
+      update: {},
+      create: {
         id: ins.id,
         name: ins.name,
         branch: ins.branch,
@@ -68,10 +50,12 @@ async function main() {
     })
   }
 
-  // Seed Vendors
+  // Seed Vendors (upsert - skip if exists)
   for (const ven of mockVendors) {
-    await prisma.vendor.create({
-      data: {
+    await prisma.vendor.upsert({
+      where: { id: ven.id },
+      update: {},
+      create: {
         id: ven.id,
         name: ven.name,
         vendorType: ven.vendorType as VendorType,
@@ -87,7 +71,7 @@ async function main() {
     })
   }
 
-  // Seed default Garage (as a Vendor with type GARAGE)
+  // Seed default Garage (upsert)
   const defaultGarage = await prisma.vendor.upsert({
     where: { id: 'garage-1' },
     update: {},
@@ -99,10 +83,12 @@ async function main() {
     }
   })
 
-  // Seed Part Master
+  // Seed Part Master (upsert - skip if exists)
   for (const pm of mockPartsMaster) {
-    await prisma.partMaster.create({
-      data: {
+    await prisma.partMaster.upsert({
+      where: { id: pm.id },
+      update: {},
+      create: {
         id: pm.id,
         partNo: pm.partNo,
         partName: pm.partName,
@@ -115,21 +101,25 @@ async function main() {
     })
   }
 
-  // Seed Claims (Simplified version first)
+  // Seed Claims (upsert - skip if exists)
   for (const claim of mockClaims) {
     // Ensure insurance exists
     let ins = await prisma.insurance.findUnique({ where: { id: claim.insuranceId } })
     if (!ins && claim.insurance) {
-      ins = await prisma.insurance.create({
-        data: {
+      ins = await prisma.insurance.upsert({
+        where: { id: claim.insurance.id },
+        update: {},
+        create: {
           id: claim.insurance.id,
           name: claim.insurance.name,
         }
       })
     }
 
-    const createdClaim = await prisma.claim.create({
-      data: {
+    await prisma.claim.upsert({
+      where: { id: claim.id },
+      update: {},
+      create: {
         id: claim.id,
         claimNo: claim.claimNo,
         receiveNo: claim.receiveNo,
@@ -147,10 +137,10 @@ async function main() {
       }
     })
 
-    console.log(`Created Claim: ${createdClaim.claimNo}`)
+    console.log(`Upserted Claim: ${claim.claimNo}`)
   }
 
-  console.log('Seeding completed successfully.')
+  console.log('Seeding completed successfully (no data was deleted).')
 }
 
 main()
