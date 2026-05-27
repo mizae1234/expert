@@ -1,6 +1,6 @@
 # Expert Body & Paint — Skill Code / Architecture Document
 
-> **Last Updated:** 2026-05-27  
+> **Last Updated:** 2026-05-28  
 > **System:** Insurance Claim Management + PEAK Accounting Integration  
 > **Stack:** Next.js 14.2 (App Router) • Prisma 5 • PostgreSQL • Cloudflare R2 • JWT Auth
 
@@ -389,12 +389,19 @@ graph TD
 | R4 | Reports: Added per-tab search, summary cards, summary rows | ✅ Done |
 | Q1 | Added PUT handler for quotations API (status updates) | ✅ Done |
 
+### ✅ Fixed (2026-05-28)
+
+| # | Fix | Status |
+|---|-----|--------|
+| 18 | Monolithic `claims/[id]/page.tsx` decomposed from 2,116 lines to 365 lines by extracting all modals (CreatePOModal, CreateQuotationModal, UploadSupplierInvoiceModal, CreatePRModal, RejectPRModal, StatusChangeModal) and tabs (PartsTab, POTab, SupplierInvTab). | ✅ Done |
+| N1 | Optimized New Claim page `/claims/new` (reduced from 979 to 503 lines) by extracting form review section to `ClaimFormReview.tsx` and lazy loading it using `next/dynamic` (First Load JS size reduced from 156 kB to 113 kB, chunk size 7.17 kB). | ✅ Done |
+| DB1 | Added performance database indexes (`@@index`) for Claim, ClaimPart, ClaimLabor, PurchaseOrder, SupplierInvoice, InsuranceInvoice, GarageInvoice, PaymentRequest, and ClaimExpense models. | ✅ Done |
+
 ### 🟡 Remaining (Lower Priority)
 
 | # | File | Issue | Impact |
 |---|------|-------|--------|
 | 17 | `sidebar.tsx` | **No retry for stats fetch** — Silent failure shows 0 badges. | Silent failure |
-| 18 | `claims/[id]/page.tsx` | **~2,116 lines** — Still large despite 7 tabs extracted. 30+ state vars, multiple modals in main file. | Maintainability |
 | 19 | Multiple pages | **Toast duplicated** — Each page implements its own toast pattern. | Code duplication |
 | 20 | Multiple pages | **Modal duplicated** — Error/confirm modal patterns copy-pasted. | Code duplication |
 | 21 | `types.ts` usage | **`any` used 15+ times** — `useState<any[]>()` everywhere. | Type safety |
@@ -603,18 +610,12 @@ Largest Pages by JS:
 ### Performance Notes
 - ✅ Build succeeds without errors
 - ✅ `xlsx` is dynamically imported (not in shared bundle)
-- ⚠️ `/claims/[id]/page.tsx` is 2,116 lines — largest component, could benefit from further decomposition
-- ⚠️ `/claims/new/page.tsx` is 979 lines with heaviest First Load JS (156 kB)
-- ⚠️ No DB indexes on frequently queried columns (see below)
+- ✅ Decomposed monolithic `/claims/[id]/page.tsx` (reduced to 365 lines)
+- ✅ Optimized `/claims/new/page.tsx` (reduced to 503 lines, Page JS size dropped to 7.17 kB, First Load JS 113 kB) via lazy dynamic imports
+- ✅ Added PostgreSQL indexes for key query, filter, and relational fields to prevent full table scans
 
-### Missing Indexes (Performance — TODO)
-Consider adding indexes on frequently queried/filtered fields:
-- `PaymentRequest.status` — filtered in sidebar + payments page
-- `InsuranceInvoice.status` — filtered in invoices page + peak sync
-- `Claim.status` — filtered in claims list
-- `Claim.createdAt` — sorted/filtered in claims list
-- `SupplierInvoice.isSynced` — filtered in PEAK sync
-- `GarageInvoice.isSynced` — filtered in PEAK sync
+### Missing Indexes (Performance)
+- ✅ Resolved (2026-05-28) — Added database performance indexes on Claim, ClaimPart, ClaimLabor, PurchaseOrder, SupplierInvoice, InsuranceInvoice, GarageInvoice, PaymentRequest, and ClaimExpense models.
 
 ---
 
@@ -624,13 +625,13 @@ Consider adding indexes on frequently queried/filtered fields:
 |-------|------|--------|
 | **Phase 1** | ~~Remove all mock data from API routes, migrate to Prisma~~ | ✅ Done |
 | **Phase 2** | ~~Authentication system (JWT + Login + Middleware + RBAC)~~ | ✅ Done |
-| **Phase 3** | ~~Split `claims/[id]/page.tsx` into tab components~~ | ✅ Done (7 tabs) |
+| **Phase 3** | ~~Split `claims/[id]/page.tsx` into tab components and subcomponents~~ | ✅ Done |
 | **Phase 4** | ~~Replace `window.location.reload()` with state refresh~~ | ✅ Done |
-| **Phase 5** | ~~Fix PO/QT/INV collision-prone numbering (timestamp-based)~~ | ✅ Partial (BN uses DocumentSequence) |
+| **Phase 5** | Fix PO/QT/INV collision-prone numbering (timestamp-based) | 🔲 Pending |
 | **Phase 6** | Add proper TypeScript types (remove `any`) | 🔲 Pending |
 | **Phase 7** | ~~Dynamic import `xlsx`, optimize bundle~~ | ✅ Done |
 | **Phase 8** | ~~Create shared Toast + ConfirmDialog + ErrorDialog~~ | ✅ Done |
-| **Phase 9** | Add DB indexes for performance | 🔲 Pending |
+| **Phase 9** | Add DB indexes for performance | ✅ Done (2026-05-28) |
 | **Phase 10** | ~~Reports: Add Filter + Export Excel~~ | ✅ Done |
 | **Phase 11** | ~~Reports: Fix fake data (Math.random)~~ | ✅ Done |
 | **Phase 12** | ~~Reports: Add Income/Expense Detail tab~~ | ✅ Done |
