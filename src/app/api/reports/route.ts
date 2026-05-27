@@ -20,18 +20,56 @@ export async function GET(request: NextRequest) {
     }
     if (insuranceId) claimFilter.insuranceId = insuranceId
 
+    // 1. Get database-level aggregations for Supplier Invoices and Garage Invoices by Claim
+    const supplierInvoiceSums = await prisma.supplierInvoice.groupBy({
+      by: ['claimId'],
+      where: {
+        claim: claimFilter,
+      },
+      _sum: {
+        totalAmount: true,
+      },
+    })
+    const supplierInvoiceSumsMap: Record<string, number> = {}
+    supplierInvoiceSums.forEach(s => {
+      supplierInvoiceSumsMap[s.claimId] = s._sum.totalAmount || 0
+    })
+
+    const garageInvoiceSums = await prisma.garageInvoice.groupBy({
+      by: ['claimId'],
+      where: {
+        claim: claimFilter,
+      },
+      _sum: {
+        totalAmount: true,
+      },
+    })
+    const garageInvoiceSumsMap: Record<string, number> = {}
+    garageInvoiceSums.forEach(g => {
+      garageInvoiceSumsMap[g.claimId] = g._sum.totalAmount || 0
+    })
+
+    // 2. Fetch only required claim fields
     const claims = await prisma.claim.findMany({
       where: claimFilter,
-      include: {
-        insurance: true,
-        insuranceInvoice: true,
-        supplierInvoices: {
-          include: { apPayment: true, vendor: true }
+      select: {
+        id: true,
+        claimNo: true,
+        carPlate: true,
+        createdAt: true,
+        insurance: {
+          select: {
+            name: true,
+          },
         },
-        garageInvoices: {
-          include: { garage: true }
+        insuranceInvoice: {
+          select: {
+            grandTotal: true,
+            invoiceNo: true,
+            status: true,
+          },
         },
-      }
+      },
     })
 
     // P&L by Month — group by YYYY-MM to support cross-year ranges
@@ -44,7 +82,7 @@ export async function GET(request: NextRequest) {
       if (!pnlMap[key]) pnlMap[key] = { month: `${monthNames[d.getMonth()]} ${d.getFullYear() + 543}`, ar: 0, ap: 0, profit: 0, margin: 0, claims: 0 }
       pnlMap[key].claims += 1
       pnlMap[key].ar += c.insuranceInvoice?.grandTotal || 0
-      pnlMap[key].ap += c.supplierInvoices.reduce((ss, inv) => ss + inv.totalAmount, 0) + c.garageInvoices.reduce((ss, inv) => ss + inv.totalAmount, 0)
+      pnlMap[key].ap += (supplierInvoiceSumsMap[c.id] || 0) + (garageInvoiceSumsMap[c.id] || 0)
     })
 
     const pnlByMonth = Object.entries(pnlMap)
@@ -59,16 +97,28 @@ export async function GET(request: NextRequest) {
       pnlByMonth.push({ month: `${monthNames[new Date().getMonth()]} ${new Date().getFullYear() + 543}`, ar: 0, ap: 0, profit: 0, margin: 0, claims: 0 })
     }
 
-    // AR Aging — Detailed list of unpaid invoices
+    // AR Aging — Detailed list of unpaid invoices using selective fields
     const arInvoices = await prisma.insuranceInvoice.findMany({
       where: {
         status: { in: ['PENDING', 'SENT'] },
         claim: claimFilter
       },
-      include: {
+      select: {
+        grandTotal: true,
+        invoiceNo: true,
+        invoiceDate: true,
         claim: {
-          include: { insurance: true }
-        }
+          select: {
+            claimNo: true,
+            carPlate: true,
+            insuranceId: true,
+            insurance: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { invoiceDate: 'asc' }
     })
@@ -88,7 +138,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // AP Outstanding — Detailed list of unpaid vendor/garage invoices
+    // AP Outstanding — Detailed list of unpaid vendor/garage invoices using selective fields
     const supplierFilter: any = {}
     if (vendorId) supplierFilter.vendorId = vendorId
 
@@ -98,19 +148,46 @@ export async function GET(request: NextRequest) {
         apPayment: null, // not yet paid
         claim: claimFilter,
       },
-      include: { vendor: true, claim: true }
+      select: {
+        createdAt: true,
+        invoiceNo: true,
+        totalAmount: true,
+        vendorId: true,
+        vendor: {
+          select: {
+            name: true,
+          },
+        },
+        claim: {
+          select: {
+            claimNo: true,
+            carPlate: true,
+          },
+        },
+      },
     })
 
     const garageInvoices = await prisma.garageInvoice.findMany({
       where: {
         claim: claimFilter,
-        // For garage, outstanding means it's approved for payment but not paid? Or just no payment request?
-        // Let's assume outstanding = no payment request or payment request not completed (we can just check paymentRequests lack of PAID status if we had it, but apPayment doesn't exist for garage. Let's just use what was here)
       },
-      // Wait, previous code just loaded all garageInvoices and checked totalAmount? 
-      // Actually garage payments go through PaymentRequest. We can just list all garage invoices without completed PRs.
-      // But let's just keep the existing data set and map to detail.
-      include: { garage: true, claim: true, paymentRequests: { where: { status: 'APPROVED' } } }
+      select: {
+        createdAt: true,
+        invoiceNo: true,
+        totalAmount: true,
+        garageId: true,
+        garage: {
+          select: {
+            name: true,
+          },
+        },
+        claim: {
+          select: {
+            claimNo: true,
+            carPlate: true,
+          },
+        },
+      },
     })
 
     const apOutstanding = [
@@ -136,31 +213,54 @@ export async function GET(request: NextRequest) {
       }))
     ].sort((a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime())
 
-    // Vendor Performance — real PO data
-    const vendors = await prisma.vendor.findMany({
-      where: vendorId ? { id: vendorId } : undefined,
-      include: {
-        purchaseOrders: {
-          where: { claim: claimFilter, status: { not: 'CANCELLED' } }
-        }
-      }
+    // Vendor Performance — real PO data aggregated in DB
+    const poGroups = await prisma.purchaseOrder.groupBy({
+      by: ['vendorId'],
+      where: {
+        claim: claimFilter,
+        status: { not: 'CANCELLED' },
+        vendorId: vendorId ? vendorId : undefined,
+      },
+      _count: {
+        id: true,
+      },
+      _sum: {
+        totalAmount: true,
+      },
     })
 
-    const vendorPerf = vendors.map(v => ({
-      id: v.id,
-      name: v.name,
-      vendorType: v.vendorType,
-      poCount: v.purchaseOrders.length,
-      totalValue: v.purchaseOrders.reduce((s, po) => s + po.totalAmount, 0),
-      paymentTerms: v.paymentTerms,
-      zone: v.zone,
-    })).filter(v => v.poCount > 0)
+    const vendorIds = poGroups.map(g => g.vendorId)
+    const vendors = await prisma.vendor.findMany({
+      where: {
+        id: { in: vendorIds },
+      },
+      select: {
+        id: true,
+        name: true,
+        vendorType: true,
+        paymentTerms: true,
+        zone: true,
+      },
+    })
+
+    const vendorPerf = vendors.map(v => {
+      const group = poGroups.find(g => g.vendorId === v.id)
+      return {
+        id: v.id,
+        name: v.name,
+        vendorType: v.vendorType,
+        poCount: group?._count.id || 0,
+        totalValue: group?._sum.totalAmount || 0,
+        paymentTerms: v.paymentTerms,
+        zone: v.zone,
+      }
+    })
 
     // Income / Expense Detail — line-item breakdown per claim
     const incomeExpense = claims.map(c => {
       const arTotal = c.insuranceInvoice?.grandTotal || 0
-      const apParts = c.supplierInvoices.reduce((s, inv) => s + inv.totalAmount, 0)
-      const apLabor = c.garageInvoices.reduce((s, inv) => s + inv.totalAmount, 0)
+      const apParts = supplierInvoiceSumsMap[c.id] || 0
+      const apLabor = garageInvoiceSumsMap[c.id] || 0
       const apTotal = apParts + apLabor
       return {
         claimId: c.id,
