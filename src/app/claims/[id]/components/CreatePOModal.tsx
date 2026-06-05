@@ -47,6 +47,7 @@ export function CreatePOModal({
   const [poIncludeVat, setPoIncludeVat] = useState(true)
   const [poVatPct, setPoVatPct] = useState(7)
   const [poCustomVat, setPoCustomVat] = useState<string>('')
+  const [poCustomGrand, setPoCustomGrand] = useState<string>('')
 
   useEffect(() => {
     if (isOpen) {
@@ -78,6 +79,7 @@ export function CreatePOModal({
           const subtotal = po.items.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0)
           const savedVat = Math.round((po.totalAmount - subtotal) * 100) / 100
           setPoCustomVat(savedVat > 0 ? String(savedVat) : '')
+          setPoCustomGrand(String(po.totalAmount))
         }
       } else {
         setPoVendorId('')
@@ -89,6 +91,7 @@ export function CreatePOModal({
         setPoIncludeVat(true)
         setPoVatPct(7)
         setPoCustomVat('')
+        setPoCustomGrand('')
       }
     }
   }, [isOpen, editPOId, purchaseOrders, parts, labors, claim])
@@ -109,6 +112,7 @@ export function CreatePOModal({
   const poTot = poPartsTot + poLaborsTot + poManualTot
   const calculatedVatAmt = poIncludeVat ? Math.round(poTot * (poVatPct / 100) * 100) / 100 : 0
   const vatAmt = poIncludeVat ? (poCustomVat !== '' ? Number(poCustomVat) : calculatedVatAmt) : 0
+  const grandTotal = poCustomGrand !== '' ? Number(poCustomGrand) : (poTot + vatAmt)
 
   const submitCreatePO = async () => {
     const selectedParts = poModalParts.filter(p => p.selected)
@@ -147,7 +151,7 @@ export function CreatePOModal({
       deliveryAddress: poDeliveryAddress,
       includeVat: poIncludeVat,
       vatPct: poIncludeVat ? poVatPct : 0,
-      totalAmount: poTot + vatAmt,
+      totalAmount: grandTotal,
       items: [...partItems, ...laborItems, ...manualItems]
     }
 
@@ -546,8 +550,19 @@ export function CreatePOModal({
                     </div>
                   </div>
                 )}
-                <div className="flex justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1">
-                  <span>ยอดรวมทั้งสิ้น:</span><span>฿{formatCurrency(poTot + vatAmt)}</span>
+                <div className="flex items-center justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1">
+                  <span>ยอดรวมทั้งสิ้น:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-700 text-lg">฿</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="h-9 w-40 text-right font-bold text-blue-700 text-lg"
+                      value={poCustomGrand}
+                      onChange={e => setPoCustomGrand(e.target.value)}
+                      placeholder={String(poTot + vatAmt)}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
