@@ -233,14 +233,48 @@ export function UploadSupplierInvoiceModal({
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#f8faff]">
-                  <TableHead className="w-10"></TableHead>
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={
+                        (() => {
+                          const activeParts = parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID')
+                          const activeLabors = labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID')
+                          const totalCount = activeParts.length + activeLabors.length
+                          if (totalCount === 0) return false
+                          const allChecked = [...activeParts, ...activeLabors].every(item => !!uploadMapSelections[item.id])
+                          return allChecked
+                        })()
+                      }
+                      ref={el => {
+                        if (el) {
+                          const activeParts = parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID')
+                          const activeLabors = labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID')
+                          const checkedCount = [...activeParts, ...activeLabors].filter(item => !!uploadMapSelections[item.id]).length
+                          const totalCount = activeParts.length + activeLabors.length
+                          el.indeterminate = checkedCount > 0 && checkedCount < totalCount
+                        }
+                      }}
+                      onChange={e => {
+                        const activeParts = parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID')
+                        const activeLabors = labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID')
+                        const newSelections = { ...uploadMapSelections }
+                        const isChecked = e.target.checked
+                        activeParts.forEach(p => { newSelections[p.id] = isChecked })
+                        activeLabors.forEach(l => { newSelections[l.id] = isChecked })
+                        setUploadMapSelections(newSelections)
+                      }}
+                      className="w-4 h-4"
+                    />
+                  </TableHead>
+                  <TableHead className="w-12 text-center text-xs">ลำดับ</TableHead>
                   <TableHead className="text-xs">ประเภท</TableHead>
                   <TableHead className="text-xs">รายการ</TableHead>
                   <TableHead className="text-xs text-right w-36">ราคา (แก้ไขได้)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').map(p => (
+                {parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').map((p, i) => (
                   <TableRow key={p.id} className={uploadMapSelections[p.id] ? 'bg-blue-50/50' : ''}>
                     <TableCell>
                       <input
@@ -249,6 +283,9 @@ export function UploadSupplierInvoiceModal({
                         onChange={e => setUploadMapSelections(prev => ({ ...prev, [p.id]: e.target.checked }))}
                         className="w-4 h-4"
                       />
+                    </TableCell>
+                    <TableCell className="text-center text-sm text-gray-500 font-medium">
+                      {i + 1}
                     </TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px]">อะไหล่</Badge></TableCell>
                     <TableCell className="font-medium">
@@ -264,7 +301,7 @@ export function UploadSupplierInvoiceModal({
                     </TableCell>
                   </TableRow>
                 ))}
-                {labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').map(l => (
+                {labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').map((l, i) => (
                   <TableRow key={l.id} className={uploadMapSelections[l.id] ? 'bg-blue-50/50' : ''}>
                     <TableCell>
                       <input
@@ -273,6 +310,9 @@ export function UploadSupplierInvoiceModal({
                         onChange={e => setUploadMapSelections(prev => ({ ...prev, [l.id]: e.target.checked }))}
                         className="w-4 h-4"
                       />
+                    </TableCell>
+                    <TableCell className="text-center text-sm text-gray-500 font-medium">
+                      {parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').length + i + 1}
                     </TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px]">ค่าแรง</Badge></TableCell>
                     <TableCell className="font-medium">{l.description}</TableCell>

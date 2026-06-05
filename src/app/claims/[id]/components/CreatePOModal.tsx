@@ -95,9 +95,17 @@ export function CreatePOModal({
 
   if (!isOpen) return null
 
-  const poPartsTot = poModalParts.filter(p => p.selected).reduce((sum, p) => sum + ((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)), 0)
+  const poPartsTot = poModalParts.filter(p => p.selected).reduce((sum, p) => {
+    const price = Number(p.priceApprove) || 0
+    const qty = (p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)
+    return sum + (price * qty)
+  }, 0)
   const poLaborsTot = poModalLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
-  const poManualTot = poManualItems.reduce((sum, m) => sum + ((Number(m.unitPrice) || 0) * (Number(m.quantity) || 1)), 0)
+  const poManualTot = poManualItems.reduce((sum, m) => {
+    const price = Number(m.unitPrice) || 0
+    const qty = (m.quantity === undefined || m.quantity === null || (m.quantity as any) === '') ? 1 : Number(m.quantity)
+    return sum + (price * qty)
+  }, 0)
   const poTot = poPartsTot + poLaborsTot + poManualTot
   const calculatedVatAmt = poIncludeVat ? Math.round(poTot * (poVatPct / 100) * 100) / 100 : 0
   const vatAmt = poIncludeVat ? (poCustomVat !== '' ? Number(poCustomVat) : calculatedVatAmt) : 0
@@ -233,7 +241,22 @@ export function CreatePOModal({
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>
-                    <TableHead className="w-10"></TableHead>
+                    <TableHead className="w-10">
+                      <input
+                        type="checkbox"
+                        checked={poModalParts.length > 0 && poModalParts.every(p => p.selected)}
+                        ref={el => {
+                          if (el) {
+                            el.indeterminate = poModalParts.some(p => p.selected) && !poModalParts.every(p => p.selected)
+                          }
+                        }}
+                        onChange={e => {
+                          setPoModalParts(poModalParts.map(p => ({ ...p, selected: e.target.checked })))
+                        }}
+                        className="w-4 h-4"
+                      />
+                    </TableHead>
+                    <TableHead className="w-12 text-center">ลำดับ</TableHead>
                     <TableHead>รายการอะไหล่</TableHead>
                     <TableHead className="w-20 text-center">จำนวน</TableHead>
                     <TableHead className="w-32 text-right">ราคา/หน่วย</TableHead>
@@ -254,6 +277,9 @@ export function CreatePOModal({
                           }}
                           className="w-4 h-4"
                         />
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-gray-500 font-medium">
+                        {i + 1}
                       </TableCell>
                       <TableCell>
                         <Input
@@ -291,13 +317,13 @@ export function CreatePOModal({
                         />
                       </TableCell>
                       <TableCell className="text-right font-medium text-sm pt-3">
-                        ฿{formatCurrency((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1))}
+                        ฿{formatCurrency((Number(p.priceApprove) || 0) * ((p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)))}
                       </TableCell>
                     </TableRow>
                   ))}
                   {poModalParts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4 text-gray-500">ไม่มีรายการอะไหล่</TableCell>
+                      <TableCell colSpan={6} className="text-center py-4 text-gray-500">ไม่มีรายการอะไหล่</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -312,7 +338,22 @@ export function CreatePOModal({
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>
-                    <TableHead className="w-10"></TableHead>
+                    <TableHead className="w-10">
+                      <input
+                        type="checkbox"
+                        checked={poModalLabors.length > 0 && poModalLabors.every(l => l.selected)}
+                        ref={el => {
+                          if (el) {
+                            el.indeterminate = poModalLabors.some(l => l.selected) && !poModalLabors.every(l => l.selected)
+                          }
+                        }}
+                        onChange={e => {
+                          setPoModalLabors(poModalLabors.map(l => ({ ...l, selected: e.target.checked })))
+                        }}
+                        className="w-4 h-4"
+                      />
+                    </TableHead>
+                    <TableHead className="w-12 text-center">ลำดับ</TableHead>
                     <TableHead>รายการค่าแรง</TableHead>
                     <TableHead className="w-32 text-right">ราคา</TableHead>
                   </TableRow>
@@ -331,6 +372,9 @@ export function CreatePOModal({
                           }}
                           className="w-4 h-4"
                         />
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-gray-500 font-medium">
+                        {i + 1}
                       </TableCell>
                       <TableCell>
                         <Input
@@ -359,7 +403,7 @@ export function CreatePOModal({
                   ))}
                   {poModalLabors.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-4 text-gray-500">ไม่มีรายการค่าแรง</TableCell>
+                      <TableCell colSpan={4} className="text-center py-4 text-gray-500">ไม่มีรายการค่าแรง</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -382,6 +426,7 @@ export function CreatePOModal({
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>
+                    <TableHead className="w-12 text-center">ลำดับ</TableHead>
                     <TableHead>รายการ</TableHead>
                     <TableHead className="w-20 text-center">จำนวน</TableHead>
                     <TableHead className="w-32 text-right">ราคา/หน่วย</TableHead>
@@ -392,6 +437,9 @@ export function CreatePOModal({
                 <TableBody>
                   {poManualItems.map((m, i) => (
                     <TableRow key={m.id}>
+                      <TableCell className="text-center text-sm text-gray-500 font-medium">
+                        {i + 1}
+                      </TableCell>
                       <TableCell>
                         <Input
                           className="h-8 text-sm"
@@ -429,7 +477,7 @@ export function CreatePOModal({
                         />
                       </TableCell>
                       <TableCell className="text-right font-medium text-sm pt-3">
-                        ฿{formatCurrency((Number(m.unitPrice) || 0) * (Number(m.quantity) || 1))}
+                        ฿{formatCurrency((Number(m.unitPrice) || 0) * ((m.quantity === undefined || m.quantity === null || (m.quantity as any) === '') ? 1 : Number(m.quantity)))}
                       </TableCell>
                       <TableCell>
                         <button
@@ -443,7 +491,7 @@ export function CreatePOModal({
                   ))}
                   {poManualItems.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4 text-gray-400 text-sm">
+                      <TableCell colSpan={6} className="text-center py-4 text-gray-400 text-sm">
                         ยังไม่มีรายการเพิ่มเติม — กดปุ่ม "เพิ่มรายการ" ด้านบน
                       </TableCell>
                     </TableRow>

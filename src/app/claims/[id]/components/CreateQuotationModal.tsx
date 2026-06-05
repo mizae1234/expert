@@ -140,6 +140,7 @@ export function CreateQuotationModal({
                 <TableHeader className="bg-gray-50">
                   <TableRow>
                     <TableHead className="w-10"></TableHead>
+                    <TableHead className="w-12 text-center">ลำดับ</TableHead>
                     <TableHead>รายการ</TableHead>
                     <TableHead className="w-20 text-center">จำนวน</TableHead>
                     <TableHead className="w-32 text-right">ราคา/หน่วย</TableHead>
@@ -148,7 +149,22 @@ export function CreateQuotationModal({
                 </TableHeader>
                 <TableBody>
                   <TableRow className="bg-blue-50/30">
-                    <TableCell colSpan={5} className="font-semibold text-sm">รายการค่าแรง</TableCell>
+                    <TableCell className="py-1 px-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={qtLabors.length > 0 && qtLabors.every(l => l.selected)}
+                        ref={el => {
+                          if (el) {
+                            el.indeterminate = qtLabors.some(l => l.selected) && !qtLabors.every(l => l.selected)
+                          }
+                        }}
+                        onChange={e => {
+                          setQtLabors(qtLabors.map(l => ({ ...l, selected: e.target.checked })))
+                        }}
+                        className="w-4 h-4"
+                      />
+                    </TableCell>
+                    <TableCell colSpan={5} className="font-semibold text-sm py-1 px-2">รายการค่าแรง</TableCell>
                   </TableRow>
                   {qtLabors.map((l, i) => (
                     <TableRow key={l.id}>
@@ -163,6 +179,9 @@ export function CreateQuotationModal({
                           }}
                           className="w-4 h-4"
                         />
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-gray-500 font-medium">
+                        {i + 1}
                       </TableCell>
                       <TableCell>
                         <Input
@@ -194,7 +213,22 @@ export function CreateQuotationModal({
                     </TableRow>
                   ))}
                   <TableRow className="bg-blue-50/30">
-                    <TableCell colSpan={5} className="font-semibold text-sm">รายการอะไหล่</TableCell>
+                    <TableCell className="py-1 px-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={qtParts.length > 0 && qtParts.every(p => p.selected)}
+                        ref={el => {
+                          if (el) {
+                            el.indeterminate = qtParts.some(p => p.selected) && !qtParts.every(p => p.selected)
+                          }
+                        }}
+                        onChange={e => {
+                          setQtParts(qtParts.map(p => ({ ...p, selected: e.target.checked })))
+                        }}
+                        className="w-4 h-4"
+                      />
+                    </TableCell>
+                    <TableCell colSpan={5} className="font-semibold text-sm py-1 px-2">รายการอะไหล่</TableCell>
                   </TableRow>
                   {qtParts.map((p, i) => (
                     <TableRow key={p.id}>
@@ -209,6 +243,9 @@ export function CreateQuotationModal({
                           }}
                           className="w-4 h-4"
                         />
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-gray-500 font-medium">
+                        {i + 1}
                       </TableCell>
                       <TableCell>
                         <Input
@@ -246,7 +283,7 @@ export function CreateQuotationModal({
                         />
                       </TableCell>
                       <TableCell className="text-right font-medium text-sm pt-3">
-                        ฿{formatCurrency((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1))}
+                        ฿{formatCurrency((Number(p.priceApprove) || 0) * ((p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)))}
                       </TableCell>
                     </TableRow>
                   ))}
