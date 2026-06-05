@@ -58,7 +58,7 @@ export function CreateQuotationModal({
   const laborTot = qtLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
   const partTot = qtParts.filter(p => p.selected).reduce((sum, p) => sum + ((Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)), 0)
   const sub = partTot + laborTot
-  const vatAmt = qtCustomVat !== '' ? Number(qtCustomVat) : Math.round(sub * 0.07)
+  const vatAmt = qtCustomVat !== '' ? Number(qtCustomVat) : Math.round(sub * 0.07 * 100) / 100
   const grand = qtCustomGrand !== '' ? Number(qtCustomGrand) : (sub + vatAmt)
 
   const handleCreateQuotation = async () => {
@@ -271,7 +271,7 @@ export function CreateQuotationModal({
                 <span className="text-xs text-[#94a3b8]">VAT 7% (แก้ไขได้)</span>
                 <Input
                   type="number"
-                  placeholder={String(Math.round(sub * 0.07))}
+                  placeholder={String(Math.round(sub * 0.07 * 100) / 100)}
                   className="h-8 mt-1"
                   value={qtCustomVat}
                   onChange={e => setQtCustomVat(e.target.value)}

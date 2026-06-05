@@ -46,6 +46,7 @@ export function CreatePOModal({
   const [poManualItems, setPoManualItems] = useState<{ id: string; description: string; quantity: number; unitPrice: number }[]>([])
   const [poIncludeVat, setPoIncludeVat] = useState(true)
   const [poVatPct, setPoVatPct] = useState(7)
+  const [poCustomVat, setPoCustomVat] = useState<string>('')
 
   useEffect(() => {
     if (isOpen) {
@@ -72,6 +73,11 @@ export function CreatePOModal({
           setPoManualItems([])
           setPoIncludeVat(po.includeVat ?? true)
           setPoVatPct(po.vatPct || 7)
+
+          // Calculate subtotal of existing items to derive custom/saved VAT amount
+          const subtotal = po.items.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0)
+          const savedVat = Math.round((po.totalAmount - subtotal) * 100) / 100
+          setPoCustomVat(savedVat > 0 ? String(savedVat) : '')
         }
       } else {
         setPoVendorId('')
@@ -82,6 +88,7 @@ export function CreatePOModal({
         setPoManualItems([])
         setPoIncludeVat(true)
         setPoVatPct(7)
+        setPoCustomVat('')
       }
     }
   }, [isOpen, editPOId, purchaseOrders, parts, labors, claim])
@@ -92,7 +99,8 @@ export function CreatePOModal({
   const poLaborsTot = poModalLabors.filter(l => l.selected).reduce((sum, l) => sum + (Number(l.priceApprove) || 0), 0)
   const poManualTot = poManualItems.reduce((sum, m) => sum + ((Number(m.unitPrice) || 0) * (Number(m.quantity) || 1)), 0)
   const poTot = poPartsTot + poLaborsTot + poManualTot
-  const vatAmt = poIncludeVat ? Math.round(poTot * (poVatPct / 100)) : 0
+  const calculatedVatAmt = poIncludeVat ? Math.round(poTot * (poVatPct / 100) * 100) / 100 : 0
+  const vatAmt = poIncludeVat ? (poCustomVat !== '' ? Number(poCustomVat) : calculatedVatAmt) : 0
 
   const submitCreatePO = async () => {
     const selectedParts = poModalParts.filter(p => p.selected)
@@ -131,6 +139,7 @@ export function CreatePOModal({
       deliveryAddress: poDeliveryAddress,
       includeVat: poIncludeVat,
       vatPct: poIncludeVat ? poVatPct : 0,
+      totalAmount: poTot + vatAmt,
       items: [...partItems, ...laborItems, ...manualItems]
     }
 
@@ -464,15 +473,29 @@ export function CreatePOModal({
                         type="number"
                         className="h-7 w-16 text-sm text-right"
                         value={poVatPct}
-                        onChange={e => setPoVatPct(Number(e.target.value) || 0)}
+                        onChange={e => {
+                          setPoVatPct(Number(e.target.value) || 0)
+                          setPoCustomVat('') // Reset custom VAT when percentage changes
+                        }}
                       />
                       <span className="text-sm text-gray-500">%</span>
                     </div>
                   )}
                 </div>
                 {poIncludeVat && (
-                  <div className="flex justify-between w-full text-sm text-gray-500">
-                    <span>VAT {poVatPct}%:</span><span>฿{formatCurrency(vatAmt)}</span>
+                  <div className="flex items-center justify-between w-full text-sm text-gray-500">
+                    <span>VAT {poVatPct}%:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400">฿</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="h-7 w-28 text-sm text-right font-medium"
+                        value={poCustomVat}
+                        onChange={e => setPoCustomVat(e.target.value)}
+                        placeholder={String(calculatedVatAmt)}
+                      />
+                    </div>
                   </div>
                 )}
                 <div className="flex justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1">

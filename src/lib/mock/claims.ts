@@ -168,7 +168,7 @@ function generateClaims(): Claim[] {
       const supplierInvoices: SupplierInvoice[] = []
       if (['INVOICE_SENT', 'AP_PAID', 'AR_RECEIVED', 'CLOSED'].includes(status)) {
         const subtotal = partsTotal
-        const vatAmount = Math.round(subtotal * 0.07)
+        const vatAmount = Math.round(subtotal * 0.07 * 100) / 100
 
         // Generate invoice items mapped to PO items and claim parts
         const poItems = purchaseOrders[0]?.items || []
@@ -203,7 +203,7 @@ function generateClaims(): Claim[] {
       let insuranceInvoice: InsuranceInvoice | undefined
       if (['INVOICE_SENT', 'AP_PAID', 'AR_RECEIVED', 'CLOSED'].includes(status)) {
         const subtotal = partsTotal + laborTotal
-        const vatAmount = Math.round(subtotal * 0.07)
+        const vatAmount = Math.round(subtotal * 0.07 * 100) / 100
         insuranceInvoice = {
           id: `iinv-${claimId}`,
           claimId,
@@ -248,7 +248,7 @@ function generateClaims(): Claim[] {
             totalPrice: l.priceApprove,
           }))
           const gSub = laborTotal
-          const gVat = Math.round(gSub * 0.07)
+          const gVat = Math.round(gSub * 0.07 * 100) / 100
           garageInvoices.push({
             id: `ginv-${claimId}-1`,
             claimId,

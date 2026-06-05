@@ -48,6 +48,7 @@ export function UploadSupplierInvoiceModal({
   const [uploadItemPrices, setUploadItemPrices] = useState<Record<string, number>>({})
   const [invoiceIncludeVat, setInvoiceIncludeVat] = useState(true)
   const [invoiceVatPct, setInvoiceVatPct] = useState(7)
+  const [invoiceCustomVat, setInvoiceCustomVat] = useState<string>('')
   const [isUploadingFile, setIsUploadingFile] = useState(false)
 
   useEffect(() => {
@@ -69,6 +70,7 @@ export function UploadSupplierInvoiceModal({
       setUploadItemPrices(prices)
       setInvoiceIncludeVat(true)
       setInvoiceVatPct(7)
+      setInvoiceCustomVat('')
       setCustomInvoiceNo('')
       setUploadedFile(null)
     }
@@ -78,7 +80,8 @@ export function UploadSupplierInvoiceModal({
 
   const sub = parts.filter(p => uploadMapSelections[p.id]).reduce((s, p) => s + (uploadItemPrices[p.id] ?? getPartAmt(p, purchaseOrders)), 0) +
               labors.filter(l => uploadMapSelections[l.id]).reduce((s, l) => s + (uploadItemPrices[l.id] ?? getLaborAmt(l, purchaseOrders)), 0)
-  const vat = invoiceIncludeVat ? Math.round(sub * (invoiceVatPct / 100)) : 0
+  const calculatedVat = invoiceIncludeVat ? Math.round(sub * (invoiceVatPct / 100) * 100) / 100 : 0
+  const vat = invoiceIncludeVat ? (invoiceCustomVat !== '' ? Number(invoiceCustomVat) : calculatedVat) : 0
   const validPOs = purchaseOrders?.filter((po: any) => po.status !== 'CANCELLED') || []
   const vendorData = validPOs[0]?.vendorId ? vendors.find((v: any) => v.id === validPOs[0].vendorId) : vendors[0]
   const billingPct = vendorData?.billingPct ?? 100
@@ -133,7 +136,7 @@ export function UploadSupplierInvoiceModal({
         }
       })
 
-      const computedVat = invoiceIncludeVat ? Math.round(sub * (invoiceVatPct / 100)) : 0
+      const computedVat = invoiceIncludeVat ? (invoiceCustomVat !== '' ? Number(invoiceCustomVat) : Math.round(sub * (invoiceVatPct / 100) * 100) / 100) : 0
       const allItems = [...partItems, ...laborItems]
 
       const res = await fetch(`/api/claims/${claimId}/supplier-invoices`, {
@@ -303,7 +306,10 @@ export function UploadSupplierInvoiceModal({
                         type="number"
                         className="h-8 w-16 text-sm text-right"
                         value={invoiceVatPct}
-                        onChange={e => setInvoiceVatPct(Number(e.target.value) || 0)}
+                        onChange={e => {
+                          setInvoiceVatPct(Number(e.target.value) || 0)
+                          setInvoiceCustomVat('') // Reset custom VAT when percentage changes
+                        }}
                         min={0}
                         max={100}
                       />
@@ -316,8 +322,19 @@ export function UploadSupplierInvoiceModal({
                   <span>มูลค่าก่อนภาษี:</span><span>฿{formatCurrency(sub)}</span>
                 </div>
                 {invoiceIncludeVat && (
-                  <div className="flex justify-between w-full text-sm text-gray-500">
-                    <span>VAT {invoiceVatPct}%:</span><span>฿{formatCurrency(vat)}</span>
+                  <div className="flex items-center justify-between w-full text-sm text-gray-500">
+                    <span>VAT {invoiceVatPct}%:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400">฿</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="h-7 w-28 text-sm text-right font-medium"
+                        value={invoiceCustomVat}
+                        onChange={e => setInvoiceCustomVat(e.target.value)}
+                        placeholder={String(calculatedVat)}
+                      />
+                    </div>
                   </div>
                 )}
                 <div className="flex justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1">

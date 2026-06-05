@@ -316,22 +316,32 @@ export default function PDFMockPage() {
           </tbody>
         </table>
 
-        <div className="flex justify-end">
-          <div className="w-64 space-y-2 text-sm border rounded p-4">
-            <div className="flex justify-between text-gray-600">
-              <span>ยอดรวมก่อน VAT</span>
-              <span>{formatCurrency((po.items || []).reduce((s: number, item: any) => s + (item.totalPrice || 0), 0))}</span>
+        {(() => {
+          const poSubtotal = (po.items || []).reduce((s: number, item: any) => s + (item.totalPrice || 0), 0)
+          const computedVat = Math.max(0, Math.round((po.totalAmount - poSubtotal) * 100) / 100)
+          const computedVatPct = poSubtotal > 0 ? Math.round((computedVat / poSubtotal) * 100) : 0
+
+          return (
+            <div className="flex justify-end">
+              <div className="w-64 space-y-2 text-sm border rounded p-4">
+                <div className="flex justify-between text-gray-600">
+                  <span>ยอดรวมก่อน VAT</span>
+                  <span>{formatCurrency(poSubtotal)}</span>
+                </div>
+                {computedVat > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>VAT {computedVatPct > 0 ? `${computedVatPct}%` : ''}</span>
+                    <span>{formatCurrency(computedVat)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">
+                  <span>ยอดรวมทั้งสิ้น</span>
+                  <span>{formatCurrency(po.totalAmount)}</span>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between text-gray-600">
-              <span>VAT 7%</span>
-              <span>{formatCurrency(Math.round(((po.items || []).reduce((s: number, item: any) => s + (item.totalPrice || 0), 0)) * 0.07))}</span>
-            </div>
-            <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">
-              <span>ยอดรวมทั้งสิ้น</span>
-              <span>{formatCurrency(po.totalAmount)}</span>
-            </div>
-          </div>
-        </div>
+          )
+        })()}
 
         <div className="mt-8 text-sm border rounded p-4 bg-gray-50">
           <h4 className="font-semibold mb-1">หมายเหตุ</h4>
