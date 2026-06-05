@@ -236,7 +236,7 @@ export function CreatePOModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-4 border-b flex justify-between items-center bg-[#f8faff]">
           <h3 className="font-semibold text-lg text-[#0f172a] flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-blue-600" />
@@ -320,10 +320,10 @@ export function CreatePOModal({
             </div>
 
             <div className="border rounded-lg overflow-hidden mt-2">
-              <Table>
+              <Table className="min-w-[960px]">
                 <TableHeader className="bg-gray-50">
                   <TableRow>
-                    <TableHead className="w-10">
+                    <TableHead className="w-10 min-w-[40px]">
                       <input
                         type="checkbox"
                         checked={poModalParts.length > 0 && poModalParts.every(p => p.selected)}
@@ -338,19 +338,19 @@ export function CreatePOModal({
                         className="w-4 h-4"
                       />
                     </TableHead>
-                    <TableHead className="w-12 text-center text-xs">ลำดับ</TableHead>
-                    <TableHead className="text-xs">รายการอะไหล่</TableHead>
-                    <TableHead className="w-16 text-center text-xs">จำนวน</TableHead>
-                    <TableHead className="w-24 text-right text-xs">ราคาเต็ม</TableHead>
-                    <TableHead className="w-20 text-center text-xs">ส่วนลด (%)</TableHead>
-                    <TableHead className="w-28 text-right text-xs">ราคา/หน่วย</TableHead>
-                    <TableHead className="w-28 text-right text-xs">รวม</TableHead>
+                    <TableHead className="w-12 min-w-[50px] text-center text-xs">ลำดับ</TableHead>
+                    <TableHead className="min-w-[200px] text-xs">รายการอะไหล่</TableHead>
+                    <TableHead className="w-20 min-w-[70px] text-center text-xs">จำนวน</TableHead>
+                    <TableHead className="w-32 min-w-[110px] text-right text-xs">ราคาเต็ม</TableHead>
+                    <TableHead className="w-24 min-w-[90px] text-center text-xs">ส่วนลด (%)</TableHead>
+                    <TableHead className="w-36 min-w-[110px] text-right text-xs">ราคา/หน่วย</TableHead>
+                    <TableHead className="w-36 min-w-[120px] text-right text-xs">รวม</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {poModalParts.map((p, i) => (
                     <TableRow key={p.id}>
-                      <TableCell>
+                      <TableCell className="w-10 min-w-[40px]">
                         <input
                           type="checkbox"
                           checked={p.selected}
@@ -362,10 +362,10 @@ export function CreatePOModal({
                           className="w-4 h-4"
                         />
                       </TableCell>
-                      <TableCell className="text-center text-sm text-gray-500 font-medium">
+                      <TableCell className="w-12 min-w-[50px] text-center text-sm text-gray-500 font-medium">
                         {i + 1}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="min-w-[200px]">
                         <Input
                           className="h-8 text-sm"
                           value={p.partName}
@@ -376,10 +376,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-20 min-w-[70px]">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-center"
+                          className="h-8 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={p.quantity || ''}
                           onChange={e => {
                             const n = [...poModalParts]
@@ -390,10 +390,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-32 min-w-[110px]">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-right"
+                          className="h-8 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={p.priceFullAmt ?? ''}
                           onChange={e => {
                             const val = Number(e.target.value) || 0
@@ -407,10 +407,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-24 min-w-[90px]">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-center font-medium"
+                          className="h-8 text-sm text-center font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={p.discountPct ?? ''}
                           onChange={e => {
                             const val = Number(e.target.value) || 0
@@ -424,10 +424,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-36 min-w-[110px]">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-right"
+                          className="h-8 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={p.priceApprove || ''}
                           onChange={e => {
                             const val = Number(e.target.value) || 0
@@ -443,10 +443,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="w-36 min-w-[120px] text-right">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-right w-28 ml-auto"
+                          className="h-8 text-sm text-right w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={p.totalPrice !== undefined ? p.totalPrice : (Number(p.priceApprove) || 0) * ((p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity))}
                           onChange={e => {
                             const val = Number(e.target.value) || 0
@@ -502,10 +502,10 @@ export function CreatePOModal({
             </div>
 
             <div className="border rounded-lg overflow-hidden mt-2">
-              <Table>
+              <Table className="min-w-[800px]">
                 <TableHeader className="bg-gray-50">
                   <TableRow>
-                    <TableHead className="w-10">
+                    <TableHead className="w-10 min-w-[40px]">
                       <input
                         type="checkbox"
                         checked={poModalLabors.length > 0 && poModalLabors.every(l => l.selected)}
@@ -520,17 +520,17 @@ export function CreatePOModal({
                         className="w-4 h-4"
                       />
                     </TableHead>
-                    <TableHead className="w-12 text-center text-xs">ลำดับ</TableHead>
-                    <TableHead className="text-xs">รายการค่าแรง</TableHead>
-                    <TableHead className="w-24 text-right text-xs">ราคาเต็ม</TableHead>
-                    <TableHead className="w-20 text-center text-xs">ส่วนลด (%)</TableHead>
-                    <TableHead className="w-28 text-right text-xs">ราคา</TableHead>
+                    <TableHead className="w-12 min-w-[50px] text-center text-xs">ลำดับ</TableHead>
+                    <TableHead className="min-w-[200px] text-xs">รายการค่าแรง</TableHead>
+                    <TableHead className="w-32 min-w-[110px] text-right text-xs">ราคาเต็ม</TableHead>
+                    <TableHead className="w-24 min-w-[90px] text-center text-xs">ส่วนลด (%)</TableHead>
+                    <TableHead className="w-36 min-w-[120px] text-right text-xs">ราคา</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {poModalLabors.map((l: any, i: number) => (
                     <TableRow key={l.id}>
-                      <TableCell>
+                      <TableCell className="w-10 min-w-[40px]">
                         <input
                           type="checkbox"
                           checked={l.selected}
@@ -542,10 +542,10 @@ export function CreatePOModal({
                           className="w-4 h-4"
                         />
                       </TableCell>
-                      <TableCell className="text-center text-sm text-gray-500 font-medium">
+                      <TableCell className="w-12 min-w-[50px] text-center text-sm text-gray-500 font-medium">
                         {i + 1}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="min-w-[200px]">
                         <Input
                           className="h-8 text-sm"
                           value={l.description}
@@ -556,10 +556,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-32 min-w-[110px]">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-right"
+                          className="h-8 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={l.priceOffer ?? ''}
                           onChange={e => {
                             const val = Number(e.target.value) || 0
@@ -571,10 +571,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-24 min-w-[90px]">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-center font-medium"
+                          className="h-8 text-sm text-center font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={l.discountPct ?? ''}
                           onChange={e => {
                             const val = Number(e.target.value) || 0
@@ -586,10 +586,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="w-36 min-w-[120px] text-right">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-right w-28 ml-auto font-medium"
+                          className="h-8 text-sm text-right w-full font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={l.priceApprove || ''}
                           onChange={e => {
                             const val = Number(e.target.value) || 0
@@ -630,21 +630,21 @@ export function CreatePOModal({
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>
-                    <TableHead className="w-12 text-center">ลำดับ</TableHead>
-                    <TableHead>รายการ</TableHead>
-                    <TableHead className="w-20 text-center">จำนวน</TableHead>
-                    <TableHead className="w-32 text-right">ราคา/หน่วย</TableHead>
-                    <TableHead className="w-32 text-right">รวม</TableHead>
-                    <TableHead className="w-10"></TableHead>
+                    <TableHead className="w-12 min-w-[50px] text-center">ลำดับ</TableHead>
+                    <TableHead className="min-w-[200px]">รายการ</TableHead>
+                    <TableHead className="w-20 min-w-[70px] text-center">จำนวน</TableHead>
+                    <TableHead className="w-32 min-w-[110px] text-right">ราคา/หน่วย</TableHead>
+                    <TableHead className="w-32 min-w-[120px] text-right">รวม</TableHead>
+                    <TableHead className="w-10 min-w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {poManualItems.map((m, i) => (
                     <TableRow key={m.id}>
-                      <TableCell className="text-center text-sm text-gray-500 font-medium">
+                      <TableCell className="w-12 min-w-[50px] text-center text-sm text-gray-500 font-medium">
                         {i + 1}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="min-w-[200px]">
                         <Input
                           className="h-8 text-sm"
                           placeholder="ชื่อรายการ เช่น ค่าขนส่ง"
@@ -656,10 +656,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-20 min-w-[70px]">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-center"
+                          className="h-8 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={m.quantity || ''}
                           onChange={e => {
                             const n = [...poManualItems]
@@ -670,10 +670,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-32 min-w-[110px]">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-right"
+                          className="h-8 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={m.unitPrice || ''}
                           onChange={e => {
                             const n = [...poManualItems]
@@ -684,10 +684,10 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="w-32 min-w-[120px] text-right">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-right w-28 ml-auto"
+                          className="h-8 text-sm text-right w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={m.totalPrice !== undefined ? m.totalPrice : (Number(m.unitPrice) || 0) * ((m.quantity === undefined || m.quantity === null || (m.quantity as any) === '') ? 1 : Number(m.quantity))}
                           onChange={e => {
                             const val = Number(e.target.value) || 0
