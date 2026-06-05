@@ -83,9 +83,22 @@ export function CreatePOModal({
           setPoModalLabors(labors.map((l: any) => {
             const existingPoItem = po.items.find((pi: any) => pi.description === `[ค่าแรง] ${l.description}`)
             if (existingPoItem) {
-              return { ...l, selected: true, description: existingPoItem.description.replace('[ค่าแรง] ', ''), priceApprove: existingPoItem.unitPrice }
+              return { 
+                ...l, 
+                selected: true, 
+                description: existingPoItem.description.replace('[ค่าแรง] ', ''), 
+                priceOffer: l.priceOffer ?? existingPoItem.unitPrice,
+                discountPct: l.discountPct ?? 0,
+                priceApprove: existingPoItem.unitPrice 
+              }
             }
-            return { ...l, selected: false }
+            return { 
+              ...l, 
+              selected: false,
+              priceOffer: l.priceOffer ?? l.priceApprove,
+              discountPct: l.discountPct ?? 0,
+              priceApprove: l.priceApprove
+            }
           }))
           setPoManualItems([])
           setPoIncludeVat(po.includeVat ?? true)
@@ -103,13 +116,19 @@ export function CreatePOModal({
         setPoDeliveryAddress(claim.garage?.name ? `${claim.garage.name}\n${claim.garage.address || ''} ${claim.garage.province || ''}`.trim() : '')
         setPoModalParts(parts.map(p => ({ 
           ...p, 
-          selected: p.status === 'approved',
+          selected: true, // select all by default
           priceFullAmt: p.priceFullAmt ?? p.priceApprove,
           discountPct: p.discountPct ?? 0,
           priceApprove: p.priceApprove,
           totalPrice: p.priceApprove * p.quantity
         })))
-        setPoModalLabors(labors.map(l => ({ ...l, selected: false })))
+        setPoModalLabors(labors.map(l => ({ 
+          ...l, 
+          selected: true, // select all by default
+          priceOffer: l.priceOffer ?? l.priceApprove,
+          discountPct: l.discountPct ?? 0,
+          priceApprove: l.priceApprove
+        })))
         setPoManualItems([])
         setPoIncludeVat(true)
         setPoVatPct(7)
@@ -455,10 +474,34 @@ export function CreatePOModal({
             </div>
 
             {/* Labor items */}
-            <div className="border rounded-lg overflow-hidden mt-4">
-              <div className="bg-amber-50 px-4 py-2 border-b">
-                <h4 className="text-sm font-semibold text-amber-800">ค่าแรง</h4>
+            <div className="flex justify-between items-center mt-4">
+              <h4 className="text-sm font-semibold text-amber-800">ค่าแรง</h4>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 font-medium">ส่วนลดค่าแรงทุกรายการ:</span>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  className="h-8 w-20 text-right text-sm"
+                  onChange={e => {
+                    const pct = Number(e.target.value) || 0
+                    const updated = poModalLabors.map((item: any) => {
+                      const fullAmt = Number(item.priceOffer) || Number(item.priceApprove) || 0
+                      const approvedPrice = Math.round(fullAmt * (1 - pct / 100) * 100) / 100
+                      return {
+                        ...item,
+                        discountPct: pct,
+                        priceOffer: fullAmt,
+                        priceApprove: approvedPrice
+                      }
+                    })
+                    setPoModalLabors(updated)
+                  }}
+                />
+                <span className="text-xs text-gray-500">%</span>
               </div>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden mt-2">
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>
@@ -477,9 +520,11 @@ export function CreatePOModal({
                         className="w-4 h-4"
                       />
                     </TableHead>
-                    <TableHead className="w-12 text-center">ลำดับ</TableHead>
-                    <TableHead>รายการค่าแรง</TableHead>
-                    <TableHead className="w-32 text-right">ราคา</TableHead>
+                    <TableHead className="w-12 text-center text-xs">ลำดับ</TableHead>
+                    <TableHead className="text-xs">รายการค่าแรง</TableHead>
+                    <TableHead className="w-24 text-right text-xs">ราคาเต็ม</TableHead>
+                    <TableHead className="w-20 text-center text-xs">ส่วนลด (%)</TableHead>
+                    <TableHead className="w-28 text-right text-xs">ราคา</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -511,14 +556,49 @@ export function CreatePOModal({
                           }}
                         />
                       </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          className="h-8 text-sm text-right"
+                          value={l.priceOffer ?? ''}
+                          onChange={e => {
+                            const val = Number(e.target.value) || 0
+                            const n = [...poModalLabors]
+                            n[i].priceOffer = val
+                            const pct = Number(l.discountPct) || 0
+                            n[i].priceApprove = Math.round(val * (1 - pct / 100) * 100) / 100
+                            setPoModalLabors(n)
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          className="h-8 text-sm text-center font-medium"
+                          value={l.discountPct ?? ''}
+                          onChange={e => {
+                            const val = Number(e.target.value) || 0
+                            const n = [...poModalLabors]
+                            n[i].discountPct = val
+                            const full = Number(l.priceOffer) || Number(l.priceApprove) || 0
+                            n[i].priceApprove = Math.round(full * (1 - val / 100) * 100) / 100
+                            setPoModalLabors(n)
+                          }}
+                        />
+                      </TableCell>
                       <TableCell className="text-right">
                         <Input
                           type="number"
-                          className="h-8 text-sm text-right w-28 ml-auto"
+                          className="h-8 text-sm text-right w-28 ml-auto font-medium"
                           value={l.priceApprove || ''}
                           onChange={e => {
+                            const val = Number(e.target.value) || 0
                             const n = [...poModalLabors]
-                            n[i].priceApprove = Number(e.target.value)
+                            n[i].priceApprove = val
+                            const full = Number(l.priceOffer) || Number(l.priceApprove) || 0
+                            if (full > 0) {
+                              n[i].discountPct = Math.round(((full - val) / full) * 100 * 100) / 100
+                            }
                             setPoModalLabors(n)
                           }}
                         />
@@ -527,7 +607,7 @@ export function CreatePOModal({
                   ))}
                   {poModalLabors.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4 text-gray-500">ไม่มีรายการค่าแรง</TableCell>
+                      <TableCell colSpan={6} className="text-center py-4 text-gray-500">ไม่มีรายการค่าแรง</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
