@@ -43,7 +43,7 @@ export function CreatePOModal({
   const [poDeliveryAddress, setPoDeliveryAddress] = useState('')
   const [poModalParts, setPoModalParts] = useState<any[]>([])
   const [poModalLabors, setPoModalLabors] = useState<any[]>([])
-  const [poManualItems, setPoManualItems] = useState<{ id: string; description: string; quantity: number; unitPrice: number }[]>([])
+  const [poManualItems, setPoManualItems] = useState<{ id: string; description: string; quantity: number; unitPrice: number; totalPrice?: number }[]>([])
   const [poIncludeVat, setPoIncludeVat] = useState(true)
   const [poVatPct, setPoVatPct] = useState(7)
   const [poCustomVat, setPoCustomVat] = useState<string>('')
@@ -123,13 +123,17 @@ export function CreatePOModal({
     }
     const poNo = editPOId ? purchaseOrders.find(p => p.id === editPOId)?.poNo : undefined
 
-    const partItems = selectedParts.map(p => ({
-      partNo: p.partNo,
-      description: p.partName,
-      quantity: Number(p.quantity) || 1,
-      unitPrice: Number(p.priceApprove) || 0,
-      totalPrice: (Number(p.priceApprove) || 0) * (Number(p.quantity) || 1)
-    }))
+    const partItems = selectedParts.map(p => {
+      const qty = (p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)
+      const calculatedTotal = (Number(p.priceApprove) || 0) * qty
+      return {
+        partNo: p.partNo,
+        description: p.partName,
+        quantity: qty,
+        unitPrice: Number(p.priceApprove) || 0,
+        totalPrice: p.totalPrice !== undefined ? p.totalPrice : calculatedTotal
+      }
+    })
     const laborItems = selectedLabors.map(l => ({
       partNo: '',
       description: `[ค่าแรง] ${l.description}`,
@@ -137,13 +141,17 @@ export function CreatePOModal({
       unitPrice: Number(l.priceApprove) || 0,
       totalPrice: Number(l.priceApprove) || 0
     }))
-    const manualItems = poManualItems.filter(m => m.description.trim()).map(m => ({
-      partNo: '',
-      description: m.description,
-      quantity: Number(m.quantity) || 1,
-      unitPrice: Number(m.unitPrice) || 0,
-      totalPrice: (Number(m.unitPrice) || 0) * (Number(m.quantity) || 1)
-    }))
+    const manualItems = poManualItems.filter(m => m.description.trim()).map(m => {
+      const qty = (m.quantity === undefined || m.quantity === null || (m.quantity as any) === '') ? 1 : Number(m.quantity)
+      const calculatedTotal = (Number(m.unitPrice) || 0) * qty
+      return {
+        partNo: '',
+        description: m.description,
+        quantity: qty,
+        unitPrice: Number(m.unitPrice) || 0,
+        totalPrice: m.totalPrice !== undefined ? m.totalPrice : calculatedTotal
+      }
+    })
 
     const payload = {
       poNo,
@@ -304,6 +312,8 @@ export function CreatePOModal({
                           onChange={e => {
                             const n = [...poModalParts]
                             n[i].quantity = Number(e.target.value)
+                            const qty = (n[i].quantity === undefined || n[i].quantity === null || (n[i].quantity as any) === '') ? 1 : Number(n[i].quantity)
+                            n[i].totalPrice = (Number(n[i].priceApprove) || 0) * qty
                             setPoModalParts(n)
                           }}
                         />
@@ -316,12 +326,26 @@ export function CreatePOModal({
                           onChange={e => {
                             const n = [...poModalParts]
                             n[i].priceApprove = Number(e.target.value)
+                            const qty = (n[i].quantity === undefined || n[i].quantity === null || (n[i].quantity as any) === '') ? 1 : Number(n[i].quantity)
+                            n[i].totalPrice = (Number(n[i].priceApprove) || 0) * qty
                             setPoModalParts(n)
                           }}
                         />
                       </TableCell>
-                      <TableCell className="text-right font-medium text-sm pt-3">
-                        ฿{formatCurrency((Number(p.priceApprove) || 0) * ((p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)))}
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          className="h-8 text-sm text-right w-28 ml-auto"
+                          value={p.totalPrice !== undefined ? p.totalPrice : (Number(p.priceApprove) || 0) * ((p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity))}
+                          onChange={e => {
+                            const val = Number(e.target.value) || 0
+                            const n = [...poModalParts]
+                            n[i].totalPrice = val
+                            const qty = (p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)
+                            n[i].priceApprove = qty > 0 ? (val / qty) : 0
+                            setPoModalParts(n)
+                          }}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -464,6 +488,8 @@ export function CreatePOModal({
                           onChange={e => {
                             const n = [...poManualItems]
                             n[i].quantity = Number(e.target.value)
+                            const qty = (n[i].quantity === undefined || n[i].quantity === null || (n[i].quantity as any) === '') ? 1 : Number(n[i].quantity)
+                            n[i].totalPrice = (Number(n[i].unitPrice) || 0) * qty
                             setPoManualItems(n)
                           }}
                         />
@@ -476,12 +502,26 @@ export function CreatePOModal({
                           onChange={e => {
                             const n = [...poManualItems]
                             n[i].unitPrice = Number(e.target.value)
+                            const qty = (n[i].quantity === undefined || n[i].quantity === null || (n[i].quantity as any) === '') ? 1 : Number(n[i].quantity)
+                            n[i].totalPrice = (Number(n[i].unitPrice) || 0) * qty
                             setPoManualItems(n)
                           }}
                         />
                       </TableCell>
-                      <TableCell className="text-right font-medium text-sm pt-3">
-                        ฿{formatCurrency((Number(m.unitPrice) || 0) * ((m.quantity === undefined || m.quantity === null || (m.quantity as any) === '') ? 1 : Number(m.quantity)))}
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          className="h-8 text-sm text-right w-28 ml-auto"
+                          value={m.totalPrice !== undefined ? m.totalPrice : (Number(m.unitPrice) || 0) * ((m.quantity === undefined || m.quantity === null || (m.quantity as any) === '') ? 1 : Number(m.quantity))}
+                          onChange={e => {
+                            const val = Number(e.target.value) || 0
+                            const n = [...poManualItems]
+                            n[i].totalPrice = val
+                            const qty = (m.quantity === undefined || m.quantity === null || (m.quantity as any) === '') ? 1 : Number(m.quantity)
+                            n[i].unitPrice = qty > 0 ? (val / qty) : 0
+                            setPoManualItems(n)
+                          }}
+                        />
                       </TableCell>
                       <TableCell>
                         <button
