@@ -60,9 +60,25 @@ export function CreatePOModal({
           setPoModalParts(parts.map((p: any) => {
             const existingPoItem = po.items.find((pi: any) => pi.partNo === p.partNo || pi.description === p.partName)
             if (existingPoItem) {
-              return { ...p, selected: true, partName: existingPoItem.description, quantity: existingPoItem.quantity, priceApprove: existingPoItem.unitPrice }
+              return { 
+                ...p, 
+                selected: true, 
+                partName: existingPoItem.description, 
+                quantity: existingPoItem.quantity, 
+                priceFullAmt: p.priceFullAmt ?? existingPoItem.unitPrice,
+                discountPct: p.discountPct ?? 0,
+                priceApprove: existingPoItem.unitPrice,
+                totalPrice: existingPoItem.totalPrice
+              }
             }
-            return { ...p, selected: false }
+            return { 
+              ...p, 
+              selected: false,
+              priceFullAmt: p.priceFullAmt ?? p.priceApprove,
+              discountPct: p.discountPct ?? 0,
+              priceApprove: p.priceApprove,
+              totalPrice: p.priceApprove * p.quantity
+            }
           }))
           setPoModalLabors(labors.map((l: any) => {
             const existingPoItem = po.items.find((pi: any) => pi.description === `[ค่าแรง] ${l.description}`)
@@ -85,7 +101,14 @@ export function CreatePOModal({
         setPoVendorId('')
         setPoVendorName('')
         setPoDeliveryAddress(claim.garage?.name ? `${claim.garage.name}\n${claim.garage.address || ''} ${claim.garage.province || ''}`.trim() : '')
-        setPoModalParts(parts.map(p => ({ ...p, selected: p.status === 'approved' })))
+        setPoModalParts(parts.map(p => ({ 
+          ...p, 
+          selected: p.status === 'approved',
+          priceFullAmt: p.priceFullAmt ?? p.priceApprove,
+          discountPct: p.discountPct ?? 0,
+          priceApprove: p.priceApprove,
+          totalPrice: p.priceApprove * p.quantity
+        })))
         setPoModalLabors(labors.map(l => ({ ...l, selected: false })))
         setPoManualItems([])
         setPoIncludeVat(true)
@@ -249,7 +272,35 @@ export function CreatePOModal({
               </div>
             </div>
 
-            <div className="border rounded-lg overflow-hidden mt-4">
+            <div className="flex justify-between items-center mt-4">
+              <h4 className="text-sm font-semibold text-gray-700">รายการอะไหล่</h4>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 font-medium">ส่วนลดทุกรายการ:</span>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  className="h-8 w-20 text-right text-sm"
+                  onChange={e => {
+                    const pct = Number(e.target.value) || 0
+                    const updated = poModalParts.map(item => {
+                      const fullAmt = Number(item.priceFullAmt) || 0
+                      const approvedPrice = Math.round(fullAmt * (1 - pct / 100) * 100) / 100
+                      const qty = (item.quantity === undefined || item.quantity === null || (item.quantity as any) === '') ? 1 : Number(item.quantity)
+                      return {
+                        ...item,
+                        discountPct: pct,
+                        priceApprove: approvedPrice,
+                        totalPrice: Math.round(approvedPrice * qty * 100) / 100
+                      }
+                    })
+                    setPoModalParts(updated)
+                  }}
+                />
+                <span className="text-xs text-gray-500">%</span>
+              </div>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden mt-2">
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>
@@ -268,11 +319,13 @@ export function CreatePOModal({
                         className="w-4 h-4"
                       />
                     </TableHead>
-                    <TableHead className="w-12 text-center">ลำดับ</TableHead>
-                    <TableHead>รายการอะไหล่</TableHead>
-                    <TableHead className="w-20 text-center">จำนวน</TableHead>
-                    <TableHead className="w-32 text-right">ราคา/หน่วย</TableHead>
-                    <TableHead className="w-32 text-right">รวม</TableHead>
+                    <TableHead className="w-12 text-center text-xs">ลำดับ</TableHead>
+                    <TableHead className="text-xs">รายการอะไหล่</TableHead>
+                    <TableHead className="w-16 text-center text-xs">จำนวน</TableHead>
+                    <TableHead className="w-24 text-right text-xs">ราคาเต็ม</TableHead>
+                    <TableHead className="w-20 text-center text-xs">ส่วนลด (%)</TableHead>
+                    <TableHead className="w-28 text-right text-xs">ราคา/หน่วย</TableHead>
+                    <TableHead className="w-28 text-right text-xs">รวม</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -322,12 +375,51 @@ export function CreatePOModal({
                         <Input
                           type="number"
                           className="h-8 text-sm text-right"
+                          value={p.priceFullAmt ?? ''}
+                          onChange={e => {
+                            const val = Number(e.target.value) || 0
+                            const n = [...poModalParts]
+                            n[i].priceFullAmt = val
+                            const pct = Number(p.discountPct) || 0
+                            n[i].priceApprove = Math.round(val * (1 - pct / 100) * 100) / 100
+                            const qty = (p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)
+                            n[i].totalPrice = Math.round(n[i].priceApprove * qty * 100) / 100
+                            setPoModalParts(n)
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          className="h-8 text-sm text-center font-medium"
+                          value={p.discountPct ?? ''}
+                          onChange={e => {
+                            const val = Number(e.target.value) || 0
+                            const n = [...poModalParts]
+                            n[i].discountPct = val
+                            const full = Number(p.priceFullAmt) || 0
+                            n[i].priceApprove = Math.round(full * (1 - val / 100) * 100) / 100
+                            const qty = (p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)
+                            n[i].totalPrice = Math.round(n[i].priceApprove * qty * 100) / 100
+                            setPoModalParts(n)
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          className="h-8 text-sm text-right"
                           value={p.priceApprove || ''}
                           onChange={e => {
+                            const val = Number(e.target.value) || 0
                             const n = [...poModalParts]
-                            n[i].priceApprove = Number(e.target.value)
-                            const qty = (n[i].quantity === undefined || n[i].quantity === null || (n[i].quantity as any) === '') ? 1 : Number(n[i].quantity)
-                            n[i].totalPrice = (Number(n[i].priceApprove) || 0) * qty
+                            n[i].priceApprove = val
+                            const full = Number(p.priceFullAmt) || 0
+                            if (full > 0) {
+                              n[i].discountPct = Math.round(((full - val) / full) * 100 * 100) / 100
+                            }
+                            const qty = (p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)
+                            n[i].totalPrice = Math.round(val * qty * 100) / 100
                             setPoModalParts(n)
                           }}
                         />
@@ -342,7 +434,11 @@ export function CreatePOModal({
                             const n = [...poModalParts]
                             n[i].totalPrice = val
                             const qty = (p.quantity === undefined || p.quantity === null || (p.quantity as any) === '') ? 1 : Number(p.quantity)
-                            n[i].priceApprove = qty > 0 ? (val / qty) : 0
+                            n[i].priceApprove = qty > 0 ? Math.round((val / qty) * 100) / 100 : 0
+                            const full = Number(p.priceFullAmt) || 0
+                            if (full > 0) {
+                              n[i].discountPct = Math.round(((full - n[i].priceApprove) / full) * 100 * 100) / 100
+                            }
                             setPoModalParts(n)
                           }}
                         />
@@ -351,7 +447,7 @@ export function CreatePOModal({
                   ))}
                   {poModalParts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4 text-gray-500">ไม่มีรายการอะไหล่</TableCell>
+                      <TableCell colSpan={8} className="text-center py-4 text-gray-500">ไม่มีรายการอะไหล่</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
