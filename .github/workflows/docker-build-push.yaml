@@ -31,23 +31,10 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ github.sha }}
 
   deploy:
-    needs: build  # รอ build เสร็จก่อน
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script: |
-            # login ghcr.io บน VPS
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # pull image ใหม่
-            docker pull ghcr.io/${{ github.repository }}:latest
-
-            # restart container
-            cd /home/web/expert
-            docker compose up -d
+      - name: Deploy
+        run: |
+            curl -X POST ${{ secrets.DEPLOY_WEBHOOK }}/deploy-project-expert \
+              -H "X-Secret-Token: ${{ secrets.WEBHOOK_SECRET }}"
