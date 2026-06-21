@@ -56,37 +56,109 @@ async function callClaude(
   throw new Error('AI response was not valid JSON. Preview: ' + raw.substring(0, 300))
 }
 
+// Helper: build image/document block from base64 data string and mime info
+function buildImageBlock(dataUrl: string, mimeHint?: string): any {
+  const base64Data = dataUrl.split(',')[1]
+  if (!base64Data) throw new Error('Invalid file format')
+
+  let mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'application/pdf' = 'image/jpeg'
+  if (mimeHint === 'application/pdf' || dataUrl.startsWith('data:application/pdf')) mediaType = 'application/pdf'
+  else if (mimeHint === 'image/png' || dataUrl.startsWith('data:image/png')) mediaType = 'image/png'
+  else if (mimeHint === 'image/webp' || dataUrl.startsWith('data:image/webp')) mediaType = 'image/webp'
+  else if (mimeHint === 'image/gif') mediaType = 'image/gif'
+
+  const isPDF = mediaType === 'application/pdf'
+  return isPDF
+    ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64Data } }
+    : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } }
+}
+
+// Helper: call Claude with multiple image blocks and a prompt, return parsed JSON
+async function callClaudeMulti(
+  imageBlocks: any[],
+  systemPrompt: string,
+  userText: string
+): Promise<any> {
+  const contentParts = [
+    ...imageBlocks,
+    { type: 'text', text: userText }
+  ]
+
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 8192,
+    temperature: 0,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: contentParts }],
+  })
+
+  const textBlock = response.content.find((b: any) => b.type === 'text') as any
+  if (!textBlock?.text) {
+    throw new Error(`No text in Claude response. stop_reason=${response.stop_reason}`)
+  }
+
+  const raw = textBlock.text
+  console.log(`[extract-claim] stop_reason=${response.stop_reason}, chars=${raw.length}, preview=${raw.substring(0, 150)}`)
+
+  // Save raw response for debugging
+  try {
+    fs.appendFileSync('/tmp/expert-ai-debug.txt', `\n\n--- NEW API CALL ---\nPrompt: ${userText}\nResponse:\n${raw}\n`)
+  } catch(e) {}
+
+  // Try parse strategies
+  try { return JSON.parse(raw.trim()) } catch (_) {}
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fence) { try { return JSON.parse(fence[1].trim()) } catch (_) {} }
+  const first = raw.indexOf('{'), last = raw.lastIndexOf('}')
+  if (first !== -1 && last > first) {
+    try { return JSON.parse(raw.substring(first, last + 1)) } catch (_) {}
+  }
+  const firstArr = raw.indexOf('['), lastArr = raw.lastIndexOf(']')
+  if (firstArr !== -1 && lastArr > firstArr) {
+    try { return JSON.parse(raw.substring(firstArr, lastArr + 1)) } catch (_) {}
+  }
+
+  throw new Error('AI response was not valid JSON. Preview: ' + raw.substring(0, 300))
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { file, mimeType } = body
+    // Support both single file (backward compat) and multiple files
+    // files: [{ data: "data:image/jpeg;base64,...", mimeType: "image/jpeg" }, ...]
+    // OR legacy: { file: "data:...", mimeType: "image/jpeg" }
+    let fileEntries: { data: string; mimeType: string }[] = []
 
-    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    if (body.files && Array.isArray(body.files) && body.files.length > 0) {
+      fileEntries = body.files
+    } else if (body.file) {
+      fileEntries = [{ data: body.file, mimeType: body.mimeType || 'image/jpeg' }]
+    }
+
+    if (fileEntries.length === 0) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: 'API key missing' }, { status: 500 })
 
-    const base64Data = file.split(',')[1]
-    if (!base64Data) return NextResponse.json({ error: 'Invalid file format' }, { status: 400 })
+    console.log(`[extract-claim] Processing ${fileEntries.length} file(s)`)
 
-    const sizeMB = (base64Data.length * 0.75 / 1024 / 1024).toFixed(2)
-    console.log(`[extract-claim] mimeType=${mimeType}, size~${sizeMB}MB`)
+    // Build image blocks for all files
+    const imageBlocks = fileEntries.map((f, idx) => {
+      const block = buildImageBlock(f.data, f.mimeType)
+      const base64Data = f.data.split(',')[1]
+      const sizeMB = (base64Data.length * 0.75 / 1024 / 1024).toFixed(2)
+      console.log(`[extract-claim] File ${idx + 1}: mimeType=${f.mimeType}, size~${sizeMB}MB`)
+      return block
+    })
 
-    // Determine media type
-    let mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'application/pdf' = 'image/jpeg'
-    if (mimeType === 'application/pdf' || file.startsWith('data:application/pdf')) mediaType = 'application/pdf'
-    else if (mimeType === 'image/png' || file.startsWith('data:image/png')) mediaType = 'image/png'
-    else if (mimeType === 'image/webp' || file.startsWith('data:image/webp')) mediaType = 'image/webp'
-    else if (mimeType === 'image/gif') mediaType = 'image/gif'
-
-    const isPDF = mediaType === 'application/pdf'
-    const imageBlock: any = isPDF
-      ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64Data } }
-      : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } }
+    const multiPageNote = fileEntries.length > 1
+      ? `\nIMPORTANT: You are looking at ${fileEntries.length} images/pages of the SAME claim document. Combine information from ALL pages to build the complete data. If the same field appears on multiple pages, use the most complete/clear value.`
+      : ''
 
     // ─── PASS 1: Extract claim metadata, car info, and summary totals ───────────
     const systemPass1 = `You are an expert at extracting data from Thai vehicle insurance claim documents.
 The document is EITHER:
   (A) A screenshot from the eGarage insurance system — shows a left sidebar with claim info fields and two tables.
   (B) A standard paper/PDF claim estimate form.
+${multiPageNote}
 
 For Type A (eGarage), the LEFT SIDEBAR contains:
   - "เลขที่-Claim" or "Claim:" = claimNo
@@ -112,6 +184,7 @@ RULES:
 The document is EITHER:
   (A) eGarage screenshot — has two tables: "รายการค่าแรง" (labor) and "รายการค่าอะไหล่" (parts).
   (B) Standard paper/PDF claim form.
+${multiPageNote}
 
 For eGarage (Type A):
 LABOR TABLE columns: #, Group, รายการ, เส้นหาย, %, ระดับเสียหาย+ราคาเสนอ, ระดับเสียหาย+ราคาอนุมัติ, รูป, ครั้งที่, สถานะ, EV
@@ -137,12 +210,12 @@ PARTS TABLE — split into two side-by-side sections:
 
 RULES:
 - Output ONLY valid JSON array pairs, no markdown.
-- Extract ALL rows. To save space, do NOT use "value" and "confidence" wrappers. Use flat keys.
+- Extract ALL rows from ALL pages/images. Do NOT skip any rows. Combine data from all pages. Do NOT duplicate rows that appear on multiple pages.
 - Numbers: strip commas. Missing = 0.`
 
     // ─── EXECUTE PASS 1 AND PASS 2 IN PARALLEL ──────────────────────────────
     const [metaData, lineItemsFlat] = await Promise.all([
-      callClaude(imageBlock, systemPass1, `Extract ONLY the claim metadata, car info, and summary totals from this document.
+      callClaudeMulti(imageBlocks, systemPass1, `Extract ONLY the claim metadata, car info, and summary totals from ${fileEntries.length > 1 ? 'these document pages' : 'this document'}.
 Output this exact JSON structure:
 {
   "claim": {
@@ -173,7 +246,7 @@ Output this exact JSON structure:
   }
 }`),
       
-      callClaude(imageBlock, systemPass2, `Extract ALL labor rows and ALL parts rows from this document.
+      callClaudeMulti(imageBlocks, systemPass2, `Extract ALL labor rows and ALL parts rows from ${fileEntries.length > 1 ? 'these document pages' : 'this document'}.
 Output this exact flat JSON structure:
 {
   "labors": [

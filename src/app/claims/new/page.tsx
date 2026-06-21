@@ -13,7 +13,10 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowLeft,
-  FileSpreadsheet
+  FileSpreadsheet,
+  X,
+  Plus,
+  ImageIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -67,6 +70,12 @@ const emptyDataTemplate = {
   validation: { passed: true, warnings: [] }
 }
 
+interface SelectedFile {
+  file: File
+  preview: string // object URL or icon placeholder
+  id: string
+}
+
 export default function NewClaimPage() {
   const router = useRouter()
   const [step, setStep] = useState<'choose' | 'upload' | 'processing' | 'form' | 'import'>('choose')
@@ -84,6 +93,7 @@ export default function NewClaimPage() {
   const [isManualMode, setIsManualMode] = useState(false)
   const [partsMaster, setPartsMaster] = useState<any[]>([])
   const [toast, setToast] = useState<string | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([])
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -98,6 +108,15 @@ export default function NewClaimPage() {
       })
       .catch(console.error)
   }, [])
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      selectedFiles.forEach(sf => {
+        if (sf.preview.startsWith('blob:')) URL.revokeObjectURL(sf.preview)
+      })
+    }
+  }, [selectedFiles])
 
   const startManual = () => {
     setData(JSON.parse(JSON.stringify(emptyDataTemplate)))
@@ -138,7 +157,33 @@ export default function NewClaimPage() {
     })
   }
 
-  const handleExtract = useCallback(async (file: File) => {
+  const addFiles = (files: FileList | File[]) => {
+    const newFiles: SelectedFile[] = Array.from(files).map(file => {
+      const isImage = file.type.startsWith('image/')
+      const preview = isImage ? URL.createObjectURL(file) : 'pdf'
+      return {
+        file,
+        preview,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      }
+    })
+    setSelectedFiles(prev => [...prev, ...newFiles])
+  }
+
+  const removeFile = (id: string) => {
+    setSelectedFiles(prev => {
+      const file = prev.find(f => f.id === id)
+      if (file && file.preview.startsWith('blob:')) URL.revokeObjectURL(file.preview)
+      return prev.filter(f => f.id !== id)
+    })
+  }
+
+  const handleExtractMultiple = useCallback(async () => {
+    if (selectedFiles.length === 0) {
+      showToast('⚠️ กรุณาเลือกไฟล์อย่างน้อย 1 ไฟล์')
+      return
+    }
+
     setStep('processing')
     setProcessingStep(0)
     setIsManualMode(false)
@@ -147,13 +192,19 @@ export default function NewClaimPage() {
     }, 2000)
 
     try {
-      const base64data = await compressImage(file)
-      const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg'
+      // Compress all images in parallel
+      const filesData = await Promise.all(
+        selectedFiles.map(async (sf) => {
+          const base64data = await compressImage(sf.file)
+          const mimeType = sf.file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg'
+          return { data: base64data, mimeType }
+        })
+      )
 
       const res = await fetch('/api/ai/extract-claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: base64data, mimeType })
+        body: JSON.stringify({ files: filesData })
       })
 
       const result = await res.json()
@@ -178,18 +229,20 @@ export default function NewClaimPage() {
       showToast('❌ เกิดข้อผิดพลาด: ' + (err?.message || 'ไม่สามารถเชื่อมต่อ AI ได้'))
       setStep('upload')
     }
-  }, [])
+  }, [selectedFiles])
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) handleExtract(file)
+    const files = e.target.files
+    if (files && files.length > 0) addFiles(files)
+    // Reset input so the same file can be selected again
+    e.target.value = ''
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDragOver(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file) handleExtract(file)
+    const files = e.dataTransfer.files
+    if (files && files.length > 0) addFiles(files)
   }
 
   const handleSave = async () => {
@@ -250,7 +303,7 @@ export default function NewClaimPage() {
                 <Sparkles className="w-7 h-7 text-white" />
               </div>
               <h3 className="text-lg font-semibold text-[#0f172a] mb-2">AI อ่านเอกสาร</h3>
-              <p className="text-sm text-[#475569] mb-4">อัพโหลดภาพหรือ PDF เอกสาร Claim<br/>AI จะช่วยกรอกข้อมูลให้อัตโนมัติ</p>
+              <p className="text-sm text-[#475569] mb-4">อัพโหลดภาพหรือ PDF เอกสาร Claim<br/>AI จะช่วยกรอกข้อมูลให้อัตโนมัติ<br/><span className="text-[#1d4ed8] font-medium">รองรับหลายภาพพร้อมกัน</span></p>
               <div className="flex flex-wrap justify-center gap-1.5">
                 {['JPG', 'PNG', 'PDF', 'HEIC'].map(f => (
                   <span key={f} className="px-2 py-0.5 rounded bg-[#eff6ff] text-[#1d4ed8] text-[10px] font-medium">{f}</span>
@@ -417,37 +470,106 @@ export default function NewClaimPage() {
           </div>
         )}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setStep('choose')}><ArrowLeft className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => { setStep('choose'); setSelectedFiles([]) }}><ArrowLeft className="w-5 h-5" /></Button>
           <div>
             <h1 className="text-2xl font-bold text-[#0f172a]">AI อ่านเอกสาร</h1>
-            <p className="text-sm text-[#94a3b8] mt-1">อัพโหลดเอกสาร Claim เพื่อให้ AI ช่วยกรอกข้อมูล</p>
+            <p className="text-sm text-[#94a3b8] mt-1">อัพโหลดเอกสาร Claim เพื่อให้ AI ช่วยกรอกข้อมูล — รองรับหลายภาพพร้อมกัน</p>
           </div>
         </div>
 
         <Card>
           <CardContent className="p-8">
+            {/* Drop zone */}
             <div
               onDragOver={e => { e.preventDefault(); setDragOver(true) }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               className={cn(
-                "border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer",
+                "border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer",
                 dragOver ? "border-[#1d4ed8] bg-[#eff6ff] scale-[1.01]" : "border-gray-300 hover:border-[#1d4ed8] hover:bg-[#f8faff]"
               )}
               onClick={() => document.getElementById('file-upload')?.click()}
             >
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-[#1d4ed8] to-[#3b82f6] flex items-center justify-center mb-4 shadow-lg">
-                <Upload className="w-7 h-7 text-white" />
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#1d4ed8] to-[#3b82f6] flex items-center justify-center mb-3 shadow-lg">
+                <Upload className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-[#0f172a] mb-2">ลากไฟล์มาวางที่นี่</h3>
-              <p className="text-sm text-[#94a3b8] mb-4">หรือคลิกเพื่อเลือกไฟล์</p>
-              <p className="text-xs text-[#94a3b8]">รองรับ JPG, PNG, WEBP, HEIC, PDF — ขนาดสูงสุด 20MB</p>
-              <input id="file-upload" type="file" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf" className="hidden" onChange={onFileChange} />
+              <h3 className="text-base font-semibold text-[#0f172a] mb-1">ลากไฟล์มาวางที่นี่ หรือ คลิกเพื่อเลือกไฟล์</h3>
+              <p className="text-xs text-[#94a3b8]">รองรับ JPG, PNG, WEBP, HEIC, PDF — เลือกได้หลายไฟล์พร้อมกัน</p>
+              <input id="file-upload" type="file" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf" className="hidden" onChange={onFileChange} multiple />
             </div>
 
+            {/* Selected files preview */}
+            {selectedFiles.length > 0 && (
+              <div className="mt-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-[#0f172a] flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-[#1d4ed8]" />
+                    ไฟล์ที่เลือก ({selectedFiles.length} ไฟล์)
+                  </h4>
+                  <button
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    className="text-xs text-[#1d4ed8] hover:text-[#1d4ed8]/80 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    เพิ่มไฟล์
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {selectedFiles.map((sf) => (
+                    <div key={sf.id} className="relative group rounded-xl border border-gray-200 overflow-hidden bg-gray-50 aspect-square">
+                      {sf.preview === 'pdf' ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 p-3">
+                          <FileText className="w-10 h-10 text-red-500" />
+                          <span className="text-[10px] text-[#475569] text-center truncate w-full px-1">{sf.file.name}</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={sf.preview}
+                          alt={sf.file.name}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                      {/* Remove button */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeFile(sf.id) }}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      {/* File name overlay */}
+                      {sf.preview !== 'pdf' && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-6">
+                          <span className="text-[10px] text-white truncate block">{sf.file.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Add more button tile */}
+                  <div
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    className="rounded-xl border-2 border-dashed border-gray-300 hover:border-[#1d4ed8] aspect-square flex flex-col items-center justify-center gap-1 cursor-pointer transition-all duration-200 hover:bg-[#f8faff]"
+                  >
+                    <Plus className="w-6 h-6 text-gray-400" />
+                    <span className="text-[10px] text-gray-400">เพิ่มรูป</span>
+                  </div>
+                </div>
+
+                {/* Extract button */}
+                <Button
+                  onClick={handleExtractMultiple}
+                  className="w-full bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] hover:from-[#1e40af] hover:to-[#2563eb] text-white shadow-lg h-12 text-base font-semibold"
+                >
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  ให้ AI อ่านเอกสาร {selectedFiles.length > 1 ? `ทั้ง ${selectedFiles.length} ไฟล์` : ''}
+                </Button>
+              </div>
+            )}
+
             <div className="mt-6 flex items-center gap-3 text-sm text-[#475569]">
-              <Sparkles className="w-5 h-5 text-[#1d4ed8]" />
-              <span>AI จะอ่านเอกสารและกรอกข้อมูลให้อัตโนมัติ — คุณสามารถแก้ไขทุก field ได้ภายหลัง</span>
+              <Sparkles className="w-5 h-5 text-[#1d4ed8] flex-shrink-0" />
+              <span>AI จะอ่านเอกสารทุกหน้าพร้อมกันและกรอกข้อมูลให้อัตโนมัติ — คุณสามารถแก้ไขทุก field ได้ภายหลัง</span>
             </div>
           </CardContent>
         </Card>
@@ -463,7 +585,10 @@ export default function NewClaimPage() {
             <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#1d4ed8] to-[#3b82f6] flex items-center justify-center mb-6 animate-pulse-soft shadow-xl">
               <Sparkles className="w-9 h-9 text-white" />
             </div>
-            <h2 className="text-xl font-bold text-[#0f172a] mb-6">AI กำลังอ่านเอกสาร</h2>
+            <h2 className="text-xl font-bold text-[#0f172a] mb-2">AI กำลังอ่านเอกสาร</h2>
+            {selectedFiles.length > 1 && (
+              <p className="text-sm text-[#94a3b8] mb-4">กำลังวิเคราะห์ {selectedFiles.length} ไฟล์พร้อมกัน</p>
+            )}
             <div className="space-y-3 text-left">
               {processingSteps.map((s, i) => (
                 <div key={i} className="flex items-center gap-3">
@@ -500,3 +625,4 @@ export default function NewClaimPage() {
 
   return null
 }
+
