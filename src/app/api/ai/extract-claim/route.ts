@@ -146,6 +146,12 @@ export async function POST(request: NextRequest) {
       const base64Data = f.data.split(',')[1]
       const sizeMB = (base64Data.length * 0.75 / 1024 / 1024).toFixed(2)
       console.log(`[extract-claim] File ${idx + 1}: mimeType=${f.mimeType}, size~${sizeMB}MB`)
+      
+      // Cache the prefix up to the last image/document block to save input tokens
+      if (idx === fileEntries.length - 1) {
+        block.cache_control = { type: 'ephemeral' }
+      }
+      
       return block
     })
 
