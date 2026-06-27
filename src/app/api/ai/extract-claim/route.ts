@@ -146,12 +146,6 @@ export async function POST(request: NextRequest) {
       const base64Data = f.data.split(',')[1]
       const sizeMB = (base64Data.length * 0.75 / 1024 / 1024).toFixed(2)
       console.log(`[extract-claim] File ${idx + 1}: mimeType=${f.mimeType}, size~${sizeMB}MB`)
-      
-      // Cache the prefix up to the last image/document block to save input tokens
-      if (idx === fileEntries.length - 1) {
-        block.cache_control = { type: 'ephemeral' }
-      }
-      
       return block
     })
 
@@ -159,10 +153,9 @@ export async function POST(request: NextRequest) {
       ? `\nIMPORTANT: You are looking at ${fileEntries.length} images/pages of the SAME claim document. Combine information from ALL pages to build the complete data. If the same field appears on multiple pages, use the most complete/clear value.`
       : ''
 
-    // ─── PASS 1: Extract claim metadata, car info, and summary totals ───────────
-    const systemPass1 = `You are an expert at extracting data from Thai vehicle insurance claim documents.
+    const systemCombined = `You are an expert at extracting data from Thai vehicle insurance claim documents.
 The document is EITHER:
-  (A) A screenshot from the eGarage insurance system — shows a left sidebar with claim info fields and two tables.
+  (A) A screenshot from the eGarage insurance system — shows a left sidebar with claim info fields on the first page, and two tables (labor & parts) spread across the pages.
   (B) A standard paper/PDF claim estimate form.
 ${multiPageNote}
 
@@ -181,47 +174,34 @@ For Type A (eGarage), the LEFT SIDEBAR contains:
   - "วันที่ส่ง" = sentAt
   Summary totals: look for "รวม" rows in tables, use "ราคาอนุมัติ" column value.
 
+For eGarage (Type A) Table sections:
+  LABOR TABLE columns: #, Group, รายการ, เส้นหาย, %, ระดับเสียหาย+ราคาเสนอ, ระดับเสียหาย+ราคาอนุมัติ, รูป, ครั้งที่, สถานะ, EV
+    - description = "รายการ" column text
+    - damageLevel = text inside () in ระดับเสียหาย
+    - priceOffer = ราคาเสนอ amount
+    - priceApprove = ราคาอนุมัติ amount
+    - discountPct = % column
+    - SKIP rows labeled "ส่วนลด/ส่วนเพิ่ม", "คงเหลือ", "รวม"
+
+  PARTS TABLE — split into two side-by-side sections (Left: "ศูนย์/ผู้ซ่อม" | Right: "บริษัทประกัน"):
+    - partNo = หมายเลขอะไหล่
+    - partName = รายการ
+    - priceFull = ราคาเดิม
+    - quantity = จำนวน
+    - damageType = ประเภท under ศูนย์
+    - priceOffer = ราคาเสนอ under ศูนย์
+    - priceApprove = ราคาอนุมัติ under บริษัทประกัน (RIGHT section)
+    - discountPct = % under บริษัทประกัน
+    - requireReturn = true if row has red "คืนซาก" tag
+    - If "สถานะ" column says "ไม่อนุมัติ", set priceApprove = 0
+
 RULES:
 - Output ONLY valid JSON, no markdown, no explanation.
-- Numbers: strip commas (7,399.25 -> 7399.25). Missing = 0 or "".
-- confidence: 90-100=clear, 70-89=readable, 50-69=guessed, 0-49=missing.`
+- Numbers: strip commas (e.g. 7,399.25 -> 7399.25). Missing = 0 or "".
+- confidence: 90-100=clear, 70-89=readable, 50-69=guessed, 0-49=missing.
+- Extract ALL labor and parts rows from ALL pages/images. Do NOT skip any rows. Combine data from all pages. Do NOT duplicate rows that appear on multiple pages.`
 
-    const systemPass2 = `You are an expert at extracting tabular data from Thai vehicle insurance claim documents.
-The document is EITHER:
-  (A) eGarage screenshot — has two tables: "รายการค่าแรง" (labor) and "รายการค่าอะไหล่" (parts).
-  (B) Standard paper/PDF claim form.
-${multiPageNote}
-
-For eGarage (Type A):
-LABOR TABLE columns: #, Group, รายการ, เส้นหาย, %, ระดับเสียหาย+ราคาเสนอ, ระดับเสียหาย+ราคาอนุมัติ, รูป, ครั้งที่, สถานะ, EV
-  - description = "รายการ" column text
-  - damageLevel = text inside () in ระดับเสียหาย
-  - priceOffer = ราคาเสนอ amount
-  - priceApprove = ราคาอนุมัติ amount
-  - discountPct = % column
-  - SKIP rows labeled "ส่วนลด/ส่วนเพิ่ม", "คงเหลือ", "รวม"
-
-PARTS TABLE — split into two side-by-side sections:
-  Left: "ศูนย์/ผู้ซ่อม" | Right: "บริษัทประกัน"
-  - partNo = หมายเลขอะไหล่
-  - partName = รายการ
-  - priceFull = ราคาเดิม
-  - quantity = จำนวน
-  - damageType = ประเภท under ศูนย์
-  - priceOffer = ราคาเสนอ under ศูนย์
-  - priceApprove = ราคาอนุมัติ under บริษัทประกัน (RIGHT section)
-  - discountPct = % under บริษัทประกัน
-  - requireReturn = true if row has red "คืนซาก" tag
-  - If "สถานะ" column says "ไม่อนุมัติ", set priceApprove = 0
-
-RULES:
-- Output ONLY valid JSON array pairs, no markdown.
-- Extract ALL rows from ALL pages/images. Do NOT skip any rows. Combine data from all pages. Do NOT duplicate rows that appear on multiple pages.
-- Numbers: strip commas. Missing = 0.`
-
-    // ─── EXECUTE PASS 1 AND PASS 2 IN PARALLEL ──────────────────────────────
-    const [metaData, lineItemsFlat] = await Promise.all([
-      callClaudeMulti(imageBlocks, systemPass1, `Extract ONLY the claim metadata, car info, and summary totals from ${fileEntries.length > 1 ? 'these document pages' : 'this document'}.
+    const userPromptCombined = `Extract all data including claim metadata, car info, summary totals, and all labor and parts line items from ${fileEntries.length > 1 ? 'these document pages' : 'this document'}.
 Output this exact JSON structure:
 {
   "claim": {
@@ -249,12 +229,7 @@ Output this exact JSON structure:
     "vat": { "value": 0, "confidence": 0 },
     "grandTotal": { "value": 0, "confidence": 0 },
     "deductible": { "value": 0, "confidence": 0 }
-  }
-}`),
-      
-      callClaudeMulti(imageBlocks, systemPass2, `Extract ALL labor rows and ALL parts rows from ${fileEntries.length > 1 ? 'these document pages' : 'this document'}.
-Output this exact flat JSON structure:
-{
+  },
   "labors": [
     {
       "description": "",
@@ -278,18 +253,19 @@ Output this exact flat JSON structure:
       "requireReturn": false
     }
   ]
-}`)
-    ])
+}`
 
-    // ─── Merge both passes & re-wrap line items ─────────────────────────────────
-    console.log(`[extract-claim] Pass2 labors=${lineItemsFlat.labors?.length ?? 'undefined'}, parts=${lineItemsFlat.parts?.length ?? 'undefined'}`)
-    if (!lineItemsFlat.labors?.length && !lineItemsFlat.parts?.length) {
-      console.warn('[extract-claim] Pass2 returned empty labors and parts. lineItems keys:', Object.keys(lineItemsFlat))
+    // ─── EXECUTE SINGLE PASS EXTRACTION ──────────────────────────────
+    const extractedData = await callClaudeMulti(imageBlocks, systemCombined, userPromptCombined)
+
+    console.log(`[extract-claim] Extraction completed. labors=${extractedData.labors?.length ?? 'undefined'}, parts=${extractedData.parts?.length ?? 'undefined'}`)
+    if (!extractedData.labors?.length && !extractedData.parts?.length) {
+      console.warn('[extract-claim] Returned empty labors and parts. Keys:', Object.keys(extractedData))
     }
 
     const wrap = (val: any) => ({ value: val, confidence: 90 })
 
-    const laborsWrapped = (lineItemsFlat.labors || []).map((l: any) => ({
+    const laborsWrapped = (extractedData.labors || []).map((l: any) => ({
       description: wrap(l.description || ""),
       damageLevel: wrap(l.damageLevel || ""),
       discountPct: wrap(l.discountPct || 0),
@@ -297,7 +273,7 @@ Output this exact flat JSON structure:
       priceApprove: wrap(l.priceApprove || 0)
     }))
 
-    const partsWrapped = (lineItemsFlat.parts || []).map((p: any) => ({
+    const partsWrapped = (extractedData.parts || []).map((p: any) => ({
       partNo: wrap(p.partNo || ""),
       partName: wrap(p.partName || ""),
       priceFull: wrap(p.priceFull || 0),
@@ -318,7 +294,9 @@ Output this exact flat JSON structure:
     })
 
     const result = {
-      ...metaData,
+      claim: extractedData.claim || {},
+      car: extractedData.car || {},
+      summary: extractedData.summary || {},
       labors: laborsWrapped,
       parts: partsWrapped,
       validation: {
