@@ -19,8 +19,12 @@ const statusColor = (s: string) => {
   return 'bg-amber-100 text-amber-700'
 }
 const statusLabel = (s: string) => s === 'APPROVED' ? 'อนุมัติแล้ว' : s === 'REJECTED' ? 'ถูกปฏิเสธ' : 'รออนุมัติ'
-const typeLabel = (t: string) => t === 'AP_VENDOR' ? 'AP Vendor (จ่ายผู้จัดจำหน่าย)' : t === 'AP_GARAGE' ? 'AP อู่ (จ่ายค่าแรง)' : 'AR ประกัน (รับเงิน)'
-const typeBadge = (t: string) => t === 'AR' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+const typeLabel = (t: string) => {
+  if (t === 'AP_VENDOR') return 'จ่ายร้านค้า (AP)'
+  if (t === 'AP_GARAGE') return 'จ่ายอู่ (AP)'
+  return 'รับเงิน (AR)'
+}
+const typeBadge = (t: string) => t === 'AR' || t === 'AR_INSURANCE' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
 
 export default function PaymentsPage() {
   const [requests, setRequests] = useState<any[]>([])
@@ -188,44 +192,53 @@ export default function PaymentsPage() {
 
   const renderRow = (pr: any, index: number) => {
     const seq = (currentPage - 1) * itemsPerPage + index + 1
+    const receiverName = pr.vendorName || pr.garageName || pr.insuranceName || '-'
     return (
-      <TableRow key={pr.id}>
-        <TableCell className="text-center text-xs font-medium text-[#475569]">{seq}</TableCell>
-        <TableCell className="text-xs text-[#94a3b8]">{formatDate(pr.createdAt)}</TableCell>
-        <TableCell><Badge className={`${typeBadge(pr.requestType)} border-none text-[10px]`}>{typeLabel(pr.requestType)}</Badge></TableCell>
-      <TableCell>
-        <a href={`/claims/${pr.claimId}?tab=supplier-inv`} target="_blank" rel="noreferrer" className="font-semibold text-[#1d4ed8] hover:underline">
-          {pr.claimNo}
-        </a>
-      </TableCell>
-      <TableCell className="text-xs">{pr.carPlate}</TableCell>
-      <TableCell className="text-sm">
-        {pr.vendorName || pr.garageName || pr.insuranceName}
-      </TableCell>
-      <TableCell className="font-mono text-xs">{pr.invoiceNo || '-'}</TableCell>
-      <TableCell className="text-right font-semibold">฿{formatCurrency(pr.amount)}</TableCell>
-      <TableCell className="text-xs">{pr.createdBy}</TableCell>
-      <TableCell><Badge className={`${statusColor(pr.status)} border-none text-[10px]`}>{statusLabel(pr.status)}</Badge></TableCell>
-      <TableCell>
-        <div className="flex gap-1.5 items-center">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-7 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50 font-medium" 
-            onClick={() => setSelectedPR(pr)}
-          >
-            ตรวจสอบ
-          </Button>
-          {pr.status === 'PENDING_APPROVAL' && (
-            <>
-              <Button size="sm" className="h-7 text-[10px] bg-green-600 hover:bg-green-700 font-medium" onClick={() => { setApproveNote(''); setActiveModal({ type: 'approve', pr }) }}>Approve</Button>
-              <Button size="sm" variant="destructive" className="h-7 text-[10px] font-medium" onClick={() => { setRejectReason(''); setActiveModal({ type: 'reject', pr }) }}>Reject</Button>
-            </>
-          )}
-          {pr.status === 'REJECTED' && <span className="text-[10px] text-red-500 max-w-[120px] truncate font-medium" title={pr.rejectReason}>{pr.rejectReason}</span>}
-        </div>
-      </TableCell>
-    </TableRow>
+      <TableRow key={pr.id} className="hover:bg-slate-50/50">
+        <TableCell className="py-2.5 text-center text-xs font-medium text-[#475569] whitespace-nowrap">{seq}</TableCell>
+        <TableCell className="py-2.5 text-xs text-[#94a3b8] whitespace-nowrap">{formatDate(pr.createdAt)}</TableCell>
+        <TableCell className="py-2.5 whitespace-nowrap">
+          <Badge className={`${typeBadge(pr.requestType)} border-none text-[10px] whitespace-nowrap py-0.5 px-2`}>
+            {typeLabel(pr.requestType)}
+          </Badge>
+        </TableCell>
+        <TableCell className="py-2.5 whitespace-nowrap">
+          <a href={`/claims/${pr.claimId}?tab=supplier-inv`} target="_blank" rel="noreferrer" className="font-semibold text-[#1d4ed8] hover:underline text-sm">
+            {pr.claimNo}
+          </a>
+        </TableCell>
+        <TableCell className="py-2.5 text-xs whitespace-nowrap font-medium text-slate-700">{pr.carPlate}</TableCell>
+        <TableCell className="py-2.5 text-sm text-slate-700 max-w-[200px] truncate font-medium" title={receiverName}>
+          {receiverName}
+        </TableCell>
+        <TableCell className="py-2.5 font-mono text-xs text-slate-500 whitespace-nowrap">{pr.invoiceNo || '-'}</TableCell>
+        <TableCell className="py-2.5 text-right font-semibold text-slate-900 whitespace-nowrap">฿{formatCurrency(pr.amount)}</TableCell>
+        <TableCell className="py-2.5 text-xs text-[#64748b] whitespace-nowrap">{pr.createdBy}</TableCell>
+        <TableCell className="py-2.5 whitespace-nowrap">
+          <Badge className={`${statusColor(pr.status)} border-none text-[10px] whitespace-nowrap py-0.5 px-2`}>
+            {statusLabel(pr.status)}
+          </Badge>
+        </TableCell>
+        <TableCell className="py-2.5 whitespace-nowrap">
+          <div className="flex gap-1 items-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50 font-medium px-2" 
+              onClick={() => setSelectedPR(pr)}
+            >
+              ตรวจสอบ
+            </Button>
+            {pr.status === 'PENDING_APPROVAL' && (
+              <>
+                <Button size="sm" className="h-7 text-[10px] bg-green-600 hover:bg-green-700 font-medium px-2.5" onClick={() => { setApproveNote(''); setActiveModal({ type: 'approve', pr }) }}>Approve</Button>
+                <Button size="sm" variant="destructive" className="h-7 text-[10px] font-medium px-2.5" onClick={() => { setRejectReason(''); setActiveModal({ type: 'reject', pr }) }}>Reject</Button>
+              </>
+            )}
+            {pr.status === 'REJECTED' && <span className="text-[10px] text-red-500 max-w-[120px] truncate font-medium ml-1" title={pr.rejectReason}>{pr.rejectReason}</span>}
+          </div>
+        </TableCell>
+      </TableRow>
     )
   }
 
@@ -293,11 +306,17 @@ export default function PaymentsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-[#f8faff]">
-                          <TableHead className="text-center w-[70px]">ลำดับที่</TableHead>
-                          <TableHead>วันที่</TableHead><TableHead>ประเภท</TableHead><TableHead>Claim No.</TableHead>
-                          <TableHead>ทะเบียน</TableHead><TableHead>ผู้รับเงิน</TableHead><TableHead>Invoice No.</TableHead>
-                          <TableHead className="text-right">ยอด</TableHead><TableHead>สร้างโดย</TableHead>
-                          <TableHead>สถานะ</TableHead><TableHead>Action</TableHead>
+                          <TableHead className="text-center w-[70px] whitespace-nowrap">ลำดับที่</TableHead>
+                          <TableHead className="whitespace-nowrap">วันที่</TableHead>
+                          <TableHead className="whitespace-nowrap">ประเภท</TableHead>
+                          <TableHead className="whitespace-nowrap">Claim No.</TableHead>
+                          <TableHead className="whitespace-nowrap">ทะเบียน</TableHead>
+                          <TableHead className="whitespace-nowrap">ผู้รับเงิน</TableHead>
+                          <TableHead className="whitespace-nowrap">Invoice No.</TableHead>
+                          <TableHead className="text-right whitespace-nowrap">ยอด</TableHead>
+                          <TableHead className="whitespace-nowrap">สร้างโดย</TableHead>
+                          <TableHead className="whitespace-nowrap">สถานะ</TableHead>
+                          <TableHead className="whitespace-nowrap">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
