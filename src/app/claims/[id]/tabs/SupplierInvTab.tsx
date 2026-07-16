@@ -334,7 +334,7 @@ export default function SupplierInvTab({
                       {pr?.status === 'REJECTED' && (
                         <Badge className="border-none text-[10px] bg-red-100 text-red-700">ถูกปฏิเสธ: {pr.rejectReason}</Badge>
                       )}
-                      {!inv.apPayment && !pr && (
+                       {!inv.apPayment && (!pr || pr.status === 'REJECTED') && (
                         <Button
                           variant="outline"
                           size="sm"

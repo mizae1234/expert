@@ -99,6 +99,9 @@ export async function DELETE(
       })
     }
 
+    // Delete related payment requests
+    await prisma.paymentRequest.deleteMany({ where: { garageInvoiceId: invoiceId } })
+
     await prisma.garageInvoiceItem.deleteMany({ where: { garageInvoiceId: invoiceId } })
     await prisma.garageInvoice.delete({ where: { id: invoiceId } })
 

@@ -166,6 +166,9 @@ export async function DELETE(
       })
     }
 
+    // Delete related payment requests
+    await prisma.paymentRequest.deleteMany({ where: { supplierInvoiceId: invoiceId } })
+
     // Delete items first, then invoice
     await prisma.supplierInvoiceItem.deleteMany({ where: { supplierInvoiceId: invoiceId } })
     await prisma.supplierInvoice.delete({ where: { id: invoiceId } })
