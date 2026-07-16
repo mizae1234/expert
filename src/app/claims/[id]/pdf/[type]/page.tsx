@@ -525,6 +525,294 @@ export default function PDFMockPage() {
     )
   }
 
+  if (type === 'insurance-receipt') {
+    const inv = claim.insuranceInvoice
+    if (!inv) return <div className="p-8 text-center">ยังไม่ได้ออกใบวางบิล</div>
+    const arPayment = inv.arPayment
+    if (!arPayment) return <div className="p-8 text-center">ยังไม่มีการรับชำระเงิน</div>
+
+    const companyName = company.name || '-'
+    const companyAddress = [
+      company.address,
+      company.subDistrict,
+      company.district,
+      company.province,
+      company.postalCode
+    ].filter(Boolean).join(' ').trim() || '-'
+    const companyTaxId = company.taxId || '-'
+    const companyPhone = company.phone || '-'
+    const companyEmail = company.email || '-'
+    const companyWebsite = company.website || '-'
+
+    const receiptNo = inv.invoiceNo.replace(/^[A-Z]+/i, 'RE')
+    const paymentDate = arPayment.receivedAt
+
+    // Prepare table items from claim.labors and claim.parts
+    const tableItems: any[] = []
+    
+    if (claim.labors && claim.labors.length > 0) {
+      claim.labors.forEach((l: any) => {
+        const discountAmount = l.priceOffer > l.priceApprove ? (l.priceOffer - l.priceApprove) : 0
+        tableItems.push({
+          title: 'ค่าแรงซ่อมทำสี (P00030)', // Using a color labor code as per the screenshot or general labor
+          description: l.description,
+          quantity: 1,
+          price: l.priceOffer || l.priceApprove,
+          discount: discountAmount,
+          vat: '7%',
+          total: l.priceApprove
+        })
+      })
+    } else if (inv.laborTotal > 0) {
+      tableItems.push({
+        title: 'ค่าแรงซ่อมทำสี (P00030)',
+        description: 'ค่าแรงซ่อมรถยนต์',
+        quantity: 1,
+        price: inv.laborTotal,
+        discount: 0,
+        vat: '7%',
+        total: inv.laborTotal
+      })
+    }
+
+    if (claim.parts && claim.parts.length > 0) {
+      claim.parts.forEach((p: any) => {
+        const discountAmount = p.priceOffer > p.priceApprove ? (p.priceOffer - p.priceApprove) : 0
+        tableItems.push({
+          title: 'ค่าอะไหล่ศูนย์GI (P00032)',
+          description: p.partName,
+          quantity: p.quantity || 1,
+          price: p.priceOffer || p.priceApprove,
+          discount: discountAmount,
+          vat: '7%',
+          total: p.priceApprove * (p.quantity || 1)
+        })
+      })
+    } else if (inv.partsTotal > 0) {
+      tableItems.push({
+        title: 'ค่าอะไหล่ศูนย์GI (P00032)',
+        description: 'ค่าอะไหล่รถยนต์',
+        quantity: 1,
+        price: inv.partsTotal,
+        discount: 0,
+        vat: '7%',
+        total: inv.partsTotal
+      })
+    }
+
+    return (
+      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-6">
+        {/* Header Title Section */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex gap-4 items-center">
+            <div className="w-16 h-16 bg-white flex items-center justify-center font-bold text-gray-400 rounded overflow-hidden flex-shrink-0">
+              {company.logoUrl ? (
+                <img src={company.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+              ) : (
+                <div className="w-full h-full border border-dashed border-gray-300 flex items-center justify-center text-xs font-semibold">LOGO</div>
+              )}
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800">{companyName}</h1>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-emerald-600 font-bold text-2xl flex items-baseline gap-1 justify-end">
+              <span>ใบเสร็จรับเงิน</span>
+            </div>
+            <div className="text-xs text-slate-550 font-medium text-right mt-1">(ต้นฉบับ)</div>
+          </div>
+        </div>
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-[1.5fr_1fr] gap-6 mb-6 text-[11px] leading-relaxed">
+          {/* Left Side: Seller & Customer info */}
+          <div className="space-y-4">
+            {/* Seller */}
+            <div className="border-b border-slate-200 pb-3">
+              <div className="grid grid-cols-[60px_1fr] gap-x-2 gap-y-0.5">
+                <span className="font-semibold text-slate-550">ผู้ขาย :</span>
+                <span className="font-bold text-slate-800">{companyName}</span>
+                <span className="font-semibold text-slate-550">ที่อยู่ :</span>
+                <span className="text-slate-650">{companyAddress}</span>
+                <span className="font-semibold text-slate-550">เลขที่ภาษี :</span>
+                <span className="text-slate-650">{companyTaxId} ({company.branchName || 'สำนักงานใหญ่'})</span>
+              </div>
+              <div className="flex gap-4 text-slate-500 pt-1 text-[10px]">
+                <span>📞 {companyPhone}</span>
+                <span>✉️ {companyEmail}</span>
+                <span>🌐 {companyWebsite}</span>
+              </div>
+            </div>
+
+            {/* Customer */}
+            <div className="pb-3">
+              <div className="grid grid-cols-[60px_1fr] gap-x-2 gap-y-0.5">
+                <span className="font-semibold text-slate-550">ลูกค้า :</span>
+                <span className="font-bold text-slate-800">
+                  {claim.insurance?.peakCustomerId ? `${claim.insurance.peakCustomerId} ` : ''}
+                  {claim.insurance?.name}
+                </span>
+                <span className="font-semibold text-slate-550">ที่อยู่ :</span>
+                <span className="text-slate-650">{claim.insurance?.address || '-'}</span>
+                <span className="font-semibold text-slate-550">เลขที่ภาษี :</span>
+                <span className="text-slate-650">{claim.insurance?.taxId || '-'} {claim.insurance?.branchCode ? `(${claim.insurance.branchCode === '00000' ? 'สำนักงานใหญ่' : claim.insurance.branchCode})` : ''}</span>
+              </div>
+              <div className="flex gap-4 text-slate-500 pt-1 text-[10px]">
+                <span>📞 -</span>
+                <span>✉️ -</span>
+                <span>🌐 -</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side: Document info & Contact */}
+          <div className="space-y-4">
+            {/* Invoice Meta */}
+            <div className="bg-[#e6f4ea] border border-green-100 rounded-lg p-3.5 space-y-1.5 text-xs">
+              <div className="grid grid-cols-[85px_1fr] gap-x-2">
+                <span className="text-slate-500 font-medium">เลขที่เอกสาร :</span>
+                <span className="font-bold text-slate-855">{receiptNo}</span>
+              </div>
+              <div className="grid grid-cols-[85px_1fr] gap-x-2">
+                <span className="text-slate-500 font-medium">วันที่ออก :</span>
+                <span className="font-semibold text-slate-800">{formatDate(paymentDate)}</span>
+              </div>
+              <div className="grid grid-cols-[85px_1fr] gap-x-2">
+                <span className="text-slate-500 font-medium">อ้างอิง :</span>
+                <span className="font-semibold text-slate-800">{inv.invoiceNo}</span>
+              </div>
+            </div>
+
+            {/* Contact Back */}
+            <div className="border border-slate-200 rounded-lg p-3.5 space-y-1.5">
+              <div className="font-semibold text-slate-700">ติดต่อกลับที่ :</div>
+              <div className="grid grid-cols-[20px_1fr] gap-x-1 items-center text-slate-655">
+                <span>👤</span>
+                <span className="font-medium text-slate-800">{company.authorizedName || 'Vilaiphon Vamagun'}</span>
+                <span>📞</span>
+                <span className="font-medium text-slate-800">{company.phone || '0624818114'}</span>
+                <span>✉️</span>
+                <span className="text-slate-700">{company.email || 'vamagunv@gmail.com'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Items Table */}
+        <table className="w-full text-xs mb-8 border-collapse">
+          <thead>
+            <tr className="bg-[#e6f4ea] text-left border-t border-b border-slate-200">
+              <th className="py-2.5 px-3 text-slate-700 font-semibold">คำอธิบาย</th>
+              <th className="py-2.5 px-3 text-right text-slate-700 font-semibold w-16">จำนวน</th>
+              <th className="py-2.5 px-3 text-right text-slate-700 font-semibold w-24">ราคา</th>
+              <th className="py-2.5 px-3 text-right text-slate-700 font-semibold w-16">ส่วนลด</th>
+              <th className="py-2.5 px-3 text-center text-slate-700 font-semibold w-16">VAT</th>
+              <th className="py-2.5 px-3 text-right text-slate-700 font-semibold w-28">มูลค่าก่อนภาษี</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableItems.map((item, index) => (
+              <tr key={index} className="border-b border-slate-100 last:border-b-2 last:border-slate-350">
+                <td className="py-3 px-3">
+                  <div className="font-semibold text-slate-800">{item.title}</div>
+                  <div className="text-slate-500 text-[11px] mt-0.5 pl-4">{item.description}</div>
+                </td>
+                <td className="py-3 px-3 text-right text-slate-700 font-mono">{item.quantity.toFixed(2)}</td>
+                <td className="py-3 px-3 text-right text-slate-700 font-mono">{formatCurrency(item.price)}</td>
+                <td className="py-3 px-3 text-right text-slate-700 font-mono">{formatCurrency(item.discount)}</td>
+                <td className="py-3 px-3 text-center text-slate-700 font-mono">{item.vat}</td>
+                <td className="py-3 px-3 text-right text-slate-850 font-bold font-mono">{formatCurrency(item.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Summary Sections */}
+        <div className="grid grid-cols-[1.4fr_1fr] gap-6 mb-6 text-[11px]">
+          {/* Left summary card */}
+          <div className="border border-slate-200 rounded-lg p-4 space-y-2 bg-slate-50/20">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800 mb-1">
+              <span>📋 สรุป</span>
+            </div>
+            <div className="flex justify-between text-slate-650">
+              <span>มูลค่าที่คำนวณภาษี 7%</span>
+              <span className="font-semibold text-slate-800">{formatCurrency(inv.subtotal)} บาท</span>
+            </div>
+            <div className="flex justify-between text-slate-655">
+              <span>ภาษีมูลค่าเพิ่ม 7%</span>
+              <span className="font-semibold text-slate-800">{formatCurrency(inv.vatAmount)} บาท</span>
+            </div>
+            <div className="flex justify-between border-t border-slate-100 pt-2 font-medium">
+              <span className="text-slate-655">จำนวนเงินทั้งสิ้น</span>
+              <span className="text-slate-600 italic">({bahtText(inv.grandTotal)})</span>
+            </div>
+          </div>
+
+          {/* Right summary card (highlighted) */}
+          <div className="bg-[#e6f4ea] border border-green-100 rounded-lg p-4 space-y-2.5">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 font-semibold">จำนวนเงินทั้งสิ้น</span>
+              <span className="text-sm font-bold text-green-900">{formatCurrency(inv.grandTotal)} บาท</span>
+            </div>
+            <div className="flex justify-between border-t border-green-50 pt-2">
+              <span className="text-slate-500 font-medium">จำนวนเงินที่ถูกหัก ณ ที่จ่าย</span>
+              <span className="font-semibold text-slate-700">0.00 บาท</span>
+            </div>
+            <div className="flex justify-between font-bold text-green-950 border-t border-green-100 pt-2 text-xs">
+              <span>จำนวนเงินที่ชำระ</span>
+              <span>{formatCurrency(inv.grandTotal)} บาท</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment options */}
+        <div className="border-t border-slate-200 pt-4 grid grid-cols-[100px_1fr] gap-4 items-center mb-6 text-[11px]">
+          <div className="flex items-center gap-1.5 font-bold text-slate-855">
+            <span>💳 ชำระเงิน</span>
+          </div>
+          <div className="flex justify-between items-center bg-slate-50/50 rounded-lg p-2.5 border border-slate-150 w-full">
+            <div className="flex gap-4">
+              <div><span className="text-slate-500">วันที่ชำระ :</span> <span className="font-semibold text-slate-800">{formatDate(paymentDate)}</span></div>
+              <div><span className="text-slate-500">จำนวนเงินรวม :</span> <span className="font-bold text-slate-800">{formatCurrency(inv.grandTotal)} บาท</span></div>
+            </div>
+            <div className="flex items-center gap-3 border-l pl-4 border-slate-200">
+              {company.bankName && (company.bankName.includes('กสิกร') || company.bankName.toLowerCase().includes('kasikorn')) ? (
+                <div className="w-8 h-8 rounded-full bg-[#138f2d] border-2 border-[#e01b22] flex items-center justify-center text-white font-extrabold text-sm select-none shadow-sm flex-shrink-0">
+                  K
+                </div>
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm flex-shrink-0 text-sm">
+                  🏦
+                </div>
+              )}
+              <div className="space-y-0.5 text-left">
+                <div className="font-bold text-slate-800">{company.bankName || '-'}</div>
+                <div className="text-slate-650">
+                  {company.bankAccount && <span className="font-medium text-slate-500 mr-1.5">ออมทรัพย์</span>}
+                  <span className="font-mono text-slate-800 font-semibold">{company.bankAccount || '-'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Note */}
+        <div className="border-t border-slate-200 pt-4 grid grid-cols-[100px_1fr] gap-4 items-start mb-6 text-[11px]">
+          <div className="flex items-center gap-1.5 font-bold text-slate-855">
+            <span>💬 หมายเหตุ</span>
+          </div>
+          <div className="text-slate-600 leading-relaxed">
+            กรุณาโอนเข้าบัญชี {company.bankAccountName || companyName} {company.bankName || '-'} สาขา {company.branchName || 'สำนักงานใหญ่'} ออมทรัพย์ #{company.bankAccount || '-'}
+          </div>
+        </div>
+
+        {/* Fine bottom border line */}
+        <div className="border-b border-slate-300"></div>
+      </div>
+    )
+  }
+
   if (type === 'purchase-order') {
     if (!po) return <div className="p-8 text-center">ไม่พบใบสั่งซื้อ</div>
 

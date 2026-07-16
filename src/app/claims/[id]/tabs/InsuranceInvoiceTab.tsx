@@ -46,6 +46,9 @@ export default function InsuranceInvoiceTab({
             {claim.insuranceInvoice && (
               <>
                 <Button variant="outline" size="sm" className="text-xs" onClick={() => window.open(`/claims/${claim.id}/pdf/insurance-invoice`)}><Download className="w-3.5 h-3.5 mr-1" />ใบแจ้งหนี้/ใบกำกับภาษี</Button>
+                {claim.insuranceInvoice.arPayment && (
+                  <Button variant="outline" size="sm" className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-250 font-medium" onClick={() => window.open(`/claims/${claim.id}/pdf/insurance-receipt`)}><Download className="w-3.5 h-3.5 mr-1" />ใบเสร็จรับเงิน</Button>
+                )}
                 <Button variant="outline" size="sm" className="text-xs" onClick={() => window.open(`/api/claims/${claim.id}/peak-export?template=ar-invoice`)}><Download className="w-3.5 h-3.5 mr-1" />PEAK</Button>
                 {!claim.insuranceInvoice.arPayment && (
                   <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setConfirmModal({ title: 'ยืนยันยกเลิกใบวางบิล', message: 'ข้อมูลการวางบิลจะถูกลบ คุณสามารถแก้ไขรายการแล้วสร้างใหม่ได้', onConfirm: handleDeleteInsuranceInvoice })}><Trash2 className="w-3.5 h-3.5 mr-1" />ยกเลิกบิล</Button>
