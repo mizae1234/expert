@@ -93,21 +93,7 @@ export default function PaymentsPage() {
     }
   }
 
-  if (selectedPR) {
-    return (
-      <PaymentRequestDetail
-        pr={selectedPR}
-        onClose={() => setSelectedPR(null)}
-        onApprove={handleApproveDetail}
-        onReject={handleRejectDetail}
-        isSaving={isSaving}
-        statusColor={statusColor}
-        statusLabel={statusLabel}
-        typeLabel={typeLabel}
-      />
-    )
-  }
-  
+
   const [searchQuery, setSearchQuery] = useState('')
   const filteredRequests = requests.filter(r => {
     const q = searchQuery.toLowerCase()
@@ -252,108 +238,123 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#0f172a]">Payment Requests</h1>
-          <p className="text-sm text-[#94a3b8]">จัดการคำขออนุมัติจ่ายเงิน / รับเงิน</p>
-        </div>
-        <div className="w-full md:w-80">
-          <Input 
-            placeholder="ค้นหา ใบเคลม, ทะเบียนรถ, Invoice..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white shadow-sm"
-          />
-        </div>
-      </div>
+      {selectedPR ? (
+        <PaymentRequestDetail
+          pr={selectedPR}
+          onClose={() => setSelectedPR(null)}
+          onApprove={handleApproveDetail}
+          onReject={handleRejectDetail}
+          isSaving={isSaving}
+          statusColor={statusColor}
+          statusLabel={statusLabel}
+          typeLabel={typeLabel}
+        />
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-[#0f172a]">Payment Requests</h1>
+              <p className="text-sm text-[#94a3b8]">จัดการคำขออนุมัติจ่ายเงิน / รับเงิน</p>
+            </div>
+            <div className="w-full md:w-80">
+              <Input 
+                placeholder="ค้นหา ใบเคลม, ทะเบียนรถ, Invoice..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white shadow-sm"
+              />
+            </div>
+          </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'รออนุมัติ', value: pending.length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'อนุมัติแล้ว', value: approved.length, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'ถูกปฏิเสธ', value: rejected.length, icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
-          { label: 'ยอดรออนุมัติ', value: `฿${formatCurrency(pending.reduce((s, r) => s + r.amount, 0))}`, icon: FileText, color: 'text-[#1d4ed8]', bg: 'bg-blue-50' },
-        ].map((s, i) => (
-          <Card key={i} className={s.bg}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <s.icon className={`w-8 h-8 ${s.color}`} />
-              <div><p className="text-xs text-[#475569]">{s.label}</p><p className={`text-xl font-bold ${s.color}`}>{s.value}</p></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+          {/* Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: 'รออนุมัติ', value: pending.length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+              { label: 'อนุมัติแล้ว', value: approved.length, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
+              { label: 'ถูกปฏิเสธ', value: rejected.length, icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
+              { label: 'ยอดรออนุมัติ', value: `฿${formatCurrency(pending.reduce((s, r) => s + r.amount, 0))}`, icon: FileText, color: 'text-[#1d4ed8]', bg: 'bg-blue-50' },
+            ].map((s, i) => (
+              <Card key={i} className={s.bg}>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <s.icon className={`w-8 h-8 ${s.color}`} />
+                  <div><p className="text-xs text-[#475569]">{s.label}</p><p className={`text-xl font-bold ${s.color}`}>{s.value}</p></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList><TabsTrigger value="pending">รออนุมัติ ({pending.length})</TabsTrigger><TabsTrigger value="approved">อนุมัติแล้ว ({approved.length})</TabsTrigger><TabsTrigger value="rejected">ถูกปฏิเสธ ({rejected.length})</TabsTrigger><TabsTrigger value="all">ทั้งหมด ({filteredRequests.length})</TabsTrigger></TabsList>
-        {['pending', 'approved', 'rejected', 'all'].map(tab => (
-          <TabsContent key={tab} value={tab}>
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-[#f8faff]">
-                      <TableHead className="text-center w-[70px]">ลำดับที่</TableHead>
-                      <TableHead>วันที่</TableHead><TableHead>ประเภท</TableHead><TableHead>Claim No.</TableHead>
-                      <TableHead>ทะเบียน</TableHead><TableHead>ผู้รับเงิน</TableHead><TableHead>Invoice No.</TableHead>
-                      <TableHead className="text-right">ยอด</TableHead><TableHead>สร้างโดย</TableHead>
-                      <TableHead>สถานะ</TableHead><TableHead>Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow><TableCell colSpan={11} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
-                    ) : paginatedList.length === 0 ? (
-                      <TableRow><TableCell colSpan={11} className="text-center py-8 text-[#94a3b8]">ไม่พบข้อมูล</TableCell></TableRow>
-                    ) : (
-                      paginatedList.map((pr, index) => renderRow(pr, index))
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+            <TabsList><TabsTrigger value="pending">รออนุมัติ ({pending.length})</TabsTrigger><TabsTrigger value="approved">อนุมัติแล้ว ({approved.length})</TabsTrigger><TabsTrigger value="rejected">ถูกปฏิเสธ ({rejected.length})</TabsTrigger><TabsTrigger value="all">ทั้งหมด ({filteredRequests.length})</TabsTrigger></TabsList>
+            {['pending', 'approved', 'rejected', 'all'].map(tab => (
+              <TabsContent key={tab} value={tab}>
+                <Card>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-[#f8faff]">
+                          <TableHead className="text-center w-[70px]">ลำดับที่</TableHead>
+                          <TableHead>วันที่</TableHead><TableHead>ประเภท</TableHead><TableHead>Claim No.</TableHead>
+                          <TableHead>ทะเบียน</TableHead><TableHead>ผู้รับเงิน</TableHead><TableHead>Invoice No.</TableHead>
+                          <TableHead className="text-right">ยอด</TableHead><TableHead>สร้างโดย</TableHead>
+                          <TableHead>สถานะ</TableHead><TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loading ? (
+                          <TableRow><TableCell colSpan={11} className="text-center py-8 text-[#94a3b8]">กำลังโหลดข้อมูล...</TableCell></TableRow>
+                        ) : paginatedList.length === 0 ? (
+                          <TableRow><TableCell colSpan={11} className="text-center py-8 text-[#94a3b8]">ไม่พบข้อมูล</TableCell></TableRow>
+                        ) : (
+                          paginatedList.map((pr, index) => renderRow(pr, index))
+                        )}
+                      </TableBody>
+                    </Table>
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between p-4 border-t bg-gray-50/50">
+                        <div className="text-xs text-[#64748b]">
+                          แสดง {(currentPage - 1) * itemsPerPage + 1} ถึง {Math.min(currentPage * itemsPerPage, activeList.length)} จาก {activeList.length} รายการ
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs bg-white"
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                          >
+                            ก่อนหน้า
+                          </Button>
+                          {displayPages.map(page => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              className={`h-8 w-8 text-xs ${currentPage === page ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "bg-white"}`}
+                              onClick={() => setCurrentPage(page)}
+                            >
+                              {page}
+                            </Button>
+                          ))}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs bg-white"
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                          >
+                            ถัดไป
+                          </Button>
+                        </div>
+                      </div>
                     )}
-                  </TableBody>
-                </Table>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between p-4 border-t bg-gray-50/50">
-                    <div className="text-xs text-[#64748b]">
-                      แสดง {(currentPage - 1) * itemsPerPage + 1} ถึง {Math.min(currentPage * itemsPerPage, activeList.length)} จาก {activeList.length} รายการ
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs bg-white"
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                      >
-                        ก่อนหน้า
-                      </Button>
-                      {displayPages.map(page => (
-                        <Button
-                          key={page}
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          className={`h-8 w-8 text-xs ${currentPage === page ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600" : "bg-white"}`}
-                          onClick={() => setCurrentPage(page)}
-                        >
-                          {page}
-                        </Button>
-                      ))}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs bg-white"
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                      >
-                        ถัดไป
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </>
+      )}
 
       {/* Approve Modal */}
       {activeModal?.type === 'approve' && (
