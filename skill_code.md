@@ -531,6 +531,9 @@ export function useFetch<T>(url: string) {
 ### Sync Tracking
 - `isSynced` + `syncedAt` fields on SupplierInvoice, GarageInvoice, InsuranceInvoice, ClaimExpense
 
+### Default WHT Value
+- The withholding tax value for AR (Sales Invoice) exports is defaulted to `'ไม่ระบุ'` (unspecified) instead of `0` or `ไม่มี` to avoid PEAK parsing errors.
+
 ### Template Columns (from real PEAK templates)
 
 **AR (template_ar.xlsx):**
@@ -572,6 +575,13 @@ ACCOUNT_COST_PARTS    = '510103'  // ต้นทุนค่าอะไหล�
 
 ### Batch Status Update
 - `POST /api/invoices/batch-status` updates multiple AR invoices at once (e.g., mark all as SENT)
+
+### Supplier & Garage Invoice Management
+- **Cascading Deletion:** Deleting a `SupplierInvoice` or `GarageInvoice` will automatically cascade and delete its associated `PaymentRequest`. Deletion is blocked unless the request does not exist or has a `REJECTED` status.
+- **PO Filtering & Prices:** The supplier invoice upload form only displays items (parts/labors) with active (not cancelled) POs, defaulting the input values to the PO prices.
+- **Dynamic Vendor Mapping:** During invoice upload, the `vendorId` is dynamically resolved from the PO of the selected items rather than hardcoding to the first PO's vendor.
+- **PO Switcher in PR Details:** Payment request details allow switching between and previewing multiple associated PO PDFs.
+- **Cancelled PO Fallback:** When matching invoice lines, if the PO has been `CANCELLED`, the system falls back to search for the vendor from the cancelled PO instead of defaulting to `C00000`.
 
 ---
 
