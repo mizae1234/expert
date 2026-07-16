@@ -54,17 +54,26 @@ export function UploadSupplierInvoiceModal({
   const [invoiceCustomWht, setInvoiceCustomWht] = useState<string>('')
   const [isUploadingFile, setIsUploadingFile] = useState(false)
 
+  const allPOsForFilter = purchaseOrders?.filter((po: any) => po.status !== 'CANCELLED') || []
+  const globalPoItemsForFilter = allPOsForFilter.flatMap((po: any) => po.items.map((item: any) => ({ ...item, poNo: po.poNo })))
+
+  const partsWithPO = parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID')
+                            .filter(p => globalPoItemsForFilter.some((x: any) => x.partNo === p.partNo))
+
+  const laborsWithPO = labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID')
+                              .filter(l => globalPoItemsForFilter.some((x: any) => x.description?.includes(l.description)))
+
   useEffect(() => {
     if (isOpen) {
       const sel: Record<string, boolean> = {}
       const prices: Record<string, number> = {}
 
-      parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').forEach(p => {
+      partsWithPO.forEach(p => {
         sel[p.id] = true
         prices[p.id] = getPartAmt(p, purchaseOrders)
       })
 
-      labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').forEach(l => {
+      laborsWithPO.forEach(l => {
         sel[l.id] = true
         prices[l.id] = getLaborAmt(l, purchaseOrders)
       })
@@ -84,8 +93,8 @@ export function UploadSupplierInvoiceModal({
 
   if (!isOpen) return null
 
-  const sub = parts.filter(p => uploadMapSelections[p.id]).reduce((s, p) => s + (uploadItemPrices[p.id] ?? getPartAmt(p, purchaseOrders)), 0) +
-              labors.filter(l => uploadMapSelections[l.id]).reduce((s, l) => s + (uploadItemPrices[l.id] ?? getLaborAmt(l, purchaseOrders)), 0)
+  const sub = partsWithPO.filter(p => uploadMapSelections[p.id]).reduce((s, p) => s + (uploadItemPrices[p.id] ?? getPartAmt(p, purchaseOrders)), 0) +
+              laborsWithPO.filter(l => uploadMapSelections[l.id]).reduce((s, l) => s + (uploadItemPrices[l.id] ?? getLaborAmt(l, purchaseOrders)), 0)
   const calculatedVat = invoiceIncludeVat ? Math.round(sub * (invoiceVatPct / 100) * 100) / 100 : 0
   const vat = invoiceIncludeVat ? (invoiceCustomVat !== '' ? Number(invoiceCustomVat) : calculatedVat) : 0
   const calculatedWht = invoiceIncludeWht ? Math.round(sub * (invoiceWhtPct / 100) * 100) / 100 : 0
@@ -97,8 +106,8 @@ export function UploadSupplierInvoiceModal({
   const expectedBilling = Math.round(sub * billingPct / 100)
 
   const handleUploadSubmit = async () => {
-    const selParts = parts.filter(p => uploadMapSelections[p.id])
-    const selLabors = labors.filter(l => uploadMapSelections[l.id])
+    const selParts = partsWithPO.filter(p => uploadMapSelections[p.id])
+    const selLabors = laborsWithPO.filter(l => uploadMapSelections[l.id])
     if (!selParts.length && !selLabors.length) {
       showToast('กรุณาเลือกอย่างน้อย 1 รายการ')
       return
@@ -260,8 +269,8 @@ export function UploadSupplierInvoiceModal({
                       type="checkbox"
                       checked={
                         (() => {
-                          const activeParts = parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID')
-                          const activeLabors = labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID')
+                          const activeParts = partsWithPO
+                          const activeLabors = laborsWithPO
                           const totalCount = activeParts.length + activeLabors.length
                           if (totalCount === 0) return false
                           const allChecked = [...activeParts, ...activeLabors].every(item => !!uploadMapSelections[item.id])
@@ -270,16 +279,16 @@ export function UploadSupplierInvoiceModal({
                       }
                       ref={el => {
                         if (el) {
-                          const activeParts = parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID')
-                          const activeLabors = labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID')
+                          const activeParts = partsWithPO
+                          const activeLabors = laborsWithPO
                           const checkedCount = [...activeParts, ...activeLabors].filter(item => !!uploadMapSelections[item.id]).length
                           const totalCount = activeParts.length + activeLabors.length
                           el.indeterminate = checkedCount > 0 && checkedCount < totalCount
                         }
                       }}
                       onChange={e => {
-                        const activeParts = parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID')
-                        const activeLabors = labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID')
+                        const activeParts = partsWithPO
+                        const activeLabors = laborsWithPO
                         const newSelections = { ...uploadMapSelections }
                         const isChecked = e.target.checked
                         activeParts.forEach(p => { newSelections[p.id] = isChecked })
@@ -296,7 +305,7 @@ export function UploadSupplierInvoiceModal({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').map((p, i) => (
+                {partsWithPO.map((p, i) => (
                   <TableRow key={p.id} className={uploadMapSelections[p.id] ? 'bg-blue-50/50' : ''}>
                     <TableCell>
                       <input
@@ -323,7 +332,7 @@ export function UploadSupplierInvoiceModal({
                     </TableCell>
                   </TableRow>
                 ))}
-                {labors.filter(l => l.paymentStatus !== 'INVOICED' && l.paymentStatus !== 'PAID').map((l, i) => (
+                {laborsWithPO.map((l, i) => (
                   <TableRow key={l.id} className={uploadMapSelections[l.id] ? 'bg-blue-50/50' : ''}>
                     <TableCell>
                       <input
@@ -334,7 +343,7 @@ export function UploadSupplierInvoiceModal({
                       />
                     </TableCell>
                     <TableCell className="text-center text-sm text-gray-500 font-medium">
-                      {parts.filter(p => p.paymentStatus !== 'INVOICED' && p.paymentStatus !== 'PAID').length + i + 1}
+                      {partsWithPO.length + i + 1}
                     </TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px]">ค่าแรง</Badge></TableCell>
                     <TableCell className="font-medium">{l.description}</TableCell>
