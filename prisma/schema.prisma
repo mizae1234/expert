@@ -249,6 +249,8 @@ model SupplierInvoice {
   subtotal        Float
   vatAmount       Float
   totalAmount     Float
+  whtAmount       Float                 @default(0)
+  whtPct          Float                 @default(0)
   pdfUrl          String?
   apPayment       APPayment?
   items           SupplierInvoiceItem[]
@@ -462,6 +464,8 @@ model GarageInvoice {
   subtotal        Float
   vatAmount       Float
   totalAmount     Float
+  whtAmount       Float               @default(0)
+  whtPct          Float               @default(0)
   pdfUrl          String?
   isSynced        Boolean             @default(false)
   syncedAt        DateTime?

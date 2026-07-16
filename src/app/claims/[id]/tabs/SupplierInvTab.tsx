@@ -29,7 +29,13 @@ export default function SupplierInvTab({
   refreshClaim
 }: ClaimTabProps) {
   const [showUploadModal, setShowUploadModal] = useState(false)
-  const [pendingPaymentRequest, setPendingPaymentRequest] = useState<{ type: 'AP_VENDOR' | 'AP_GARAGE', invoiceId: string, amount: number } | null>(null)
+  const [pendingPaymentRequest, setPendingPaymentRequest] = useState<{ 
+    type: 'AP_VENDOR' | 'AP_GARAGE', 
+    invoiceId: string, 
+    amount: number,
+    whtAmount?: number,
+    whtPct?: number
+  } | null>(null)
 
   const poItems = purchaseOrders?.filter((po: any) => po.status !== 'CANCELLED').flatMap((po: any) => po.items.map((item: any) => ({ ...item, poId: po.id, poNo: po.poNo, poStatus: po.status }))) || []
   const allInvItems = supplierInvoices.flatMap((inv: any) => inv.items || [])
@@ -317,7 +323,9 @@ export default function SupplierInvTab({
                           onClick={() => setPendingPaymentRequest({
                             type: inv._type === 'SUPPLIER' ? 'AP_VENDOR' : 'AP_GARAGE',
                             invoiceId: inv.id,
-                            amount: inv.totalAmount
+                            amount: inv.totalAmount,
+                            whtAmount: inv.whtAmount || 0,
+                            whtPct: inv.whtPct || 0
                           })}
                         >
                           <CreditCard className="w-3 h-3 mr-1" />ขอเบิกเงิน

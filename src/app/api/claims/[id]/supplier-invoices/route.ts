@@ -59,6 +59,8 @@ export async function POST(
           subtotal: existingInvoice.subtotal + subtotal,
           vatAmount: existingInvoice.vatAmount + vatAmount,
           totalAmount: existingInvoice.totalAmount + totalAmount,
+          whtAmount: existingInvoice.whtAmount + (body.whtAmount || 0),
+          whtPct: body.whtPct !== undefined ? body.whtPct : existingInvoice.whtPct,
           items: {
             create: (body.items || []).map((item: any) => ({
               poItemId: item.poItemId || null,
@@ -85,6 +87,8 @@ export async function POST(
           subtotal,
           vatAmount,
           totalAmount,
+          whtAmount: body.whtAmount || 0,
+          whtPct: body.whtPct || 0,
           pdfUrl: body.pdfUrl || null,
           items: {
             create: (body.items || []).map((item: any) => ({

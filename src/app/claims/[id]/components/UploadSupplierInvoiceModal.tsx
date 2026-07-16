@@ -49,6 +49,9 @@ export function UploadSupplierInvoiceModal({
   const [invoiceIncludeVat, setInvoiceIncludeVat] = useState(true)
   const [invoiceVatPct, setInvoiceVatPct] = useState(7)
   const [invoiceCustomVat, setInvoiceCustomVat] = useState<string>('')
+  const [invoiceIncludeWht, setInvoiceIncludeWht] = useState(false)
+  const [invoiceWhtPct, setInvoiceWhtPct] = useState(3)
+  const [invoiceCustomWht, setInvoiceCustomWht] = useState<string>('')
   const [isUploadingFile, setIsUploadingFile] = useState(false)
 
   useEffect(() => {
@@ -71,6 +74,9 @@ export function UploadSupplierInvoiceModal({
       setInvoiceIncludeVat(true)
       setInvoiceVatPct(7)
       setInvoiceCustomVat('')
+      setInvoiceIncludeWht(false)
+      setInvoiceWhtPct(3)
+      setInvoiceCustomWht('')
       setCustomInvoiceNo('')
       setUploadedFile(null)
     }
@@ -82,6 +88,8 @@ export function UploadSupplierInvoiceModal({
               labors.filter(l => uploadMapSelections[l.id]).reduce((s, l) => s + (uploadItemPrices[l.id] ?? getLaborAmt(l, purchaseOrders)), 0)
   const calculatedVat = invoiceIncludeVat ? Math.round(sub * (invoiceVatPct / 100) * 100) / 100 : 0
   const vat = invoiceIncludeVat ? (invoiceCustomVat !== '' ? Number(invoiceCustomVat) : calculatedVat) : 0
+  const calculatedWht = invoiceIncludeWht ? Math.round(sub * (invoiceWhtPct / 100) * 100) / 100 : 0
+  const wht = invoiceIncludeWht ? (invoiceCustomWht !== '' ? Number(invoiceCustomWht) : calculatedWht) : 0
   const validPOs = purchaseOrders?.filter((po: any) => po.status !== 'CANCELLED') || []
   const vendorData = validPOs[0]?.vendorId ? vendors.find((v: any) => v.id === validPOs[0].vendorId) : vendors[0]
   const billingPct = vendorData?.billingPct ?? 100
@@ -137,6 +145,7 @@ export function UploadSupplierInvoiceModal({
       })
 
       const computedVat = invoiceIncludeVat ? (invoiceCustomVat !== '' ? Number(invoiceCustomVat) : Math.round(sub * (invoiceVatPct / 100) * 100) / 100) : 0
+      const computedWht = invoiceIncludeWht ? (invoiceCustomWht !== '' ? Number(invoiceCustomWht) : Math.round(sub * (invoiceWhtPct / 100) * 100) / 100) : 0
       const allItems = [...partItems, ...laborItems]
 
       const res = await fetch(`/api/claims/${claimId}/supplier-invoices`, {
@@ -148,6 +157,8 @@ export function UploadSupplierInvoiceModal({
           items: allItems,
           pdfUrl: pdfUrlToSave,
           vatAmount: computedVat,
+          whtAmount: computedWht,
+          whtPct: invoiceIncludeWht ? invoiceWhtPct : 0,
           laborIds: selLabors.map(l => l.id)
         })
       })
@@ -364,6 +375,34 @@ export function UploadSupplierInvoiceModal({
                   )}
                 </div>
 
+                <div className="flex items-center justify-between border-b pb-2 mb-2 w-full">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={invoiceIncludeWht}
+                      onChange={e => setInvoiceIncludeWht(e.target.checked)}
+                      className="w-4 h-4 rounded animate-fade-in"
+                    />
+                    <span className="text-sm text-gray-600 font-medium">หัก ณ ที่จ่าย (WHT)</span>
+                  </label>
+                  {invoiceIncludeWht && (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        className="h-8 w-16 text-sm text-right"
+                        value={invoiceWhtPct}
+                        onChange={e => {
+                          setInvoiceWhtPct(Number(e.target.value) || 0)
+                          setInvoiceCustomWht('') // Reset custom WHT when percentage changes
+                        }}
+                        min={0}
+                        max={100}
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-between w-full text-sm text-gray-500">
                   <span>มูลค่าก่อนภาษี:</span><span>฿{formatCurrency(sub)}</span>
                 </div>
@@ -383,8 +422,24 @@ export function UploadSupplierInvoiceModal({
                     </div>
                   </div>
                 )}
+                {invoiceIncludeWht && (
+                  <div className="flex items-center justify-between w-full text-sm text-gray-500">
+                    <span>หัก ณ ที่จ่าย {invoiceWhtPct}%:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400">฿</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="h-7 w-28 text-sm text-right font-medium"
+                        value={invoiceCustomWht}
+                        onChange={e => setInvoiceCustomWht(e.target.value)}
+                        placeholder={String(calculatedWht)}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1">
-                  <span>รวมทั้งสิ้น:</span><span>฿{formatCurrency(sub + vat)}</span>
+                  <span>รวมทั้งสิ้น:</span><span>฿{formatCurrency(sub + vat - wht)}</span>
                 </div>
                 {billingPct < 100 && (
                   <div className="w-full mt-2 pt-2 border-t border-dashed">
