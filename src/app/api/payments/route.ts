@@ -20,21 +20,23 @@ export async function GET(request: NextRequest) {
         select: {
           claimNo: true,
           carPlate: true,
-          insurance: { select: { name: true } }
+          carBrand: true,
+          carModel: true,
+          insurance: { select: { name: true, taxId: true, branchCode: true, branch: true } }
         }
       },
       supplierInvoice: {
         select: {
           invoiceNo: true,
           pdfUrl: true,
-          vendor: { select: { name: true } }
+          vendor: { select: { name: true, taxId: true, branchCode: true } }
         }
       },
       garageInvoice: {
         select: {
           invoiceNo: true,
           pdfUrl: true,
-          garage: { select: { name: true } }
+          garage: { select: { name: true, taxId: true, branchCode: true } }
         }
       },
       insuranceInvoice: { select: { invoiceNo: true } }
@@ -57,9 +59,17 @@ export async function GET(request: NextRequest) {
     claimId: p.claimId,
     claimNo: p.claim?.claimNo,
     carPlate: p.claim?.carPlate,
+    carBrand: p.claim?.carBrand,
+    carModel: p.claim?.carModel,
     vendorName: p.supplierInvoice?.vendor?.name,
+    vendorTaxId: p.supplierInvoice?.vendor?.taxId,
+    vendorBranchCode: p.supplierInvoice?.vendor?.branchCode,
     garageName: p.garageInvoice?.garage?.name,
+    garageTaxId: p.garageInvoice?.garage?.taxId,
+    garageBranchCode: p.garageInvoice?.garage?.branchCode,
     insuranceName: p.claim?.insurance?.name,
+    insuranceTaxId: p.claim?.insurance?.taxId,
+    insuranceBranchCode: p.claim?.insurance?.branchCode,
     invoiceUrl: p.supplierInvoice?.pdfUrl || p.garageInvoice?.pdfUrl || null,
     invoiceNo: p.supplierInvoice?.invoiceNo || p.garageInvoice?.invoiceNo || null
   }))
