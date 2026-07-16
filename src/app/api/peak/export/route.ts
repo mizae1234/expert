@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
     const { type, ids } = await req.json()
     
     // Config constants (ideally from DB)
-    const ACCOUNT_REVENUE_LABOR = '410101'
+    const ACCOUNT_REVENUE_LABOR = '410202'
     const ACCOUNT_REVENUE_PARTS = '410102'
-    const ACCOUNT_COST_PARTS = '510101'
-    const ACCOUNT_COST_LABOR = '510102'
+    const ACCOUNT_COST_PARTS = '510103'
+    const ACCOUNT_COST_LABOR = '510127'
 
     const categoryLabels: Record<string, string> = {
       shipping: 'ค่าส่งอะไหล่',
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
       shipping: '520201',
       handling: '520201',
       towing: '520201',
-      paint_material: '510101',
-      consumable: '510101',
-      subcontract: '510102',
+      paint_material: '510103',
+      consumable: '510103',
+      subcontract: '510127',
       other: '520299',
     }
 

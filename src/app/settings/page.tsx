@@ -16,10 +16,10 @@ export default function SettingsPage() {
   const [isUploadingSig, setIsUploadingSig] = useState(false)
   const [sequences, setSequences] = useState<DocumentSequence[]>([])
   const [peakConfig, setPeakConfig] = useState<Record<string, string>>({
-    ACCOUNT_REVENUE_PARTS: '41102',
-    ACCOUNT_REVENUE_LABOR: '41101',
-    ACCOUNT_COST_PARTS: '51102',
-    ACCOUNT_COST_LABOR: '51101',
+    ACCOUNT_REVENUE_PARTS: '410102',
+    ACCOUNT_REVENUE_LABOR: '410202',
+    ACCOUNT_COST_PARTS: '510103',
+    ACCOUNT_COST_LABOR: '510127',
     PAYMENT_CHANNEL_TRANSFER: 'โอนเงิน',
     PAYMENT_CHANNEL_CHEQUE: 'เช็ค',
   })
