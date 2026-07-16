@@ -553,10 +553,10 @@ export function useFetch<T>(url: string) {
 
 ### Account Codes
 ```
-ACCOUNT_REVENUE_LABOR = '41101'  // รายได้ค่าแรง
-ACCOUNT_REVENUE_PARTS = '41102'  // รายได้ค่าอะไหล่
-ACCOUNT_COST_LABOR    = '51101'  // ต้นทุนค่าแรง
-ACCOUNT_COST_PARTS    = '51102'  // ต้นทุนค่าอะไหล่
+ACCOUNT_REVENUE_LABOR = '410202'  // รายได้ค่าแรง
+ACCOUNT_REVENUE_PARTS = '410102'  // รายได้ค่าอะไหล่
+ACCOUNT_COST_LABOR    = '510127'  // ต้นทุนค่าแรง
+ACCOUNT_COST_PARTS    = '510103'  // ต้นทุนค่าอะไหล่
 ```
 
 ---

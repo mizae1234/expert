@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
             สินค้า: 'P00035', บัญชี: conf.ACCOUNT_REVENUE_LABOR,
             คำอธิบาย: `ค่าแรง|${claim.carPlate}|${insurance.name}`,
             จำนวน: 1, 'ราคา/หน่วย': inv.laborTotal, อัตราภาษี: '7%',
+            'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 'ไม่ระบุ',
           })
           hasAdded = true
         }
@@ -68,6 +69,7 @@ export async function GET(request: NextRequest) {
             สินค้า: 'P00033', บัญชี: conf.ACCOUNT_REVENUE_PARTS,
             คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${insurance.name}`,
             จำนวน: 1, 'ราคา/หน่วย': inv.partsTotal, อัตราภาษี: '7%',
+            'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 'ไม่ระบุ',
           })
           hasAdded = true
         }
