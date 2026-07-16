@@ -97,6 +97,7 @@ export default function PDFMockPage() {
   const type = params.type as string
   const qtId = searchParams.get('qtId')
   const poId = searchParams.get('poId')
+  const preview = searchParams.get('preview') === 'true'
 
   const [claim, setClaim] = useState<any>(null)
   const [quotation, setQuotation] = useState<any>(null)
@@ -129,14 +130,14 @@ export default function PDFMockPage() {
   const hasPrinted = useRef(false)
 
   useEffect(() => {
-    // Auto print when loaded — only once
-    if (claim && !loading && !hasPrinted.current) {
+    // Auto print when loaded — only once, and if not in preview mode
+    if (claim && !loading && !hasPrinted.current && !preview) {
       hasPrinted.current = true
       setTimeout(() => {
         window.print()
       }, 500)
     }
-  }, [claim, loading])
+  }, [claim, loading, preview])
 
   if (loading) return <div className="p-8 text-center animate-pulse">กำลังโหลดเอกสาร...</div>
   if (!claim) return <div className="p-8 text-center">ไม่พบข้อมูล Claim</div>

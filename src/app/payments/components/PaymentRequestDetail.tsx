@@ -39,13 +39,13 @@ export function PaymentRequestDetail({
     docUrl = pr.invoiceUrl
     docTitle = 'เอกสารบิล/Invoice ที่อัพโหลดโดยพนักงาน'
   } else if (attachmentTab === 'po') {
-    docUrl = `/claims/${pr.claimId}/pdf/purchase-order?poId=${pr.id}`
+    docUrl = `/claims/${pr.claimId}/pdf/purchase-order?poId=${pr.id}&preview=true`
     docTitle = 'ใบสั่งซื้อ (Purchase Order) ของงานซ่อม'
   } else if (attachmentTab === 'ar_invoice') {
-    docUrl = `/claims/${pr.claimId}/pdf/insurance-invoice`
+    docUrl = `/claims/${pr.claimId}/pdf/insurance-invoice?preview=true`
     docTitle = 'ใบวางบิลประกัน (AR Invoice)'
   } else if (attachmentTab === 'ar_receipt') {
-    docUrl = `/claims/${pr.claimId}/pdf/insurance-receipt`
+    docUrl = `/claims/${pr.claimId}/pdf/insurance-receipt?preview=true`
     docTitle = 'ใบเสร็จรับเงินประกัน (AR Receipt)'
   }
 
