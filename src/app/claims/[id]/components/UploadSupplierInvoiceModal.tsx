@@ -159,7 +159,13 @@ export function UploadSupplierInvoiceModal({
       const newInv = await res.json()
       newInv.attachmentUrl = uploadedFile?.url || null
       newInv.attachmentName = uploadedFile?.name || null
-      setSupplierInvoices(prev => [...prev, newInv])
+      setSupplierInvoices(prev => {
+        const exists = prev.some(inv => inv.id === newInv.id)
+        if (exists) {
+          return prev.map(inv => inv.id === newInv.id ? newInv : inv)
+        }
+        return [...prev, newInv]
+      })
       if (selParts.length > 0) {
         setParts(prev => prev.map(p => uploadMapSelections[p.id] ? { ...p, paymentStatus: 'INVOICED' as const } : p))
       }

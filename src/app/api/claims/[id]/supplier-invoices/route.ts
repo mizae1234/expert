@@ -37,31 +37,71 @@ export async function POST(
       invoiceNo = `SINV-${year}-${String(count + 1).padStart(6, '0')}`
     }
 
-    const newInvoice = await prisma.supplierInvoice.create({
-      data: {
-        claimId: params.id,
-        vendorId: body.vendorId,
-        invoiceNo,
-        invoiceDate: new Date(body.invoiceDate || new Date()),
-        subtotal,
-        vatAmount,
-        totalAmount,
-        pdfUrl: body.pdfUrl || null,
-        items: {
-          create: (body.items || []).map((item: any) => ({
-            poItemId: item.poItemId || null,
-            claimPartId: item.claimPartId || null,
-            claimLaborId: item.claimLaborId || null,
-            partNo: item.partNo || '',
-            description: item.description || '',
-            quantity: Number(item.quantity || 1),
-            unitPrice: Number(item.unitPrice || 0),
-            totalPrice: Number(item.totalPrice || 0)
-          }))
-        }
-      },
-      include: { vendor: true, items: true, apPayment: true }
+    // Check if invoiceNo already exists
+    const existingInvoice = await prisma.supplierInvoice.findUnique({
+      where: { invoiceNo },
+      include: { items: true }
     })
+
+    let invoiceResult
+    if (existingInvoice) {
+      if (existingInvoice.claimId !== params.id || existingInvoice.vendorId !== body.vendorId) {
+        return NextResponse.json({
+          error: `เลขที่ใบวางบิล/Invoice "${invoiceNo}" นี้ถูกใช้งานในระบบแล้ว (โดยคู่ค้าอื่นหรือเคลมอื่น)`
+        }, { status: 400 })
+      }
+
+      // Update existing supplier invoice: append new items and sum totals
+      invoiceResult = await prisma.supplierInvoice.update({
+        where: { id: existingInvoice.id },
+        data: {
+          pdfUrl: body.pdfUrl || existingInvoice.pdfUrl,
+          subtotal: existingInvoice.subtotal + subtotal,
+          vatAmount: existingInvoice.vatAmount + vatAmount,
+          totalAmount: existingInvoice.totalAmount + totalAmount,
+          items: {
+            create: (body.items || []).map((item: any) => ({
+              poItemId: item.poItemId || null,
+              claimPartId: item.claimPartId || null,
+              claimLaborId: item.claimLaborId || null,
+              partNo: item.partNo || '',
+              description: item.description || '',
+              quantity: Number(item.quantity || 1),
+              unitPrice: Number(item.unitPrice || 0),
+              totalPrice: Number(item.totalPrice || 0)
+            }))
+          }
+        },
+        include: { vendor: true, items: true, apPayment: true }
+      })
+    } else {
+      // Create new supplier invoice
+      invoiceResult = await prisma.supplierInvoice.create({
+        data: {
+          claimId: params.id,
+          vendorId: body.vendorId,
+          invoiceNo,
+          invoiceDate: new Date(body.invoiceDate || new Date()),
+          subtotal,
+          vatAmount,
+          totalAmount,
+          pdfUrl: body.pdfUrl || null,
+          items: {
+            create: (body.items || []).map((item: any) => ({
+              poItemId: item.poItemId || null,
+              claimPartId: item.claimPartId || null,
+              claimLaborId: item.claimLaborId || null,
+              partNo: item.partNo || '',
+              description: item.description || '',
+              quantity: Number(item.quantity || 1),
+              unitPrice: Number(item.unitPrice || 0),
+              totalPrice: Number(item.totalPrice || 0)
+            }))
+          }
+        },
+        include: { vendor: true, items: true, apPayment: true }
+      })
+    }
 
     // Update paymentStatus of the related ClaimParts to 'INVOICED'
     const partIds = (body.items || []).map((item: any) => item.claimPartId).filter(Boolean)
@@ -81,7 +121,7 @@ export async function POST(
       })
     }
 
-    return NextResponse.json(newInvoice, { status: 201 })
+    return NextResponse.json(invoiceResult, { status: 201 })
   } catch (error: any) {
     console.error('Failed to create supplier invoice:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
