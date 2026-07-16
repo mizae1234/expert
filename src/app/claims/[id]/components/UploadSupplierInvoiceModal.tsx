@@ -122,13 +122,35 @@ export function UploadSupplierInvoiceModal({
 
       let hasError = false
       const invoiceNo = customInvoiceNo.trim() || undefined
-      const firstVendorId = validPOs[0]?.vendorId || purchaseOrders?.[0]?.vendorId || vendors[0]?.id || claim.garageId || 'ven-p01'
+      const allPOs = purchaseOrders || []
+
+      // Determine the correct vendorId from the selected items' PO
+      let determinedVendorId = null
+      if (selParts.length > 0) {
+        const p = selParts[0]
+        const po = validPOs.find((po: any) => po.items.some((pi: any) => pi.partNo === p.partNo)) ||
+                   allPOs.find((po: any) => po.items.some((pi: any) => pi.partNo === p.partNo))
+        if (po) determinedVendorId = po.vendorId
+      } else if (selLabors.length > 0) {
+        const l = selLabors[0]
+        const po = validPOs.find((po: any) => po.items.some((pi: any) => pi.description?.includes(l.description))) ||
+                   allPOs.find((po: any) => po.items.some((pi: any) => pi.description?.includes(l.description)))
+        if (po) determinedVendorId = po.vendorId
+      }
+
+      const finalVendorId = determinedVendorId || validPOs[0]?.vendorId || purchaseOrders?.[0]?.vendorId || vendors[0]?.id || claim.garageId || 'ven-p01'
 
       const partItems = selParts.map(p => {
         const editedPrice = uploadItemPrices[p.id]
-        const allPOs = purchaseOrders || []
-        const poItem = validPOs.flatMap((po: any) => po.items).find((pi: any) => pi.partNo === p.partNo) ||
+        // Filter PO items to only match finalVendorId to ensure correct PO linkage
+        const vendorPOs = allPOs.filter((po: any) => po.vendorId === finalVendorId)
+        const vendorValidPOs = validPOs.filter((po: any) => po.vendorId === finalVendorId)
+
+        const poItem = vendorValidPOs.flatMap((po: any) => po.items).find((pi: any) => pi.partNo === p.partNo) ||
+                       vendorPOs.flatMap((po: any) => po.items).find((pi: any) => pi.partNo === p.partNo) ||
+                       validPOs.flatMap((po: any) => po.items).find((pi: any) => pi.partNo === p.partNo) ||
                        allPOs.flatMap((po: any) => po.items).find((pi: any) => pi.partNo === p.partNo)
+
         const unitPrice = editedPrice !== undefined ? editedPrice / p.quantity : (poItem ? poItem.unitPrice : p.priceApprove)
         return {
           poItemId: poItem?.id || validPOs[0]?.items?.[0]?.id || allPOs[0]?.items?.[0]?.id,
@@ -143,9 +165,14 @@ export function UploadSupplierInvoiceModal({
       
       const laborItems = selLabors.map(l => {
         const editedPrice = uploadItemPrices[l.id]
-        const allPOs = purchaseOrders || []
-        const poLabor = validPOs.flatMap((po: any) => po.items).find((pi: any) => pi.description?.includes(l.description)) ||
+        const vendorPOs = allPOs.filter((po: any) => po.vendorId === finalVendorId)
+        const vendorValidPOs = validPOs.filter((po: any) => po.vendorId === finalVendorId)
+
+        const poLabor = vendorValidPOs.flatMap((po: any) => po.items).find((pi: any) => pi.description?.includes(l.description)) ||
+                        vendorPOs.flatMap((po: any) => po.items).find((pi: any) => pi.description?.includes(l.description)) ||
+                        validPOs.flatMap((po: any) => po.items).find((pi: any) => pi.description?.includes(l.description)) ||
                         allPOs.flatMap((po: any) => po.items).find((pi: any) => pi.description?.includes(l.description))
+
         const unitPrice = editedPrice !== undefined ? editedPrice : (poLabor ? poLabor.unitPrice : l.priceApprove)
         return {
           claimPartId: null,
@@ -166,7 +193,7 @@ export function UploadSupplierInvoiceModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vendorId: firstVendorId,
+          vendorId: finalVendorId,
           invoiceNo,
           items: allItems,
           pdfUrl: pdfUrlToSave,
