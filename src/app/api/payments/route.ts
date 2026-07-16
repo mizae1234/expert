@@ -22,14 +22,29 @@ export async function GET(request: NextRequest) {
           carPlate: true,
           carBrand: true,
           carModel: true,
-          insurance: { select: { name: true, taxId: true, branchCode: true, branch: true } }
+          insurance: { select: { name: true, taxId: true, branchCode: true, branch: true } },
+          purchaseOrders: {
+            select: {
+              id: true,
+              poNo: true
+            }
+          }
         }
       },
       supplierInvoice: {
         select: {
           invoiceNo: true,
           pdfUrl: true,
-          vendor: { select: { name: true, taxId: true, branchCode: true } }
+          vendor: { select: { name: true, taxId: true, branchCode: true } },
+          items: {
+            select: {
+              poItem: {
+                select: {
+                  poId: true
+                }
+              }
+            }
+          }
         }
       },
       garageInvoice: {
@@ -44,35 +59,42 @@ export async function GET(request: NextRequest) {
   })
   
   // map to frontend expected format
-  const formatted = payments.map(p => ({
-    id: p.id,
-    requestType: p.requestType,
-    amount: p.amount,
-    whtAmount: p.whtAmount,
-    method: p.method,
-    status: p.status,
-    createdAt: p.createdAt,
-    createdBy: p.createdBy,
-    rejectReason: p.rejectReason,
-    approvedBy: p.approvedBy,
-    approvedAt: p.approvedAt,
-    claimId: p.claimId,
-    claimNo: p.claim?.claimNo,
-    carPlate: p.claim?.carPlate,
-    carBrand: p.claim?.carBrand,
-    carModel: p.claim?.carModel,
-    vendorName: p.supplierInvoice?.vendor?.name,
-    vendorTaxId: p.supplierInvoice?.vendor?.taxId,
-    vendorBranchCode: p.supplierInvoice?.vendor?.branchCode,
-    garageName: p.garageInvoice?.garage?.name,
-    garageTaxId: p.garageInvoice?.garage?.taxId,
-    garageBranchCode: p.garageInvoice?.garage?.branchCode,
-    insuranceName: p.claim?.insurance?.name,
-    insuranceTaxId: p.claim?.insurance?.taxId,
-    insuranceBranchCode: p.claim?.insurance?.branchCode,
-    invoiceUrl: p.supplierInvoice?.pdfUrl || p.garageInvoice?.pdfUrl || null,
-    invoiceNo: p.supplierInvoice?.invoiceNo || p.garageInvoice?.invoiceNo || null
-  }))
+  const formatted = payments.map(p => {
+    const associatedPoId = p.supplierInvoice?.items?.find((item: any) => item.poItem?.poId)?.poItem?.poId || 
+                           p.claim?.purchaseOrders?.[0]?.id || 
+                           null;
+    return {
+      id: p.id,
+      requestType: p.requestType,
+      amount: p.amount,
+      whtAmount: p.whtAmount,
+      method: p.method,
+      status: p.status,
+      createdAt: p.createdAt,
+      createdBy: p.createdBy,
+      rejectReason: p.rejectReason,
+      approvedBy: p.approvedBy,
+      approvedAt: p.approvedAt,
+      claimId: p.claimId,
+      claimNo: p.claim?.claimNo,
+      carPlate: p.claim?.carPlate,
+      carBrand: p.claim?.carBrand,
+      carModel: p.claim?.carModel,
+      vendorName: p.supplierInvoice?.vendor?.name,
+      vendorTaxId: p.supplierInvoice?.vendor?.taxId,
+      vendorBranchCode: p.supplierInvoice?.vendor?.branchCode,
+      garageName: p.garageInvoice?.garage?.name,
+      garageTaxId: p.garageInvoice?.garage?.taxId,
+      garageBranchCode: p.garageInvoice?.garage?.branchCode,
+      insuranceName: p.claim?.insurance?.name,
+      insuranceTaxId: p.claim?.insurance?.taxId,
+      insuranceBranchCode: p.claim?.insurance?.branchCode,
+      invoiceUrl: p.supplierInvoice?.pdfUrl || p.garageInvoice?.pdfUrl || null,
+      invoiceNo: p.supplierInvoice?.invoiceNo || p.garageInvoice?.invoiceNo || null,
+      poId: associatedPoId,
+      purchaseOrders: p.claim?.purchaseOrders || []
+    }
+  })
 
   return NextResponse.json(formatted)
 }

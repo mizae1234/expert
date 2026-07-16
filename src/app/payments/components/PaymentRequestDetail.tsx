@@ -32,6 +32,9 @@ export function PaymentRequestDetail({
   const [attachmentTab, setAttachmentTab] = useState<'bill' | 'po' | 'ar_invoice' | 'ar_receipt' | 'other'>('bill')
   const [approveNote, setApproveNote] = useState('')
   const [rejectReason, setRejectReason] = useState('')
+  const [selectedPoId, setSelectedPoId] = useState<string | null>(null)
+
+  const currentPoId = selectedPoId || pr.poId || pr.purchaseOrders?.[0]?.id || null
 
   let docUrl = null
   let docTitle = 'เอกสารแนบ'
@@ -39,7 +42,7 @@ export function PaymentRequestDetail({
     docUrl = pr.invoiceUrl
     docTitle = 'เอกสารบิล/Invoice ที่อัพโหลดโดยพนักงาน'
   } else if (attachmentTab === 'po') {
-    docUrl = `/claims/${pr.claimId}/pdf/purchase-order?poId=${pr.id}&preview=true`
+    docUrl = currentPoId ? `/claims/${pr.claimId}/pdf/purchase-order?poId=${currentPoId}&preview=true` : null
     docTitle = 'ใบสั่งซื้อ (Purchase Order) ของงานซ่อม'
   } else if (attachmentTab === 'ar_invoice') {
     docUrl = `/claims/${pr.claimId}/pdf/insurance-invoice?preview=true`
@@ -215,6 +218,21 @@ export function PaymentRequestDetail({
                 </button>
               ))}
             </div>
+ 
+            {attachmentTab === 'po' && pr.purchaseOrders?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-1 p-2 bg-slate-50 border rounded-md">
+                <span className="text-[11px] text-slate-500 font-semibold self-center mr-1">เลือกใบสั่งซื้อ:</span>
+                {pr.purchaseOrders.map((po: any) => (
+                  <button
+                    key={po.id}
+                    onClick={() => setSelectedPoId(po.id)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${currentPoId === po.id ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                  >
+                    {po.poNo}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Title & Open in new window button */}
             <div className="flex justify-between items-center text-xs">
