@@ -168,6 +168,10 @@ export function CreatePOModal({
   const grandTotal = poCustomGrand !== '' ? Number(poCustomGrand) : (poTot + vatAmt - whtAmt)
 
   const submitCreatePO = async () => {
+    if (!poVendorId) {
+      showToast('กรุณาเลือกผู้จัดจำหน่าย (Vendor)')
+      return
+    }
     const selectedParts = poModalParts.filter(p => p.selected)
     const selectedLabors = poModalLabors.filter(l => l.selected)
     if (selectedParts.length === 0 && selectedLabors.length === 0 && poManualItems.length === 0) {
