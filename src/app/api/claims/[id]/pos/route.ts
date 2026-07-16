@@ -30,26 +30,37 @@ export async function POST(
     let poNo = body.poNo
     if (!poNo) {
       const poType = body.poType || 'PARTS'
+      const docType = poType === 'PARTS' ? 'PO_PARTS' : 'PO_LABOR'
       const defaultPrefix = poType === 'PARTS' ? 'PO' : 'PL'
-      const now = new Date()
-      const yyyymm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
-      const prefix = `${defaultPrefix}-${yyyymm}`
 
-      const latestPO = await prisma.purchaseOrder.findFirst({
-        where: { poNo: { startsWith: prefix } },
-        orderBy: { poNo: 'desc' }
+      const seq = await prisma.$transaction(async (tx) => {
+        let s = await tx.documentSequence.findUnique({
+          where: { docType }
+        })
+        
+        if (!s) {
+          s = await tx.documentSequence.create({
+            data: {
+              docType,
+              prefix: defaultPrefix,
+              lastNo: 0
+            }
+          })
+        }
+        
+        const nextNo = s.lastNo + 1
+        
+        await tx.documentSequence.update({
+          where: { id: s.id },
+          data: { lastNo: nextNo }
+        })
+        
+        return { prefix: s.prefix, number: nextNo }
       })
 
-      let nextNo = 1
-      if (latestPO) {
-        const match = latestPO.poNo.match(/(\d+)$/)
-        if (match) {
-          nextNo = parseInt(match[1], 10) + 1
-        }
-      }
-      
-      const seqNo = String(nextNo).padStart(5, '0')
-      poNo = `${prefix}${seqNo}`
+      const now = new Date()
+      const yyyymm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
+      poNo = `${seq.prefix}-${yyyymm}${String(seq.number).padStart(5, '0')}`
     }
 
     // Calculate total with configurable VAT

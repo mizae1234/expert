@@ -232,8 +232,15 @@ export function CreatePOModal({
         body: JSON.stringify(payload)
       })
       if (!res.ok) {
-        const errData = await res.json()
-        throw new Error(errData.error || 'Failed to save PO')
+        const errText = await res.text()
+        let errMsg = 'Failed to save PO'
+        try {
+          const errData = JSON.parse(errText)
+          errMsg = errData.error || errMsg
+        } catch {
+          errMsg = errText || errMsg
+        }
+        throw new Error(errMsg)
       }
       const savedPO = await res.json()
       if (!savedPO.vendor) savedPO.vendor = { id: poVendorId, name: poVendorName }
