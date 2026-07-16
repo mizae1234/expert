@@ -7,6 +7,7 @@ function formatDate(dateStr: string | Date): string {
 }
 
 function buildRemark(claim: any): string {
+  if (!claim) return 'ซื้อวัสดุอุปกรณ์/สินค้าทั่วไป'
   const parts = [
     claim.claimNo,
     [claim.carBrand, claim.carModel].filter(Boolean).join(' '),
@@ -47,15 +48,29 @@ export async function POST(req: NextRequest) {
     }
 
     if (type === 'ar') {
-      const invoices = await prisma.insuranceInvoice.findMany({
-        where: { id: { in: ids } },
-        include: {
-          claim: { include: { insurance: true } }
-        }
-      })
+      const [invoices, serviceOrders] = await Promise.all([
+        prisma.insuranceInvoice.findMany({
+          where: { id: { in: ids } },
+          include: {
+            claim: { include: { insurance: true } }
+          }
+        }),
+        prisma.serviceOrder.findMany({
+          where: { id: { in: ids } },
+          include: {
+            customer: true,
+            vehicles: {
+              include: {
+                items: true
+              }
+            }
+          }
+        })
+      ])
       
       const rows: any[] = []
       let seq = 1
+      
       for (const inv of invoices) {
         const remark = buildRemark(inv.claim)
         let hasAdded = false
@@ -112,10 +127,52 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await prisma.insuranceInvoice.updateMany({
-        where: { id: { in: ids } },
-        data: { isSynced: true, syncedAt: new Date() }
-      })
+      for (const order of serviceOrders) {
+        if (!order.invoiceNo || !order.invoiceDate) continue
+        let hasAdded = false
+        for (const vehicle of order.vehicles) {
+          const remark = `งานบริการทั่วไป|ทะเบียน:${vehicle.carPlate}|VIN:${vehicle.carVin}`
+          for (const item of vehicle.items) {
+            rows.push({
+              'ลำดับที่*': seq,
+              'วันที่เอกสาร': formatDate(order.invoiceDate),
+              'เลขที่เอกสาร': '',
+              'อ้างอิงถึง': order.orderNo,
+              'ลูกค้า': order.customer.peakCustomerId || order.customer.id,
+              'เลขทะเบียน 13 หลัก': order.customer.taxId || '',
+              'เลขสาขา 5 หลัก': order.customer.branchCode || '00000',
+              'เป็นใบกำกับภาษี': '',
+              'ประเภทราคา': 1,
+              'สินค้า/บริการ': 'P00035',
+              'บัญชี': ACCOUNT_REVENUE_LABOR,
+              'คำอธิบาย': `${item.description}|${vehicle.carPlate}`,
+              'จำนวน': item.quantity,
+              'ราคาต่อหน่วย': item.priceUnit,
+              'ส่วนลดต่อหน่วย': 0,
+              'อัตราภาษี': '7%',
+              'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 0,
+              'หมายเหตุ': remark,
+              'กลุ่มจัดประเภท': ''
+            })
+            hasAdded = true
+          }
+        }
+        if (hasAdded) {
+          seq++
+        }
+      }
+
+      await Promise.all([
+        prisma.insuranceInvoice.updateMany({
+          where: { id: { in: invoices.map(i => i.id) } },
+          data: { isSynced: true, syncedAt: new Date() }
+        }),
+        prisma.serviceOrder.updateMany({
+          where: { id: { in: serviceOrders.map(o => o.id) } },
+          data: { isSynced: true, syncedAt: new Date() }
+        })
+      ])
+
       return NextResponse.json({ rows, filename: 'AR_Import_Invoice.xlsx' })
     }
 
@@ -138,7 +195,7 @@ export async function POST(req: NextRequest) {
         rows.push({
           'ลำดับที่*': seq++,
           'วันที่เอกสาร': formatDate(si.invoiceDate),
-          'อ้างอิงถึง': si.claim.claimNo.slice(0, 32),
+          'อ้างอิงถึง': si.claim ? si.claim.claimNo.slice(0, 32) : 'ทั่วไป',
           'ผู้รับเงิน/คู่ค้า': si.vendor?.peakVendorCode || si.vendor?.id || '',
           'เลขทะเบียน 13 หลัก': si.vendor?.taxId || '',
           'เลขสาขา 5 หลัก': si.vendor?.branchCode || '00000',
@@ -148,7 +205,9 @@ export async function POST(req: NextRequest) {
           'ประเภทราคา': 1,
           'สินค้า/บริการ': 'P00033',
           'บัญชี': ACCOUNT_COST_PARTS,
-          'คำอธิบาย': `ค่าอะไหล่|${si.claim.carPlate}|${si.claim.claimNo}`,
+          'คำอธิบาย': si.claim 
+            ? `ค่าอะไหล่|${si.claim.carPlate}|${si.claim.claimNo}` 
+            : `ซื้อของ/วัสดุอุปกรณ์ทั่วไป|${si.invoiceNo}`,
           'จำนวน': 1,
           'ราคาต่อหน่วย': si.totalAmount / 1.07,
           'อัตราภาษี': '7%',

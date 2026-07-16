@@ -20,6 +20,76 @@ const DEFAULT_COMPANY = {
   signatureUrl: '',
 }
 
+function bahtText(num: number): string {
+  const numberText = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า']
+  const unitText = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน']
+  
+  if (num === 0 || isNaN(num)) return 'ศูนย์บาทถ้วน'
+  
+  const str = num.toFixed(2).split('.')
+  const baht = str[0]
+  const satang = str[1]
+  
+  let bahtTextStr = ''
+  
+  const convert = (val: string) => {
+    let result = ''
+    const length = val.length
+    for (let i = 0; i < length; i++) {
+      const digit = parseInt(val.charAt(i), 10)
+      const place = length - i - 1
+      
+      if (digit !== 0) {
+        if (place === 1 && digit === 2) {
+          result += 'ยี่'
+        } else if (place === 1 && digit === 1) {
+          result += ''
+        } else if (place === 0 && digit === 1 && length > 1 && val.charAt(length - 2) !== '0') {
+          result += 'เอ็ด'
+        } else {
+          result += numberText[digit]
+        }
+        result += unitText[place]
+      }
+    }
+    return result
+  }
+  
+  const convertBaht = (bahtStr: string) => {
+    let result = ''
+    const chunks = []
+    let temp = bahtStr
+    while (temp.length > 0) {
+      const size = Math.min(6, temp.length)
+      chunks.unshift(temp.substring(temp.length - size))
+      temp = temp.substring(0, temp.length - size)
+    }
+    
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i]
+      result += convert(chunk)
+      if (i < chunks.length - 1 && parseInt(chunk, 10) !== 0) {
+        result += 'ล้าน'
+      }
+    }
+    return result
+  }
+  
+  bahtTextStr = convertBaht(baht)
+  
+  if (bahtTextStr !== '') {
+    bahtTextStr += 'บาท'
+  }
+  
+  if (satang === '00' || satang === '0') {
+    bahtTextStr += 'ถ้วน'
+  } else {
+    bahtTextStr += convert(satang) + 'สตางค์'
+  }
+  
+  return bahtTextStr
+}
+
 export default function PDFMockPage() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -191,78 +261,266 @@ export default function PDFMockPage() {
     const inv = claim.insuranceInvoice
     if (!inv) return <div className="p-8 text-center">ยังไม่ได้ออกใบวางบิล</div>
 
-    return (
-      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-12">
-        {renderHeader('ใบวางบิล / ใบแจ้งหนี้', inv.invoiceNo, inv.invoiceDate)}
-        {renderCustomerInfo()}
+    const companyName = company.name || '-'
+    const companyAddress = [
+      company.address,
+      company.subDistrict,
+      company.district,
+      company.province,
+      company.postalCode
+    ].filter(Boolean).join(' ').trim() || '-'
+    const companyTaxId = company.taxId || '-'
+    const companyPhone = company.phone || '-'
+    const companyEmail = company.email || '-'
+    const companyWebsite = company.website || '-'
 
-        <table className="w-full text-sm mb-8 border-collapse">
+    // Prepare table items from claim.labors and claim.parts
+    const tableItems: any[] = []
+    
+    if (claim.labors && claim.labors.length > 0) {
+      claim.labors.forEach((l: any) => {
+        const discountAmount = l.priceOffer > l.priceApprove ? (l.priceOffer - l.priceApprove) : 0
+        tableItems.push({
+          title: 'ค่าแรงซ่อมศูนย์GI (P00034)',
+          description: l.description,
+          quantity: 1,
+          price: l.priceOffer || l.priceApprove,
+          discount: discountAmount,
+          vat: '7%',
+          total: l.priceApprove
+        })
+      })
+    } else if (inv.laborTotal > 0) {
+      tableItems.push({
+        title: 'ค่าแรงซ่อมศูนย์GI (P00034)',
+        description: 'ค่าแรงซ่อมรถยนต์',
+        quantity: 1,
+        price: inv.laborTotal,
+        discount: 0,
+        vat: '7%',
+        total: inv.laborTotal
+      })
+    }
+
+    if (claim.parts && claim.parts.length > 0) {
+      claim.parts.forEach((p: any) => {
+        const discountAmount = p.priceOffer > p.priceApprove ? (p.priceOffer - p.priceApprove) : 0
+        tableItems.push({
+          title: 'ค่าอะไหล่ศูนย์GI (P00032)',
+          description: p.partName,
+          quantity: p.quantity || 1,
+          price: p.priceOffer || p.priceApprove,
+          discount: discountAmount,
+          vat: '7%',
+          total: p.priceApprove * (p.quantity || 1)
+        })
+      })
+    } else if (inv.partsTotal > 0) {
+      tableItems.push({
+        title: 'ค่าอะไหล่ศูนย์GI (P00032)',
+        description: 'ค่าอะไหล่รถยนต์',
+        quantity: 1,
+        price: inv.partsTotal,
+        discount: 0,
+        vat: '7%',
+        total: inv.partsTotal
+      })
+    }
+
+    return (
+      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-6">
+        {/* Header Title Section */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex gap-4 items-center">
+            <div className="w-16 h-16 bg-white flex items-center justify-center font-bold text-gray-400 rounded overflow-hidden flex-shrink-0">
+              {company.logoUrl ? (
+                <img src={company.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+              ) : (
+                <div className="w-full h-full border border-dashed border-gray-300 flex items-center justify-center text-xs font-semibold">LOGO</div>
+              )}
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800">{companyName}</h1>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-blue-600 font-bold text-2xl flex items-baseline gap-1 justify-end">
+              <span>ใบแจ้งหนี้/ใบกำกับภาษี</span>
+            </div>
+            <div className="text-xs text-slate-550 font-medium text-right mt-1">(ต้นฉบับ)</div>
+          </div>
+        </div>
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-[1.5fr_1fr] gap-6 mb-6 text-[11px] leading-relaxed">
+          {/* Left Side: Seller & Customer info */}
+          <div className="space-y-4">
+            {/* Seller */}
+            <div className="border-b border-slate-200 pb-3">
+              <div className="grid grid-cols-[60px_1fr] gap-x-2 gap-y-0.5">
+                <span className="font-semibold text-slate-550">ผู้ขาย :</span>
+                <span className="font-bold text-slate-800">{companyName}</span>
+                <span className="font-semibold text-slate-550">ที่อยู่ :</span>
+                <span className="text-slate-650">{companyAddress}</span>
+                <span className="font-semibold text-slate-550">เลขที่ภาษี :</span>
+                <span className="text-slate-650">{companyTaxId} ({company.branchName || 'สำนักงานใหญ่'})</span>
+              </div>
+              <div className="flex gap-4 text-slate-500 pt-1 text-[10px]">
+                <span>📞 {companyPhone}</span>
+                <span>✉️ {companyEmail}</span>
+                <span>🌐 {companyWebsite}</span>
+              </div>
+            </div>
+
+            {/* Customer */}
+            <div className="pb-3">
+              <div className="grid grid-cols-[60px_1fr] gap-x-2 gap-y-0.5">
+                <span className="font-semibold text-slate-550">ลูกค้า :</span>
+                <span className="font-bold text-slate-800">
+                  {claim.insurance?.peakCustomerId ? `${claim.insurance.peakCustomerId} ` : ''}
+                  {claim.insurance?.name}
+                </span>
+                <span className="font-semibold text-slate-550">ที่อยู่ :</span>
+                <span className="text-slate-650">{claim.insurance?.address || '-'}</span>
+                <span className="font-semibold text-slate-550">เลขที่ภาษี :</span>
+                <span className="text-slate-650">{claim.insurance?.taxId || '-'} {claim.insurance?.branchCode ? `(${claim.insurance.branchCode === '00000' ? 'สำนักงานใหญ่' : claim.insurance.branchCode})` : ''}</span>
+              </div>
+              <div className="flex gap-4 text-slate-500 pt-1 text-[10px]">
+                <span>📞 -</span>
+                <span>✉️ -</span>
+                <span>🌐 -</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side: Document info & Contact */}
+          <div className="space-y-4">
+            {/* Invoice Meta */}
+            <div className="bg-[#eef2ff] border border-blue-100 rounded-lg p-3.5 space-y-1.5 text-xs">
+              <div className="grid grid-cols-[85px_1fr] gap-x-2">
+                <span className="text-slate-500 font-medium">เลขที่เอกสาร :</span>
+                <span className="font-bold text-slate-850">{inv.invoiceNo}</span>
+              </div>
+              <div className="grid grid-cols-[85px_1fr] gap-x-2">
+                <span className="text-slate-500 font-medium">วันที่ออก :</span>
+                <span className="font-semibold text-slate-800">{formatDate(inv.invoiceDate)}</span>
+              </div>
+              <div className="grid grid-cols-[85px_1fr] gap-x-2">
+                <span className="text-slate-500 font-medium">อ้างอิง :</span>
+                <span className="font-semibold text-slate-800">{claim.carPlate} {claim.province}</span>
+              </div>
+            </div>
+
+            {/* Contact Back */}
+            <div className="border border-slate-200 rounded-lg p-3.5 space-y-1.5">
+              <div className="font-semibold text-slate-700">ติดต่อกลับที่ :</div>
+              <div className="grid grid-cols-[20px_1fr] gap-x-1 items-center text-slate-650">
+                <span>👤</span>
+                <span className="font-medium text-slate-800">{company.authorizedName || 'Vilaiphon Vamagun'}</span>
+                <span>📞</span>
+                <span className="font-medium text-slate-800">{company.phone || '0624818114'}</span>
+                <span>✉️</span>
+                <span className="text-slate-700">{company.email || 'vamagunv@gmail.com'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Items Table */}
+        <table className="w-full text-xs mb-8 border-collapse">
           <thead>
-            <tr className="border-b-2 border-gray-800 text-left">
-              <th className="py-2 px-2">ลำดับ</th>
-              <th className="py-2 px-2">รายการ</th>
-              <th className="py-2 px-2 text-right">จำนวนเงิน</th>
+            <tr className="bg-[#e0f2fe] text-left border-t border-b border-slate-200">
+              <th className="py-2.5 px-3 text-slate-700 font-semibold">คำอธิบาย</th>
+              <th className="py-2.5 px-3 text-right text-slate-700 font-semibold w-16">จำนวน</th>
+              <th className="py-2.5 px-3 text-right text-slate-700 font-semibold w-24">ราคา</th>
+              <th className="py-2.5 px-3 text-right text-slate-700 font-semibold w-16">ส่วนลด</th>
+              <th className="py-2.5 px-3 text-center text-slate-700 font-semibold w-16">VAT</th>
+              <th className="py-2.5 px-3 text-right text-slate-700 font-semibold w-28">มูลค่าก่อนภาษี</th>
             </tr>
           </thead>
           <tbody>
-            {(() => {
-              const rows = []
-              if (inv.laborTotal > 0) {
-                rows.push(
-                  <tr key="labor" className="border-b border-gray-200">
-                    <td className="py-4 px-2 text-gray-600">{rows.length + 1}</td>
-                    <td className="py-4 px-2">
-                      <strong>ค่าแรงซ่อมรถยนต์</strong>
-                      <p className="text-gray-500 text-xs mt-1">ตามใบเสนอราคาที่ได้รับอนุมัติ ทะเบียน {claim.carPlate}</p>
-                    </td>
-                    <td className="py-4 px-2 text-right">{formatCurrency(inv.laborTotal)}</td>
-                  </tr>
-                )
-              }
-              if (inv.partsTotal > 0) {
-                rows.push(
-                  <tr key="parts" className="border-b border-gray-200">
-                    <td className="py-4 px-2 text-gray-600">{rows.length + 1}</td>
-                    <td className="py-4 px-2">
-                      <strong>ค่าอะไหล่รถยนต์</strong>
-                      <p className="text-gray-500 text-xs mt-1">ตามใบเสนอราคาที่ได้รับอนุมัติ ทะเบียน {claim.carPlate}</p>
-                    </td>
-                    <td className="py-4 px-2 text-right">{formatCurrency(inv.partsTotal)}</td>
-                  </tr>
-                )
-              }
-              return rows
-            })()}
+            {tableItems.map((item, index) => (
+              <tr key={index} className="border-b border-slate-100 last:border-b-2 last:border-slate-350">
+                <td className="py-3 px-3">
+                  <div className="font-semibold text-slate-800">{item.title}</div>
+                  <div className="text-slate-500 text-[11px] mt-0.5 pl-4">{item.description}</div>
+                </td>
+                <td className="py-3 px-3 text-right text-slate-700 font-mono">{item.quantity.toFixed(2)}</td>
+                <td className="py-3 px-3 text-right text-slate-700 font-mono">{formatCurrency(item.price)}</td>
+                <td className="py-3 px-3 text-right text-slate-700 font-mono">{formatCurrency(item.discount)}</td>
+                <td className="py-3 px-3 text-center text-slate-700 font-mono">{item.vat}</td>
+                <td className="py-3 px-3 text-right text-slate-850 font-bold font-mono">{formatCurrency(item.total)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
 
-        <div className="flex justify-end">
-          <div className="w-64 space-y-2 text-sm border rounded p-4">
-            <div className="flex justify-between"><span className="text-gray-600">มูลค่าก่อนภาษี</span><span>{formatCurrency(inv.subtotal)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-600">ภาษีมูลค่าเพิ่ม 7%</span><span>{formatCurrency(inv.vatAmount)}</span></div>
-            <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>ยอดรวมทั้งสิ้น</span><span>{formatCurrency(inv.grandTotal)}</span></div>
+        {/* Summary Sections */}
+        <div className="grid grid-cols-[1.4fr_1fr] gap-6 mb-6 text-[11px]">
+          {/* Left summary card */}
+          <div className="border border-slate-200 rounded-lg p-4 space-y-2 bg-slate-50/20">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800 mb-1">
+              <span>📋 สรุป</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>มูลค่าที่คำนวณภาษี 7%</span>
+              <span className="font-semibold text-slate-800">{formatCurrency(inv.subtotal)} บาท</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>ภาษีมูลค่าเพิ่ม 7%</span>
+              <span className="font-semibold text-slate-800">{formatCurrency(inv.vatAmount)} บาท</span>
+            </div>
+            <div className="flex justify-between border-t border-slate-100 pt-2 font-medium">
+              <span className="text-slate-650">จำนวนเงินทั้งสิ้น</span>
+              <span className="text-slate-600 italic">({bahtText(inv.grandTotal)})</span>
+            </div>
+          </div>
+
+          {/* Right summary card (highlighted) */}
+          <div className="bg-[#eef2ff] border border-blue-100 rounded-lg p-4 space-y-2.5">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 font-semibold">จำนวนเงินทั้งสิ้น</span>
+              <span className="text-sm font-bold text-blue-900">{formatCurrency(inv.grandTotal)} บาท</span>
+            </div>
+            <div className="flex justify-between border-t border-blue-50 pt-2">
+              <span className="text-slate-500 font-medium">จำนวนเงินที่ถูกหัก ณ ที่จ่าย</span>
+              <span className="font-semibold text-slate-700">0.00 บาท</span>
+            </div>
+            <div className="flex justify-between font-bold text-blue-950 border-t border-blue-100 pt-2 text-xs">
+              <span>จำนวนเงินที่ชำระ</span>
+              <span>{formatCurrency(inv.grandTotal)} บาท</span>
+            </div>
           </div>
         </div>
 
-        <div className="mt-16 text-sm border rounded p-4 bg-gray-50">
-          <h4 className="font-semibold mb-2">รายละเอียดการชำระเงิน</h4>
-          <p>ชื่อบัญชี: {company.bankAccountName}</p>
-          <p>ธนาคาร: {company.bankName}</p>
-          <p>เลขที่บัญชี: <span className="font-mono">{company.bankAccount}</span></p>
+        {/* Payment options */}
+        <div className="border-t border-slate-200 pt-4 grid grid-cols-[100px_1fr] gap-4 items-center mb-6 text-[11px]">
+          <div className="flex items-center gap-1.5 font-bold text-slate-850">
+            <span>💳 ชำระเงิน</span>
+          </div>
+          <div className="flex items-center gap-3 bg-slate-50/50 rounded-lg p-2.5 border border-slate-150 max-w-sm">
+            {company.bankName && (company.bankName.includes('กสิกร') || company.bankName.toLowerCase().includes('kasikorn')) ? (
+              <div className="w-8 h-8 rounded-full bg-[#138f2d] border-2 border-[#e01b22] flex items-center justify-center text-white font-extrabold text-sm select-none shadow-sm flex-shrink-0">
+                K
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm flex-shrink-0 text-sm">
+                🏦
+              </div>
+            )}
+            <div className="space-y-0.5">
+              <div className="font-bold text-slate-800">{company.bankName || '-'}</div>
+              <div className="text-slate-650">
+                {company.bankAccount && <span className="font-medium text-slate-500 mr-1.5">ออมทรัพย์</span>}
+                <span className="font-mono text-slate-800 font-semibold">{company.bankAccount || '-'}</span>
+              </div>
+              <div className="text-[10px] text-slate-550">{company.bankAccountName || '-'}</div>
+            </div>
+          </div>
         </div>
 
-        <div className="mt-16 grid grid-cols-2 gap-16 text-center text-sm">
-          <div>
-            <div className="border-b border-gray-400 w-48 mx-auto mb-2"></div>
-            <p>ผู้รับวางบิล</p>
-            <p className="text-gray-500 text-xs mt-1">วันที่ ____/____/____</p>
-          </div>
-          <div>
-            <div className="border-b border-gray-400 w-48 mx-auto mb-2"></div>
-            <p>ผู้วางบิล</p>
-            <p className="text-gray-500 text-xs mt-1">วันที่ ____/____/____</p>
-          </div>
-        </div>
+        {/* Fine bottom border line */}
+        <div className="border-b border-slate-300"></div>
       </div>
     )
   }
@@ -318,20 +576,36 @@ export default function PDFMockPage() {
 
         {(() => {
           const poSubtotal = (po.items || []).reduce((s: number, item: any) => s + (item.totalPrice || 0), 0)
-          const computedVat = Math.max(0, Math.round((po.totalAmount - poSubtotal) * 100) / 100)
-          const computedVatPct = poSubtotal > 0 ? Math.round((computedVat / poSubtotal) * 100) : 0
+          // Try to detect VAT and WHT from the total
+          const diff = Math.round((po.totalAmount - poSubtotal) * 100) / 100
+          // If diff >= 0, it's pure VAT. If diff < 0, there might be WHT involved.
+          // Use includeVat/includeWht flags if available from query params
+          const vatPctParam = searchParams.get('vatPct')
+          const whtPctParam = searchParams.get('whtPct')
+          const hasVat = vatPctParam ? Number(vatPctParam) > 0 : diff > 0
+          const hasWht = whtPctParam ? Number(whtPctParam) > 0 : false
+          const vatPct = vatPctParam ? Number(vatPctParam) : (poSubtotal > 0 && diff > 0 ? Math.round((diff / poSubtotal) * 100) : 0)
+          const whtPct = whtPctParam ? Number(whtPctParam) : 0
+          const computedVat = hasVat ? Math.round(poSubtotal * (vatPct / 100) * 100) / 100 : 0
+          const computedWht = hasWht ? Math.round(poSubtotal * (whtPct / 100) * 100) / 100 : 0
 
           return (
             <div className="flex justify-end">
-              <div className="w-64 space-y-2 text-sm border rounded p-4">
+              <div className="w-72 space-y-2 text-sm border rounded p-4">
                 <div className="flex justify-between text-gray-600">
                   <span>ยอดรวมก่อน VAT</span>
                   <span>{formatCurrency(poSubtotal)}</span>
                 </div>
                 {computedVat > 0 && (
                   <div className="flex justify-between text-gray-600">
-                    <span>VAT {computedVatPct > 0 ? `${computedVatPct}%` : ''}</span>
+                    <span>VAT {vatPct > 0 ? `${vatPct}%` : ''}</span>
                     <span>{formatCurrency(computedVat)}</span>
+                  </div>
+                )}
+                {computedWht > 0 && (
+                  <div className="flex justify-between text-red-600">
+                    <span>หัก ณ ที่จ่าย {whtPct}%</span>
+                    <span>-{formatCurrency(computedWht)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">

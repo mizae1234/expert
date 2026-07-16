@@ -61,3 +61,23 @@ export function getPOStatusLabel(status: string): string {
   }
   return labels[status] || status
 }
+
+export function getServiceStatusColor(status: string): { bg: string; text: string } {
+  const colors: Record<string, { bg: string; text: string }> = {
+    PENDING: { bg: 'bg-yellow-100', text: 'text-yellow-700' },
+    IN_PROGRESS: { bg: 'bg-blue-100', text: 'text-blue-700' },
+    COMPLETED: { bg: 'bg-green-100', text: 'text-green-700' },
+    CANCELLED: { bg: 'bg-red-100', text: 'text-red-700' },
+  }
+  return colors[status] || { bg: 'bg-gray-100', text: 'text-gray-600' }
+}
+
+export function getServiceStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    PENDING: 'รอดำเนินการ',
+    IN_PROGRESS: 'กำลังทำสี',
+    COMPLETED: 'เสร็จสิ้น/ออกบิล',
+    CANCELLED: 'ยกเลิก',
+  }
+  return labels[status] || status
+}

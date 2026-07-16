@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
     })
     const supplierInvoiceSumsMap: Record<string, number> = {}
     supplierInvoiceSums.forEach(s => {
-      supplierInvoiceSumsMap[s.claimId] = s._sum.totalAmount || 0
+      if (s.claimId) {
+        supplierInvoiceSumsMap[s.claimId] = s._sum.totalAmount || 0
+      }
     })
 
     const garageInvoiceSums = await prisma.garageInvoice.groupBy({
@@ -196,8 +198,8 @@ export async function GET(request: NextRequest) {
         vendorId: inv.vendorId,
         type: 'อะไหล่',
         invoiceNo: inv.invoiceNo || '-',
-        claimNo: inv.claim.claimNo,
-        carPlate: inv.claim.carPlate,
+        claimNo: inv.claim?.claimNo || 'ทั่วไป',
+        carPlate: inv.claim?.carPlate || 'ทั่วไป',
         invoiceDate: inv.createdAt,
         amount: inv.totalAmount
       })),

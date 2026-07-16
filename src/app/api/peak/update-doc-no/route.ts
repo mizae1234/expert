@@ -14,18 +14,35 @@ export async function POST(req: NextRequest) {
     }
 
     if (type === 'AR') {
-      // Check duplicate
-      const duplicate = await prisma.insuranceInvoice.findUnique({
-        where: { invoiceNo: trimmedNo }
+      const insuranceInvoice = await prisma.insuranceInvoice.findUnique({
+        where: { id }
       })
-      if (duplicate && duplicate.id !== id) {
-        return NextResponse.json({ error: 'เลขที่เอกสารนี้ซ้ำในระบบ กรุณาใช้เลขอื่น' }, { status: 400 })
-      }
 
-      await prisma.insuranceInvoice.update({
-        where: { id },
-        data: { invoiceNo: trimmedNo }
-      })
+      if (insuranceInvoice) {
+        const duplicate = await prisma.insuranceInvoice.findUnique({
+          where: { invoiceNo: trimmedNo }
+        })
+        if (duplicate && duplicate.id !== id) {
+          return NextResponse.json({ error: 'เลขที่เอกสารนี้ซ้ำในระบบ กรุณาใช้เลขอื่น' }, { status: 400 })
+        }
+
+        await prisma.insuranceInvoice.update({
+          where: { id },
+          data: { invoiceNo: trimmedNo }
+        })
+      } else {
+        const duplicate = await prisma.serviceOrder.findUnique({
+          where: { invoiceNo: trimmedNo }
+        })
+        if (duplicate && duplicate.id !== id) {
+          return NextResponse.json({ error: 'เลขที่เอกสารนี้ซ้ำในระบบ กรุณาใช้เลขอื่น' }, { status: 400 })
+        }
+
+        await prisma.serviceOrder.update({
+          where: { id },
+          data: { invoiceNo: trimmedNo }
+        })
+      }
     } else if (type === 'SUPPLIER') {
       const duplicate = await prisma.supplierInvoice.findUnique({
         where: { invoiceNo: trimmedNo }

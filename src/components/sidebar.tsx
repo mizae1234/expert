@@ -16,6 +16,7 @@ import {
   Receipt,
   Settings,
   Cloud,
+  Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LucideIcon } from 'lucide-react'
@@ -82,6 +83,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       label: 'OPERATIONS',
       items: [
         { name: 'Claims', href: '/claims', icon: FileText, badge: stats.claims },
+        { name: 'Service Jobs', href: '/service-jobs', icon: Wrench },
         { name: 'Invoices', href: '/invoices', icon: Receipt, badge: stats.invoices, badgeColor: 'red' },
         { name: 'Payments', href: '/payments', icon: CreditCard, badge: stats.payments },
       ],

@@ -456,7 +456,16 @@ export default function PeakSyncPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-[#475569]">{inv.claimNo}</TableCell>
-                      <TableCell>{inv.insuranceName}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span>{inv.insuranceName}</span>
+                          {inv.type === 'SERVICE' && (
+                            <Badge className="bg-amber-100 text-[#d97706] border-none shadow-none text-[10px] px-1.5 py-0">
+                              บริการทั่วไป
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-xs text-[#475569]">{formatDate(inv.invoiceDate)}</TableCell>
                       <TableCell className="text-right font-semibold">฿{formatCurrency(inv.grandTotal)}</TableCell>
                       <TableCell className="text-center">

@@ -215,6 +215,8 @@ export interface PurchaseOrder {
   deliveryAddress?: string
   includeVat?: boolean
   vatPct?: number
+  includeWht?: boolean
+  whtPct?: number
   totalAmount: number
   status: POStatus
   items: POItem[]

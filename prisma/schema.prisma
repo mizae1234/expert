@@ -153,8 +153,8 @@ enum LaborPaymentStatus {
 
 model PurchaseOrder {
   id              String        @id @default(cuid())
-  claimId         String
-  claim           Claim         @relation(fields: [claimId], references: [id])
+  claimId         String?
+  claim           Claim?        @relation(fields: [claimId], references: [id])
   vendorId        String
   vendor          Vendor        @relation(fields: [vendorId], references: [id])
   poNo            String        @unique
@@ -240,8 +240,8 @@ model DeliveryOrder {
 
 model SupplierInvoice {
   id              String                @id @default(cuid())
-  claimId         String
-  claim           Claim                 @relation(fields: [claimId], references: [id])
+  claimId         String?
+  claim           Claim?                @relation(fields: [claimId], references: [id])
   vendorId        String
   vendor          Vendor                @relation(fields: [vendorId], references: [id])
   invoiceNo       String                @unique
@@ -662,4 +662,76 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id                String         @id @default(cuid())
+  name              String
+  taxId             String?
+  phone             String?
+  address           String?
+  branchCode        String         @default("00000")
+  isVatRegistered   Boolean        @default(true)
+  contactPerson     String?
+  peakCustomerId    String?
+  contactType       String         @default("ลูกค้า")
+  nationality       String         @default("ไทย")
+  businessType      String         @default("บริษัทจำกัด")
+  creditTermArDays  Int            @default(30)
+  createdAt         DateTime       @default(now())
+  serviceOrders     ServiceOrder[]
+}
+
+enum ServiceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model ServiceOrder {
+  id              String           @id @default(cuid())
+  orderNo         String           @unique // e.g. JOB-20260700001
+  customerId      String
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  status          ServiceStatus    @default(PENDING)
+  invoiceNo       String?          @unique // e.g. IVS-20260700001
+  invoiceDate     DateTime?
+  dueDate         DateTime?
+  subtotal        Float
+  vatAmount       Float
+  grandTotal      Float
+  isSynced        Boolean          @default(false)
+  syncedAt        DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  vehicles        ServiceVehicle[]
+}
+
+model ServiceVehicle {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id])
+  carPlate       String
+  carProvince    String?
+  carBrand       String
+  carModel       String
+  carVin         String
+  createdAt      DateTime     @default(now())
+  
+  items          ServiceItem[]
+
+  @@index([serviceOrderId])
+}
+
+model ServiceItem {
+  id               String         @id @default(cuid())
+  serviceVehicleId String
+  serviceVehicle   ServiceVehicle @relation(fields: [serviceVehicleId], references: [id])
+  description      String
+  quantity         Int            @default(1)
+  priceUnit        Float
+  totalPrice       Float
+
+  @@index([serviceVehicleId])
 }

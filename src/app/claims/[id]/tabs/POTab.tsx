@@ -86,7 +86,16 @@ export default function POTab({
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <span className="text-lg font-bold text-[#0f172a]">฿{formatCurrency(po.totalAmount)}</span>
-                        <span className="text-[10px] text-gray-500">(รวม VAT 7% แล้ว)</span>
+                        <span className="text-[10px] text-gray-500">
+                          {(() => {
+                            const parts = []
+                            const sub = po.items.reduce((s: number, item: any) => s + (item.totalPrice || 0), 0)
+                            const diff = Math.round((po.totalAmount - sub) * 100) / 100
+                            if (diff > 0 || po.includeVat !== false) parts.push(`VAT ${po.vatPct || 7}%`)
+                            if (po.includeWht) parts.push(`หัก ณ ${po.whtPct || 3}%`)
+                            return parts.length > 0 ? `(${parts.join(', ')})` : ''
+                          })()}
+                        </span>
                       </div>
                       <div className="flex items-center gap-4">
                         {po.status === 'DRAFT' && (
@@ -187,7 +196,7 @@ export default function POTab({
                             <Package className="w-3 h-3 mr-1" />รับอะไหล่แล้ว
                           </Button>
                         )}
-                        <Link href={`/claims/${claim.id}/pdf/purchase-order?poId=${po.id}`} target="_blank">
+                        <Link href={`/claims/${claim.id}/pdf/purchase-order?poId=${po.id}&vatPct=${po.includeVat !== false ? (po.vatPct || 7) : 0}&whtPct=${po.includeWht ? (po.whtPct || 3) : 0}`} target="_blank">
                           <Button variant="outline" size="sm" className="text-xs h-7">
                             <Download className="w-3 h-3 mr-1" />ดาวน์โหลด PO
                           </Button>

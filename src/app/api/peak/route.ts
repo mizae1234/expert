@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma'
 
 export async function GET() {
   try {
-    const [arInvoices, supplierInvoices, garageInvoices, expenses] = await Promise.all([
+    const [arInvoices, supplierInvoices, garageInvoices, expenses, serviceOrders] = await Promise.all([
       prisma.insuranceInvoice.findMany({
         where: {
           status: { in: ['PENDING', 'SENT', 'PAID'] }
@@ -46,25 +46,48 @@ export async function GET() {
           claim: { select: { claimNo: true } }
         },
         orderBy: { createdAt: 'desc' }
+      }),
+      prisma.serviceOrder.findMany({
+        where: {
+          invoiceNo: { not: null }
+        },
+        include: {
+          customer: { select: { id: true, name: true } }
+        },
+        orderBy: { createdAt: 'desc' }
       })
     ])
 
     return NextResponse.json({
-      arInvoices: arInvoices.map(inv => ({
-        id: inv.id,
-        invoiceNo: inv.invoiceNo,
-        claimNo: inv.claim.claimNo,
-        insuranceName: inv.claim.insurance.name,
-        invoiceDate: inv.invoiceDate,
-        grandTotal: inv.grandTotal,
-        isSynced: inv.isSynced,
-        syncedAt: inv.syncedAt
-      })),
+      arInvoices: [
+        ...arInvoices.map(inv => ({
+          id: inv.id,
+          invoiceNo: inv.invoiceNo,
+          claimNo: inv.claim.claimNo,
+          insuranceName: inv.claim.insurance.name,
+          invoiceDate: inv.invoiceDate,
+          grandTotal: inv.grandTotal,
+          isSynced: inv.isSynced,
+          syncedAt: inv.syncedAt,
+          type: 'CLAIM'
+        })),
+        ...serviceOrders.map(order => ({
+          id: order.id,
+          invoiceNo: order.invoiceNo!,
+          claimNo: order.orderNo,
+          insuranceName: order.customer.name,
+          invoiceDate: order.invoiceDate!,
+          grandTotal: order.grandTotal,
+          isSynced: order.isSynced,
+          syncedAt: order.syncedAt,
+          type: 'SERVICE'
+        }))
+      ].sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()),
       apInvoices: [
         ...supplierInvoices.map(inv => ({
           id: inv.id,
           invoiceNo: inv.invoiceNo,
-          claimNo: inv.claim.claimNo,
+          claimNo: inv.claim?.claimNo || 'ทั่วไป',
           vendorName: inv.vendor.name,
           invoiceDate: inv.invoiceDate,
           totalAmount: inv.totalAmount,

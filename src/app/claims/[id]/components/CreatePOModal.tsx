@@ -47,6 +47,9 @@ export function CreatePOModal({
   const [poIncludeVat, setPoIncludeVat] = useState(true)
   const [poVatPct, setPoVatPct] = useState(7)
   const [poCustomVat, setPoCustomVat] = useState<string>('')
+  const [poIncludeWht, setPoIncludeWht] = useState(false)
+  const [poWhtPct, setPoWhtPct] = useState(3)
+  const [poCustomWht, setPoCustomWht] = useState<string>('')
   const [poCustomGrand, setPoCustomGrand] = useState<string>('')
 
   useEffect(() => {
@@ -103,11 +106,14 @@ export function CreatePOModal({
           setPoManualItems([])
           setPoIncludeVat(po.includeVat ?? true)
           setPoVatPct(po.vatPct || 7)
+          setPoIncludeWht(po.includeWht ?? false)
+          setPoWhtPct(po.whtPct || 3)
 
           // Calculate subtotal of existing items to derive custom/saved VAT amount
           const subtotal = po.items.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0)
           const savedVat = Math.round((po.totalAmount - subtotal) * 100) / 100
           setPoCustomVat(savedVat > 0 ? String(savedVat) : '')
+          setPoCustomWht('')
           setPoCustomGrand(String(po.totalAmount))
         }
       } else {
@@ -133,6 +139,9 @@ export function CreatePOModal({
         setPoIncludeVat(true)
         setPoVatPct(7)
         setPoCustomVat('')
+        setPoIncludeWht(false)
+        setPoWhtPct(3)
+        setPoCustomWht('')
         setPoCustomGrand('')
       }
     }
@@ -154,7 +163,9 @@ export function CreatePOModal({
   const poTot = poPartsTot + poLaborsTot + poManualTot
   const calculatedVatAmt = poIncludeVat ? Math.round(poTot * (poVatPct / 100) * 100) / 100 : 0
   const vatAmt = poIncludeVat ? (poCustomVat !== '' ? Number(poCustomVat) : calculatedVatAmt) : 0
-  const grandTotal = poCustomGrand !== '' ? Number(poCustomGrand) : (poTot + vatAmt)
+  const calculatedWhtAmt = poIncludeWht ? Math.round(poTot * (poWhtPct / 100) * 100) / 100 : 0
+  const whtAmt = poIncludeWht ? (poCustomWht !== '' ? Number(poCustomWht) : calculatedWhtAmt) : 0
+  const grandTotal = poCustomGrand !== '' ? Number(poCustomGrand) : (poTot + vatAmt - whtAmt)
 
   const submitCreatePO = async () => {
     const selectedParts = poModalParts.filter(p => p.selected)
@@ -201,6 +212,8 @@ export function CreatePOModal({
       deliveryAddress: poDeliveryAddress,
       includeVat: poIncludeVat,
       vatPct: poIncludeVat ? poVatPct : 0,
+      includeWht: poIncludeWht,
+      whtPct: poIncludeWht ? poWhtPct : 0,
       totalAmount: grandTotal,
       items: [...partItems, ...laborItems, ...manualItems]
     }
@@ -766,6 +779,47 @@ export function CreatePOModal({
                     </div>
                   </div>
                 )}
+                <div className="flex items-center justify-between w-full">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={poIncludeWht}
+                      onChange={e => setPoIncludeWht(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="text-sm text-gray-600">หัก ณ ที่จ่าย</span>
+                  </label>
+                  {poIncludeWht && (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        className="h-7 w-16 text-sm text-right"
+                        value={poWhtPct}
+                        onChange={e => {
+                          setPoWhtPct(Number(e.target.value) || 0)
+                          setPoCustomWht('')
+                        }}
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                  )}
+                </div>
+                {poIncludeWht && (
+                  <div className="flex items-center justify-between w-full text-sm text-red-500">
+                    <span>หัก ณ ที่จ่าย {poWhtPct}%:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-red-400">-฿</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="h-7 w-28 text-sm text-right font-medium text-red-500"
+                        value={poCustomWht}
+                        onChange={e => setPoCustomWht(e.target.value)}
+                        placeholder={String(calculatedWhtAmt)}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between w-full text-base font-bold text-blue-700 pt-2 border-t mt-1">
                   <span>ยอดรวมทั้งสิ้น:</span>
                   <div className="flex items-center gap-2">
@@ -776,7 +830,7 @@ export function CreatePOModal({
                       className="h-9 w-40 text-right font-bold text-blue-700 text-lg"
                       value={poCustomGrand}
                       onChange={e => setPoCustomGrand(e.target.value)}
-                      placeholder={String(poTot + vatAmt)}
+                      placeholder={String(poTot + vatAmt - whtAmt)}
                     />
                   </div>
                 </div>

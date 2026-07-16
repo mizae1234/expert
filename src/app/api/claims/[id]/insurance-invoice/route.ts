@@ -28,10 +28,19 @@ export async function POST(
     const now = new Date()
     const yyyymm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
     const prefix = `IVT-${yyyymm}`
-    const count = await prisma.insuranceInvoice.count({
-      where: { invoiceNo: { startsWith: 'IVT-' } }
+    
+    const latestInvoice = await prisma.insuranceInvoice.findFirst({
+      where: { invoiceNo: { startsWith: prefix } },
+      orderBy: { invoiceNo: 'desc' }
     })
-    const nextNo = 226 + count
+    
+    let nextNo = 1
+    if (latestInvoice) {
+      const match = latestInvoice.invoiceNo.match(/(\d+)$/)
+      if (match) {
+        nextNo = parseInt(match[1], 10) + 1
+      }
+    }
     const seqNo = String(nextNo).padStart(5, '0')
     const invoiceNo = body.invoiceNo || `${prefix}${seqNo}`
 
