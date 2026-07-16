@@ -151,21 +151,21 @@ export function UploadSupplierInvoiceModal({
           laborIds: selLabors.map(l => l.id)
         })
       })
-      if (!res.ok) hasError = true
-      else {
-        const newInv = await res.json()
-        newInv.attachmentUrl = uploadedFile?.url || null
-        newInv.attachmentName = uploadedFile?.name || null
-        setSupplierInvoices(prev => [...prev, newInv])
-        if (selParts.length > 0) {
-          setParts(prev => prev.map(p => uploadMapSelections[p.id] ? { ...p, paymentStatus: 'INVOICED' as const } : p))
-        }
-        if (selLabors.length > 0) {
-          setLabors(prev => prev.map(l => uploadMapSelections[l.id] ? { ...l, paymentStatus: 'INVOICED' as const } : l))
-        }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || `Server returned status ${res.status}`)
       }
-
-      if (hasError) throw new Error('เกิดข้อผิดพลาดในการบันทึกข้อมูลบางส่วน')
+      
+      const newInv = await res.json()
+      newInv.attachmentUrl = uploadedFile?.url || null
+      newInv.attachmentName = uploadedFile?.name || null
+      setSupplierInvoices(prev => [...prev, newInv])
+      if (selParts.length > 0) {
+        setParts(prev => prev.map(p => uploadMapSelections[p.id] ? { ...p, paymentStatus: 'INVOICED' as const } : p))
+      }
+      if (selLabors.length > 0) {
+        setLabors(prev => prev.map(l => uploadMapSelections[l.id] ? { ...l, paymentStatus: 'INVOICED' as const } : l))
+      }
 
       showToast('บันทึก Invoice เรียบร้อย')
       onClose()
