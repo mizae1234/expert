@@ -38,20 +38,15 @@ export async function POST(
     let newInvoice
     const maxRetries = 5
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const latestInvoice = await prisma.insuranceInvoice.findFirst({
-        where: { invoiceNo: { startsWith: prefix } },
-        orderBy: { invoiceNo: 'desc' }
-      })
-
-      let nextNo = 1
-      if (latestInvoice) {
-        // Extract only the 5-digit sequence after the prefix (e.g. "IVT-202607" is 10 chars)
-        const seqPart = latestInvoice.invoiceNo.slice(prefix.length)
-        const parsed = parseInt(seqPart, 10)
-        if (!isNaN(parsed)) {
-          nextNo = parsed + 1
-        }
-      }
+      // Use raw query to safely extract max sequence, filtering only valid-format records
+      const result = await prisma.$queryRawUnsafe<{max_seq: number}[]>(
+        `SELECT COALESCE(MAX(CAST(SUBSTRING("invoiceNo" FROM ${prefix.length + 1}) AS INTEGER)), 0) as max_seq
+         FROM "InsuranceInvoice"
+         WHERE "invoiceNo" LIKE $1 AND LENGTH("invoiceNo") = $2`,
+        `${prefix}%`,
+        prefix.length + 5  // IVT-YYYYMM (10) + XXXXX (5) = 15
+      )
+      const nextNo = (result[0]?.max_seq ?? 0) + 1
       const seqNo = String(nextNo).padStart(5, '0')
       const invoiceNo = body.invoiceNo || `${prefix}${seqNo}`
 
