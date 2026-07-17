@@ -28,41 +28,58 @@ export async function POST(
     const now = new Date()
     const yyyymm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
     const prefix = `IVT-${yyyymm}`
-    
-    const latestInvoice = await prisma.insuranceInvoice.findFirst({
-      where: { invoiceNo: { startsWith: prefix } },
-      orderBy: { invoiceNo: 'desc' }
-    })
-    
-    let nextNo = 1
-    if (latestInvoice) {
-      const match = latestInvoice.invoiceNo.match(/(\d+)$/)
-      if (match) {
-        nextNo = parseInt(match[1], 10) + 1
-      }
-    }
-    const seqNo = String(nextNo).padStart(5, '0')
-    const invoiceNo = body.invoiceNo || `${prefix}${seqNo}`
 
     const invoiceDate = new Date(body.invoiceDate || Date.now())
     const creditTermDays = claim.insurance?.creditTermArDays ?? 30
     const dueDate = new Date(invoiceDate)
     dueDate.setDate(dueDate.getDate() + creditTermDays)
 
-    const newInvoice = await prisma.insuranceInvoice.create({
-      data: {
-        claimId: params.id,
-        invoiceNo,
-        invoiceDate,
-        dueDate,
-        laborTotal: body.laborTotal,
-        partsTotal: body.partsTotal,
-        subtotal: body.subtotal,
-        vatAmount: body.vatAmount,
-        grandTotal: body.grandTotal,
-        status: 'PENDING'
+    // Retry loop to handle race conditions on invoiceNo
+    let newInvoice
+    const maxRetries = 5
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const latestInvoice = await prisma.insuranceInvoice.findFirst({
+        where: { invoiceNo: { startsWith: prefix } },
+        orderBy: { invoiceNo: 'desc' }
+      })
+
+      let nextNo = 1
+      if (latestInvoice) {
+        // Extract only the 5-digit sequence after the prefix (e.g. "IVT-202607" is 10 chars)
+        const seqPart = latestInvoice.invoiceNo.slice(prefix.length)
+        const parsed = parseInt(seqPart, 10)
+        if (!isNaN(parsed)) {
+          nextNo = parsed + 1
+        }
       }
-    })
+      const seqNo = String(nextNo).padStart(5, '0')
+      const invoiceNo = body.invoiceNo || `${prefix}${seqNo}`
+
+      try {
+        newInvoice = await prisma.insuranceInvoice.create({
+          data: {
+            claimId: params.id,
+            invoiceNo,
+            invoiceDate,
+            dueDate,
+            laborTotal: body.laborTotal,
+            partsTotal: body.partsTotal,
+            subtotal: body.subtotal,
+            vatAmount: body.vatAmount,
+            grandTotal: body.grandTotal,
+            status: 'PENDING'
+          }
+        })
+        break // success
+      } catch (e: any) {
+        // If unique constraint error on invoiceNo, retry with new sequence
+        if (e.code === 'P2002' && e.meta?.target?.includes('invoiceNo') && !body.invoiceNo) {
+          if (attempt === maxRetries - 1) throw e
+          continue
+        }
+        throw e
+      }
+    }
     
     return NextResponse.json(newInvoice, { status: 201 })
   } catch (err: any) {
