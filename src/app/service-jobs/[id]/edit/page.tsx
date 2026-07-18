@@ -1,35 +1,28 @@
 "use client"
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { 
-  ArrowLeft, Plus, Trash2, UserPlus, X, Check, 
-  HelpCircle, Wrench, ChevronDown, ChevronUp, Copy 
+  ArrowLeft, Plus, Trash2, Save, Wrench, Copy, X, 
+  Upload, Sparkles, User
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
-export default function NewServiceJobPage() {
+export default function EditServiceJobPage() {
+  const params = useParams()
   const router = useRouter()
+  const orderId = params.id as string
+
+  // API states
   const [customers, setCustomers] = useState<any[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
-  const [isNewCustomer, setIsNewCustomer] = useState(false)
   const [loadingCustomers, setLoadingCustomers] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-
-  // New Customer Form State
-  const [newCustomerName, setNewCustomerName] = useState('')
-  const [newCustomerTaxId, setNewCustomerTaxId] = useState('')
-  const [newCustomerPhone, setNewCustomerPhone] = useState('')
-  const [newCustomerAddress, setNewCustomerAddress] = useState('')
-  const [newCustomerBranchCode, setNewCustomerBranchCode] = useState('00000')
-  const [newCustomerIsVatRegistered, setNewCustomerIsVatRegistered] = useState(true)
-  const [newCustomerContactPerson, setNewCustomerContactPerson] = useState('')
+  const [loadingOrder, setLoadingOrder] = useState(true)
 
   // Batch Default Settings
   const [defaultBrand, setDefaultBrand] = useState('')
@@ -39,22 +32,204 @@ export default function NewServiceJobPage() {
   const [serviceCatalog, setServiceCatalog] = useState<any[]>([])
 
   // Vehicles list state
-  // Each vehicle: { id, carPlate, carProvince, carBrand, carModel, carVin, items: [{ description, quantity, priceUnit }] }
-  const [vehicles, setVehicles] = useState<any[]>([
-    { 
-      id: 'v-1', 
-      carPlate: '', 
-      carProvince: '', 
-      carBrand: '', 
-      carModel: '', 
-      carVin: '', 
-      items: [{ description: '', quantity: 1, priceUnit: 0 }] 
-    }
-  ])
+  const [vehicles, setVehicles] = useState<any[]>([])
 
+  // Modal & Uploader state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [pastedExcelText, setPastedExcelText] = useState('')
 
+  // Form submit state
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch Service Order details to edit
+  const fetchOrderDetails = async () => {
+    try {
+      const res = await fetch(`/api/service-orders/${orderId}`)
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+
+      setSelectedCustomerId(data.customerId || '')
+      
+      // Map vehicles to the edit form state
+      if (Array.isArray(data.vehicles)) {
+        setVehicles(data.vehicles.map((v: any) => ({
+          id: v.id,
+          carPlate: v.carPlate,
+          carProvince: v.carProvince || '',
+          carBrand: v.carBrand,
+          carModel: v.carModel,
+          carVin: v.carVin || '',
+          items: Array.isArray(v.items) ? v.items.map((item: any) => ({
+            description: item.description,
+            quantity: item.quantity,
+            priceUnit: item.priceUnit
+          })) : [{ description: '', quantity: 1, priceUnit: 0 }]
+        })))
+      }
+    } catch (err: any) {
+      console.error(err)
+      setError('ไม่สามารถดึงข้อมูลใบสั่งงานได้: ' + err.message)
+    } finally {
+      setLoadingOrder(false)
+    }
+  }
+
+  const fetchCustomers = async () => {
+    setLoadingCustomers(true)
+    try {
+      const res = await fetch('/api/customers')
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        setCustomers(data)
+      }
+    } catch (err) {
+      console.error('Error fetching customers:', err)
+    } finally {
+      setLoadingCustomers(false)
+    }
+  }
+
+  const fetchServices = async () => {
+    try {
+      const res = await fetch('/api/services?active=true')
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        setServiceCatalog(data)
+      }
+    } catch (err) {
+      console.error('Error fetching services:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchCustomers()
+    fetchServices()
+    fetchOrderDetails()
+  }, [orderId])
+
+  // Vehicle operations
+  const handleAddVehicle = () => {
+    setVehicles([
+      ...vehicles,
+      {
+        id: `v-${Date.now()}-${Math.random()}`,
+        carPlate: '',
+        carProvince: '',
+        carBrand: defaultBrand || 'BYD',
+        carModel: defaultModel || 'ES',
+        carVin: '',
+        items: [{
+          description: defaultDescription || '',
+          quantity: 1,
+          priceUnit: defaultPrice || 0
+        }]
+      }
+    ])
+  }
+
+  const handleRemoveVehicle = (id: string) => {
+    if (vehicles.length > 1) {
+      setVehicles(vehicles.filter(v => v.id !== id))
+    }
+  }
+
+  const handleUpdateVehicleField = (id: string, field: string, value: string) => {
+    setVehicles(vehicles.map(v => {
+      if (v.id === id) {
+        return { ...v, [field]: value }
+      }
+      return v
+    }))
+  }
+
+  // Service item operations per vehicle
+  const handleAddServiceItem = (vehicleId: string) => {
+    setVehicles(vehicles.map(v => {
+      if (v.id === vehicleId) {
+        return {
+          ...v,
+          items: [
+            ...v.items,
+            {
+              description: defaultDescription || '',
+              quantity: 1,
+              priceUnit: defaultPrice || 0
+            }
+          ]
+        }
+      }
+      return v
+    }))
+  }
+
+  const handleRemoveServiceItem = (vehicleId: string, itemIdx: number) => {
+    setVehicles(vehicles.map(v => {
+      if (v.id === vehicleId && v.items.length > 1) {
+        return {
+          ...v,
+          items: v.items.filter((_item: any, idx: number) => idx !== itemIdx)
+        }
+      }
+      return v
+    }))
+  }
+
+  const handleUpdateServiceItem = (vehicleId: string, itemIdx: number, field: string, value: any) => {
+    setVehicles(vehicles.map(v => {
+      if (v.id === vehicleId) {
+        const updatedItems = [...v.items]
+        updatedItems[itemIdx] = { ...updatedItems[itemIdx], [field]: value }
+        return { ...v, items: updatedItems }
+      }
+      return v
+    }))
+  }
+
+  const handleDefaultDescriptionChange = (value: string) => {
+    setDefaultDescription(value)
+    const matched = serviceCatalog.find(s => s.name.trim().toLowerCase() === value.trim().toLowerCase())
+    if (matched) {
+      setDefaultPrice(matched.price)
+    }
+  }
+
+  const handleUpdateServiceItemDescription = (vehicleId: string, itemIdx: number, value: string) => {
+    const matched = serviceCatalog.find(s => s.name.trim().toLowerCase() === value.trim().toLowerCase())
+    setVehicles(vehicles.map(v => {
+      if (v.id === vehicleId) {
+        const updatedItems = [...v.items]
+        updatedItems[itemIdx] = { 
+          ...updatedItems[itemIdx], 
+          description: value,
+          priceUnit: matched ? matched.price : updatedItems[itemIdx].priceUnit
+        }
+        return { ...v, items: updatedItems }
+      }
+      return v
+    }))
+  }
+
+  const handleApplyDefaultsToAll = () => {
+    const updated = vehicles.map(v => ({
+      ...v,
+      carBrand: v.carBrand || defaultBrand,
+      carModel: v.carModel || defaultModel,
+      items: v.items.map((item: any, idx: number) => {
+        if (idx === 0 && !item.description) {
+          return {
+            ...item,
+            description: defaultDescription,
+            priceUnit: defaultPrice || item.priceUnit
+          }
+        }
+        return item
+      })
+    }))
+    setVehicles(updated)
+  }
+
+  // Excel template downloader
   const handleDownloadTemplate = async () => {
     try {
       const XLSX = await import('xlsx')
@@ -229,156 +404,7 @@ export default function NewServiceJobPage() {
     }
   }
 
-  const fetchServices = async () => {
-    try {
-      const res = await fetch('/api/services?active=true')
-      const data = await res.json()
-      if (Array.isArray(data)) {
-        setServiceCatalog(data)
-      }
-    } catch (err) {
-      console.error('Error fetching services:', err)
-    }
-  }
-
-  const fetchCustomers = async () => {
-    setLoadingCustomers(true)
-    try {
-      const res = await fetch('/api/customers')
-      const data = await res.json()
-      if (Array.isArray(data)) {
-        setCustomers(data)
-      }
-    } catch (err) {
-      console.error('Error fetching customers:', err)
-    } finally {
-      setLoadingCustomers(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchCustomers()
-    fetchServices()
-  }, [])
-
-  // Auto-fill existing rows with batch defaults
-  const handleApplyDefaultsToAll = () => {
-    const updated = vehicles.map(v => ({
-      ...v,
-      carBrand: v.carBrand || defaultBrand,
-      carModel: v.carModel || defaultModel,
-      items: v.items.map((item: any, idx: number) => {
-        // If the first item description is empty, apply default
-        if (idx === 0 && !item.description) {
-          return {
-            ...item,
-            description: defaultDescription,
-            priceUnit: defaultPrice || item.priceUnit
-          }
-        }
-        return item
-      })
-    }))
-    setVehicles(updated)
-  }
-
-  // Add a new vehicle card
-  const handleAddVehicle = () => {
-    const nextId = `v-${Date.now()}`
-    setVehicles([
-      ...vehicles,
-      {
-        id: nextId,
-        carPlate: '',
-        carProvince: '',
-        carBrand: defaultBrand,
-        carModel: defaultModel,
-        carVin: '',
-        items: [{ 
-          description: defaultDescription, 
-          quantity: 1, 
-          priceUnit: defaultPrice 
-        }]
-      }
-    ])
-  }
-
-  const handleRemoveVehicle = (id: string) => {
-    if (vehicles.length > 1) {
-      setVehicles(vehicles.filter(v => v.id !== id))
-    }
-  }
-
-  const handleUpdateVehicle = (id: string, field: string, value: any) => {
-    setVehicles(vehicles.map(v => {
-      if (v.id === id) {
-        return { ...v, [field]: value }
-      }
-      return v
-    }))
-  }
-
-  // Services (Items) management per vehicle
-  const handleAddServiceItem = (vehicleId: string) => {
-    setVehicles(vehicles.map(v => {
-      if (v.id === vehicleId) {
-        return {
-          ...v,
-          items: [...v.items, { description: '', quantity: 1, priceUnit: 0 }]
-        }
-      }
-      return v
-    }))
-  }
-
-  const handleRemoveServiceItem = (vehicleId: string, itemIdx: number) => {
-    setVehicles(vehicles.map(v => {
-      if (v.id === vehicleId && v.items.length > 1) {
-        return {
-          ...v,
-          items: v.items.filter((_item: any, idx: number) => idx !== itemIdx)
-        }
-      }
-      return v
-    }))
-  }
-
-  const handleUpdateServiceItem = (vehicleId: string, itemIdx: number, field: string, value: any) => {
-    setVehicles(vehicles.map(v => {
-      if (v.id === vehicleId) {
-        const updatedItems = [...v.items]
-        updatedItems[itemIdx] = { ...updatedItems[itemIdx], [field]: value }
-        return { ...v, items: updatedItems }
-      }
-      return v
-    }))
-  }
-
-  const handleDefaultDescriptionChange = (value: string) => {
-    setDefaultDescription(value)
-    const matched = serviceCatalog.find(s => s.name.trim().toLowerCase() === value.trim().toLowerCase())
-    if (matched) {
-      setDefaultPrice(matched.price)
-    }
-  }
-
-  const handleUpdateServiceItemDescription = (vehicleId: string, itemIdx: number, value: string) => {
-    const matched = serviceCatalog.find(s => s.name.trim().toLowerCase() === value.trim().toLowerCase())
-    setVehicles(vehicles.map(v => {
-      if (v.id === vehicleId) {
-        const updatedItems = [...v.items]
-        updatedItems[itemIdx] = { 
-          ...updatedItems[itemIdx], 
-          description: value,
-          priceUnit: matched ? matched.price : updatedItems[itemIdx].priceUnit
-        }
-        return { ...v, items: updatedItems }
-      }
-      return v
-    }))
-  }
-
-  // Calculate overall pricing details
+  // Calculate pricing
   const subtotal = useMemo(() => {
     return vehicles.reduce((sum, v) => {
       const vSum = v.items.reduce((itemSum: number, item: any) => {
@@ -388,103 +414,55 @@ export default function NewServiceJobPage() {
     }, 0)
   }, [vehicles])
 
-  const vatAmount = Math.round(subtotal * 0.07 * 100) / 100
+  const vatAmount = subtotal * 0.07
   const grandTotal = subtotal + vatAmount
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    setError(null)
+
+    if (!selectedCustomerId) {
+      setError('กรุณาเลือกลูกค้า/ผู้ว่าจ้าง')
+      return
+    }
+
+    // Filter out completely blank vehicle entries
+    const validVehicles = vehicles.filter(v => v.carPlate.trim() || v.carVin.trim())
+    if (validVehicles.length === 0) {
+      setError('กรุณากรอกข้อมูลรถยนต์อย่างน้อย 1 คัน')
+      return
+    }
+
     setSubmitting(true)
-
     try {
-      let finalCustomerId = selectedCustomerId
-
-      // 1. Create customer first if adding new
-      if (isNewCustomer) {
-        if (!newCustomerName) {
-          setError('กรุณากรอกชื่อลูกค้า/บริษัท')
-          setSubmitting(false)
-          return
-        }
-        const custRes = await fetch('/api/customers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newCustomerName,
-            taxId: newCustomerTaxId,
-            phone: newCustomerPhone,
-            address: newCustomerAddress,
-            branchCode: newCustomerBranchCode,
-            isVatRegistered: newCustomerIsVatRegistered,
-            contactPerson: newCustomerContactPerson
-          })
-        })
-        const newCust = await custRes.json()
-        if (!custRes.ok) {
-          throw new Error(newCust.error || 'Failed to create customer')
-        }
-        finalCustomerId = newCust.id
-      }
-
-      if (!finalCustomerId) {
-        setError('กรุณาเลือกลูกค้า หรือสร้างลูกค้าใหม่')
-        setSubmitting(false)
-        return
-      }
-
-      // Validate vehicles
-      for (let i = 0; i < vehicles.length; i++) {
-        const v = vehicles[i]
-        const idxLabel = `คันที่ ${i + 1}`
-        if (!v.carPlate || !v.carBrand || !v.carModel || !v.carVin) {
-          setError(`กรุณากรอกข้อมูลรถให้ครบถ้วนใน ${idxLabel} (ทะเบียน, ยี่ห้อ, รุ่น, VIN)`)
-          setSubmitting(false)
-          return
-        }
-        const validItems = v.items.filter((item: any) => item.description.trim() !== '')
-        if (validItems.length === 0) {
-          setError(`กรุณากรอกรายละเอียดงานบริการอย่างน้อย 1 รายการใน ${idxLabel}`)
-          setSubmitting(false)
-          return
-        }
-      }
-
-      // 2. Submit Service Order
-      const res = await fetch('/api/service-orders', {
-        method: 'POST',
+      const res = await fetch(`/api/service-orders/${orderId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerId: finalCustomerId,
-          vehicles: vehicles.map(v => ({
-            carPlate: v.carPlate,
-            carProvince: v.carProvince,
-            carBrand: v.carBrand,
-            carModel: v.carModel,
-            carVin: v.carVin,
-            items: v.items.filter((item: any) => item.description.trim() !== '')
-          }))
+          customerId: selectedCustomerId,
+          vehicles: validVehicles
         })
       })
 
       const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to save job sheet')
-      }
+      if (!res.ok) throw new Error(data.error || 'บันทึกการแก้ไขไม่สำเร็จ')
 
-      router.push('/service-jobs')
+      router.push(`/service-jobs/${orderId}`)
     } catch (err: any) {
-      console.error(err)
-      setError(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')
-    } finally {
+      setError(err.message)
       setSubmitting(false)
     }
+  }
+
+  if (loadingOrder) {
+    return <div className="p-8 text-center text-gray-500">กำลังโหลดรายละเอียดใบสั่งงาน...</div>
   }
 
   return (
     <div className="space-y-6 animate-fade-in p-6 max-w-6xl mx-auto">
       {/* Title */}
       <div className="flex items-center gap-3">
-        <Link href="/service-jobs">
+        <Link href={`/service-jobs/${orderId}`}>
           <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg border-gray-200">
             <ArrowLeft className="w-4 h-4 text-gray-600" />
           </Button>
@@ -492,10 +470,10 @@ export default function NewServiceJobPage() {
         <div>
           <h1 className="text-2xl font-bold text-[#0f172a] flex items-center gap-2">
             <Wrench className="w-6 h-6 text-[#1d4ed8]" />
-            สร้างใบสั่งงานบริการทั่วไป
+            แก้ไขใบสั่งงานบริการ
           </h1>
           <p className="text-sm text-[#94a3b8] mt-0.5">
-            สร้างใบสั่งงานบริการประเภทพ่นสีหรือล้างรถทั่วไป โดยรองรับรถยนต์หลายคันและบริการย่อยในใบเดียว
+            ทำการแก้ไขรายละเอียดลูกค้า รายชื่อรถยนต์ หรือบริการและค่าใช้จ่ายของใบสั่งงานนี้
           </p>
         </div>
       </div>
@@ -511,134 +489,49 @@ export default function NewServiceJobPage() {
 
           {/* 1. Customer Card */}
           <Card className="shadow-sm border-gray-200">
-            <CardHeader className="border-b border-gray-100 bg-gray-50/50 flex flex-row items-center justify-between p-4">
+            <CardHeader className="border-b border-gray-100 bg-gray-50/50 p-4">
               <CardTitle className="text-base font-bold text-[#0f172a]">ข้อมูลผู้ว่าจ้าง / ลูกค้า</CardTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 border-[#1d4ed8] text-[#1d4ed8] hover:bg-blue-50"
-                onClick={() => setIsNewCustomer(!isNewCustomer)}
-              >
-                {isNewCustomer ? (
-                  <>
-                    <X className="w-3.5 h-3.5" />
-                    เลือกลูกค้าที่มีอยู่
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-3.5 h-3.5" />
-                    สร้างลูกค้าใหม่
-                  </>
-                )}
-              </Button>
             </CardHeader>
             <CardContent className="p-5">
-              {!isNewCustomer ? (
-                <div className="w-full">
-                  <Select
-                    value={selectedCustomerId}
-                    onChange={e => setSelectedCustomerId(e.target.value)}
-                    className="w-full bg-white border-gray-200"
-                    required
-                  >
-                    <option value="">-- เลือกลูกค้า --</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.taxId ? `(Tax: ${c.taxId})` : ''}
-                      </option>
-                    ))}
-                  </Select>
-                  {loadingCustomers && <p className="text-xs text-gray-400 mt-1">กำลังโหลดข้อมูลลูกค้า...</p>}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-semibold text-gray-600">ชื่อลูกค้า/บริษัท *</span>
-                    <Input
-                      placeholder="เช่น บริษัท อะไหล่ดี จำกัด หรือ นายสมชาย มั่งมี"
-                      value={newCustomerName}
-                      onChange={e => setNewCustomerName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-gray-600">เลขประจำตัวผู้เสียภาษี</span>
-                    <Input
-                      placeholder="เลข 13 หลัก"
-                      value={newCustomerTaxId}
-                      onChange={e => setNewCustomerTaxId(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-gray-600">เบอร์โทรศัพท์</span>
-                    <Input
-                      placeholder="08X-XXXXXXX"
-                      value={newCustomerPhone}
-                      onChange={e => setNewCustomerPhone(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-gray-600">รหัสสาขา</span>
-                    <Input
-                      placeholder="00000"
-                      value={newCustomerBranchCode}
-                      onChange={e => setNewCustomerBranchCode(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-gray-600">ชื่อผู้ติดต่อ</span>
-                    <Input
-                      placeholder="ชื่อผู้ประสานงาน"
-                      value={newCustomerContactPerson}
-                      onChange={e => setNewCustomerContactPerson(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-semibold text-gray-600">ที่อยู่</span>
-                    <Input
-                      placeholder="ที่อยู่สำหรับออกใบกำกับภาษี"
-                      value={newCustomerAddress}
-                      onChange={e => setNewCustomerAddress(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 pt-2">
-                    <input
-                      type="checkbox"
-                      id="vatReg"
-                      checked={newCustomerIsVatRegistered}
-                      onChange={e => setNewCustomerIsVatRegistered(e.target.checked)}
-                      className="rounded text-[#1d4ed8] focus:ring-[#1d4ed8]"
-                    />
-                    <label htmlFor="vatReg" className="text-xs font-semibold text-gray-600">
-                      จดทะเบียนภาษีมูลค่าเพิ่ม (VAT 7%)
-                    </label>
-                  </div>
-                </div>
-              )}
+              <div className="w-full">
+                <Select
+                  value={selectedCustomerId}
+                  onChange={e => setSelectedCustomerId(e.target.value)}
+                  className="w-full bg-white border-gray-200"
+                  required
+                >
+                  <option value="">-- เลือกลูกค้า --</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.taxId ? `(Tax: ${c.taxId})` : ''}
+                    </option>
+                  ))}
+                </Select>
+                {loadingCustomers && <p className="text-xs text-gray-400 mt-1">กำลังโหลดข้อมูลลูกค้า...</p>}
+              </div>
             </CardContent>
           </Card>
 
-          {/* 2. Batch Defaults Panel */}
-          <Card className="shadow-sm border-gray-200 bg-blue-50/20 border-blue-100">
-            <CardHeader className="p-4 border-b border-blue-50/50 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-bold text-blue-900 flex items-center gap-1.5">
-                <Copy className="w-4 h-4 text-blue-600" />
-                ค่าเริ่มต้นสำหรับรถยนต์ทุกคัน (Batch Defaults)
-              </CardTitle>
+          {/* 2. Batch Defaults Card */}
+          <Card className="shadow-sm border-[#1d4ed8]/20 bg-blue-50/20">
+            <CardHeader className="border-b border-[#1d4ed8]/10 bg-blue-50/40 p-4 flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#1d4ed8]" />
+                <CardTitle className="text-sm font-bold text-blue-900">ค่าเริ่มต้นด่วน (Batch Defaults)</CardTitle>
+              </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs text-blue-700 hover:bg-blue-50"
                 onClick={handleApplyDefaultsToAll}
+                className="text-xs text-[#1d4ed8] hover:bg-blue-100/50 font-bold gap-1"
               >
-                ดึงข้อมูลตั้งต้นไปใช้กับทุกแถว
+                เขียนทับไปยังรายการด้านล่าง
               </Button>
             </CardHeader>
             <CardContent className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1">
-                <span className="text-xs font-semibold text-blue-800">ยี่ห้อรถเริ่มต้น</span>
+                <span className="text-xs font-semibold text-blue-800">ยี่ห้อเริ่มต้น</span>
                 <Input
                   placeholder="เช่น BYD"
                   value={defaultBrand}
@@ -681,7 +574,7 @@ export default function NewServiceJobPage() {
           {/* 3. Vehicles list */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h2 className="text-lg font-bold text-[#0f172a]">รายการรถยนต์ที่สั่งงาน ({vehicles.length} คัน)</h2>
+              <h2 className="text-lg font-bold text-[#0f172a]">รายการรถยนต์ ({vehicles.length} คัน)</h2>
               <Button
                 type="button"
                 variant="outline"
@@ -690,84 +583,84 @@ export default function NewServiceJobPage() {
                 onClick={() => setIsImportModalOpen(true)}
               >
                 <Plus className="w-3.5 h-3.5" />
-                นำเข้าจาก Excel
+                นำเข้าเพิ่มจาก Excel
               </Button>
             </div>
+
             {vehicles.map((vehicle, vIdx) => (
-              <Card key={vehicle.id} className="shadow-sm border-gray-200 overflow-hidden relative border-l-4 border-l-[#1d4ed8]">
-                <div className="bg-gray-50/50 p-3 border-b border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">รถยนต์คันที่ {vIdx + 1}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 gap-1"
-                    disabled={vehicles.length === 1}
-                    onClick={() => handleRemoveVehicle(vehicle.id)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    ลบรถคันนี้
-                  </Button>
-                </div>
-                
-                <CardContent className="p-5 space-y-4">
-                  {/* Vehicle Specs Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <Card key={vehicle.id} className="shadow-sm border-gray-200 relative overflow-hidden group">
+                <CardHeader className="bg-gray-50/50 p-4 border-b border-gray-100 flex flex-row items-center justify-between">
+                  <span className="font-bold text-sm text-[#1d4ed8]">คันที่ {vIdx + 1}</span>
+                  {vehicles.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveVehicle(vehicle.id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2.5 rounded-lg"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      ลบรถคันนี้
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                  {/* Car fields */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="space-y-1">
-                      <span className="text-xs font-semibold text-gray-600">เลขทะเบียน *</span>
+                      <span className="text-xs font-semibold text-gray-500">ทะเบียนรถ *</span>
                       <Input
                         placeholder="กข 1234"
                         value={vehicle.carPlate}
-                        onChange={e => handleUpdateVehicle(vehicle.id, 'carPlate', e.target.value)}
+                        onChange={e => handleUpdateVehicleField(vehicle.id, 'carPlate', e.target.value)}
                         required
                       />
                     </div>
                     <div className="space-y-1">
-                      <span className="text-xs font-semibold text-gray-600">จังหวัด</span>
+                      <span className="text-xs font-semibold text-gray-500">จังหวัดป้าย</span>
                       <Input
                         placeholder="กรุงเทพฯ"
                         value={vehicle.carProvince}
-                        onChange={e => handleUpdateVehicle(vehicle.id, 'carProvince', e.target.value)}
+                        onChange={e => handleUpdateVehicleField(vehicle.id, 'carProvince', e.target.value)}
                       />
                     </div>
                     <div className="space-y-1">
-                      <span className="text-xs font-semibold text-gray-600">ยี่ห้อรถ *</span>
+                      <span className="text-xs font-semibold text-gray-500">ยี่ห้อรถ *</span>
                       <Input
-                        placeholder="Toyota"
+                        placeholder="BYD"
                         value={vehicle.carBrand}
-                        onChange={e => handleUpdateVehicle(vehicle.id, 'carBrand', e.target.value)}
+                        onChange={e => handleUpdateVehicleField(vehicle.id, 'carBrand', e.target.value)}
                         required
                       />
                     </div>
                     <div className="space-y-1">
-                      <span className="text-xs font-semibold text-gray-600">รุ่นรถ *</span>
+                      <span className="text-xs font-semibold text-gray-500">รุ่นรถ *</span>
                       <Input
-                        placeholder="Yaris"
+                        placeholder="ATTO 3"
                         value={vehicle.carModel}
-                        onChange={e => handleUpdateVehicle(vehicle.id, 'carModel', e.target.value)}
+                        onChange={e => handleUpdateVehicleField(vehicle.id, 'carModel', e.target.value)}
                         required
                       />
                     </div>
-                    <div className="space-y-1 col-span-2 md:col-span-1">
-                      <span className="text-xs font-semibold text-gray-600">เลขตัวถัง VIN *</span>
+                    <div className="space-y-1 md:col-span-4">
+                      <span className="text-xs font-semibold text-gray-500">เลขตัวถัง (VIN)</span>
                       <Input
-                        placeholder="เลข VIN 17 หลัก"
+                        placeholder="กรอกเลข VIN 17 หลัก..."
                         value={vehicle.carVin}
-                        onChange={e => handleUpdateVehicle(vehicle.id, 'carVin', e.target.value)}
-                        required
+                        onChange={e => handleUpdateVehicleField(vehicle.id, 'carVin', e.target.value)}
                       />
                     </div>
                   </div>
 
-                  {/* Nested Services Table */}
-                  <div className="border-t border-gray-100 pt-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">รายการบริการของรถคันนี้</span>
+                  {/* Service Items per car */}
+                  <div className="space-y-2.5 pt-2 border-t border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-gray-600">รายการค่าบริการและค่าอะไหล่</span>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="h-8 gap-1 text-xs border-gray-200 text-gray-600"
+                        className="text-xs text-[#1d4ed8] hover:bg-blue-50/50 font-bold h-7 gap-1"
                         onClick={() => handleAddServiceItem(vehicle.id)}
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -812,8 +705,8 @@ export default function NewServiceJobPage() {
                             variant="ghost"
                             size="sm"
                             className="h-9 w-9 p-0 text-red-400 hover:text-red-600"
-                            disabled={vehicle.items.length === 1}
                             onClick={() => handleRemoveServiceItem(vehicle.id, itemIdx)}
+                            disabled={vehicle.items.length <= 1}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -868,11 +761,12 @@ export default function NewServiceJobPage() {
                 <Button 
                   type="submit" 
                   disabled={submitting} 
-                  className="w-full bg-[#1d4ed8] hover:bg-[#1e40af] text-white py-5 font-semibold text-sm rounded-xl shadow-md transition-all"
+                  className="w-full bg-[#1d4ed8] hover:bg-[#1e40af] text-white py-5 font-semibold text-sm rounded-xl shadow-md transition-all gap-1.5"
                 >
-                  {submitting ? 'กำลังบันทึก...' : 'บันทึกใบสั่งงาน'}
+                  <Save className="w-4 h-4" />
+                  {submitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
                 </Button>
-                <Link href="/service-jobs" className="w-full">
+                <Link href={`/service-jobs/${orderId}`} className="w-full">
                   <Button type="button" variant="outline" className="w-full border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl">
                     ยกเลิก
                   </Button>
@@ -981,6 +875,7 @@ export default function NewServiceJobPage() {
           </div>
         </div>
       )}
+
       {/* Datalist for services autocomplete */}
       <datalist id="services-list">
         {serviceCatalog.map((s: any) => (

@@ -66,19 +66,14 @@ export async function middleware(request: NextRequest) {
   // Enforce role-based access control at middleware level
   const userRole = payload.role
 
-  // Staff restriction
-  if (userRole === 'STAFF') {
+  // Mechanic restriction
+  if (userRole === 'MECHANIC') {
     const isAllowed = 
-      pathname === '/dashboard' ||
-      pathname.startsWith('/claims') ||
-      pathname.startsWith('/insurances') ||
-      pathname.startsWith('/vendors') ||
-      pathname.startsWith('/parts-master') ||
-      pathname.startsWith('/api/claims') ||
-      pathname.startsWith('/api/insurances') ||
-      pathname.startsWith('/api/vendors') ||
-      pathname.startsWith('/api/parts-master') ||
-      pathname.startsWith('/api/stats') ||
+      pathname === '/mechanic' ||
+      pathname.startsWith('/mechanic/') ||
+      pathname === '/service-jobs' ||
+      pathname.startsWith('/service-jobs/') ||
+      pathname.startsWith('/api/service-orders') ||
       pathname.startsWith('/api/upload') ||
       pathname.startsWith('/api/auth/me')
 
@@ -86,18 +81,7 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith('/api/')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
-  }
-
-  // Accountant restriction
-  if (userRole === 'ACCOUNTANT') {
-    const isSettingsPage = pathname.startsWith('/settings') || pathname.startsWith('/api/settings') || pathname.startsWith('/api/users')
-    if (isSettingsPage) {
-      if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/service-jobs', request.url))
     }
   }
 

@@ -507,9 +507,15 @@ export default function SettingsPage() {
                             <Badge className={
                               u.role === 'ADMIN' ? 'bg-red-50 text-red-600 border-none' :
                               u.role === 'ACCOUNTANT' ? 'bg-blue-50 text-blue-600 border-none' :
+                              u.role === 'FINANCE' ? 'bg-purple-50 text-purple-600 border-none' :
+                              u.role === 'MECHANIC' ? 'bg-orange-50 text-orange-600 border-none' :
                               'bg-gray-50 text-gray-600 border-none'
                             }>
-                              {u.role === 'ADMIN' ? 'Admin' : u.role === 'ACCOUNTANT' ? 'Accountant' : 'Staff'}
+                              {u.role === 'ADMIN' ? 'Admin' : 
+                               u.role === 'ACCOUNTANT' ? 'Accountant' : 
+                               u.role === 'FINANCE' ? 'Finance' :
+                               u.role === 'MECHANIC' ? 'Mechanic' : 
+                               'Staff'}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -604,7 +610,9 @@ export default function SettingsPage() {
                   className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]"
                 >
                   <option value="STAFF">Staff (จัดการ Claim/เสนอราคา)</option>
-                  <option value="ACCOUNTANT">Accountant (ฝ่ายบัญชี/การเงิน/รายงาน/PEAK)</option>
+                  <option value="ACCOUNTANT">Accountant (ฝ่ายบัญชี/รายงาน/PEAK)</option>
+                  <option value="FINANCE">Finance (ฝ่ายการเงิน)</option>
+                  <option value="MECHANIC">Mechanic (ช่างอู่ - ดูใบสั่งงานอย่างเดียว)</option>
                   <option value="ADMIN">Admin (จัดการระบบ/สิทธิ์ผู้ใช้/ทั้งหมด)</option>
                 </select>
               </div>

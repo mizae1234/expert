@@ -17,6 +17,7 @@ import {
   Settings,
   Cloud,
   Wrench,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LucideIcon } from 'lucide-react'
@@ -98,8 +99,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       label: 'MASTER DATA',
       items: [
         { name: 'Insurances', href: '/insurances', icon: Building2 },
-        { name: 'Vendors', href: '/vendors', icon: Users },
+        { name: 'Vendors', href: '/vendors', icon: Briefcase },
+        { name: 'Customers', href: '/customers', icon: Users },
         { name: 'Parts Master', href: '/parts-master', icon: Package },
+        { name: 'Services', href: '/services', icon: Wrench },
       ],
     },
     {
@@ -118,11 +121,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const filteredNavGroups = currentNavGroups.map((group) => {
     const items = group.items.filter((item) => {
-      if (role === 'STAFF') {
-        return !['/invoices', '/payments', '/peak', '/reports', '/settings'].includes(item.href)
-      }
-      if (role === 'ACCOUNTANT') {
-        return !['/claims', '/settings'].includes(item.href)
+      if (role === 'MECHANIC') {
+        return item.href === '/service-jobs'
       }
       return true
     })

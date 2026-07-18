@@ -57,7 +57,9 @@ export default function Topbar() {
     switch (role) {
       case 'ADMIN': return 'ผู้ดูแลระบบ'
       case 'ACCOUNTANT': return 'ฝ่ายบัญชี'
+      case 'FINANCE': return 'ฝ่ายการเงิน'
       case 'STAFF': return 'เจ้าหน้าที่ทั่วไป'
+      case 'MECHANIC': return 'ช่างอู่'
       default: return 'ผู้ใช้ทั่วไป'
     }
   }

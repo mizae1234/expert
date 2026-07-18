@@ -655,6 +655,8 @@ enum UserRole {
   ADMIN
   ACCOUNTANT
   STAFF
+  FINANCE
+  MECHANIC
 }
 
 model User {
@@ -713,15 +715,17 @@ model ServiceOrder {
 }
 
 model ServiceVehicle {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   serviceOrderId String
-  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id])
+  serviceOrder   ServiceOrder  @relation(fields: [serviceOrderId], references: [id])
   carPlate       String
   carProvince    String?
   carBrand       String
   carModel       String
   carVin         String
-  createdAt      DateTime     @default(now())
+  status         ServiceStatus @default(PENDING)
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
   
   items          ServiceItem[]
 
@@ -738,4 +742,28 @@ model ServiceItem {
   totalPrice       Float
 
   @@index([serviceVehicleId])
+}
+
+model ServiceMaster {
+  id          String   @id @default(cuid())
+  serviceCode String   @unique
+  name        String   @unique
+  price       Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  entityType  String   // e.g. "SERVICE_VEHICLE", "CLAIM", etc.
+  entityId    String   // The ID of the associated entity
+  fileName    String
+  fileUrl     String
+  fileType    String   @default("other") // image, pdf, other
+  fileSize    Int      @default(0)
+  uploadedBy  String   @default("System")
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
 }

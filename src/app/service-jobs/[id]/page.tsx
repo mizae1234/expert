@@ -10,12 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select } from '@/components/ui/select'
 import { 
   ArrowLeft, Wrench, Calendar, User, FileText, Cloud, 
-  Printer, Trash2, CheckCircle2, AlertTriangle, Play, Check 
+  Printer, Trash2, CheckCircle2, AlertTriangle, Play, Check, Edit3, Camera, Upload, Eye, X
 } from 'lucide-react'
 import { 
   getServiceStatusColor, getServiceStatusLabel, 
   formatCurrency, formatDateShort 
 } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
 
 export default function ServiceJobDetailPage() {
   const params = useParams()
@@ -26,8 +27,116 @@ export default function ServiceJobDetailPage() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [syncing, setSyncing] = useState(false)
-  const [isPrintView, setIsPrintView] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+
+  // Vehicle completion modal state
+  const [completingVehicle, setCompletingVehicle] = useState<any>(null)
+  const [vehiclePhotos, setVehiclePhotos] = useState<string[]>([])
+  const [completionTime, setCompletionTime] = useState('')
+  const [completionStatus, setCompletionStatus] = useState('COMPLETED')
+  const [uploading, setUploading] = useState(false)
+  const [savingVehicleStatus, setSavingVehicleStatus] = useState(false)
+
+  const handleOpenCompletionModal = (vehicle: any) => {
+    setCompletingVehicle(vehicle)
+    setVehiclePhotos(vehicle.photos || [])
+    const defaultStatus = (vehicle.status === 'PENDING' || vehicle.status === 'IN_PROGRESS')
+      ? 'COMPLETED'
+      : vehicle.status;
+    setCompletionStatus(defaultStatus || 'COMPLETED')
+    // Format current date/time to local ISO format (YYYY-MM-DDTHH:MM)
+    const now = new Date(vehicle.completedAt || new Date())
+    const offset = now.getTimezoneOffset() * 60000
+    const localISO = new Date(now.getTime() - offset).toISOString().substring(0, 16)
+    setCompletionTime(localISO)
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    const newPhotos = [...vehiclePhotos]
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', `service-jobs/${id}/vehicles`)
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        })
+        const data = await res.json()
+        if (data.publicUrl) {
+          newPhotos.push(data.publicUrl)
+        }
+      } catch (uploadErr) {
+        console.error('Error uploading file:', uploadErr)
+      }
+    }
+
+    setVehiclePhotos(newPhotos)
+    setUploading(false)
+  }
+
+  const handleRemoveUploadedPhoto = (index: number) => {
+    setVehiclePhotos(vehiclePhotos.filter((_, idx) => idx !== index))
+  }
+
+  const handleSaveVehicleCompletion = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!completingVehicle) return
+
+    setSavingVehicleStatus(true)
+    try {
+      const res = await fetch(`/api/service-orders/${id}/vehicles/${completingVehicle.id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: completionStatus,
+          photos: vehiclePhotos,
+          completedAt: completionStatus === 'COMPLETED' ? completionTime : null
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'บันทึกสถานะไม่สำเร็จ')
+
+      showToast('✅ บันทึกสถานะรถคันนี้สำเร็จ')
+      setCompletingVehicle(null)
+      setOrder(data)
+    } catch (err: any) {
+      showToast('❌ ' + err.message)
+    } finally {
+      setSavingVehicleStatus(false)
+    }
+  }
+
+  const handleCompleteAllOrder = async () => {
+    if (!confirm('คุณแน่ใจว่าต้องการทำสีเสร็จและเสร็จงานรถทุกคันในใบสั่งงานนี้ใช่หรือไม่?')) return
+
+    setUpdating(true)
+    try {
+      const res = await fetch(`/api/service-orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'COMPLETED' })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ')
+
+      showToast('✅ เสร็จสิ้นการทำงานรถยนต์ทุกคันเรียบร้อยแล้ว')
+      setOrder(data)
+    } catch (err: any) {
+      showToast('❌ ' + err.message)
+    } finally {
+      setUpdating(false)
+    }
+  }
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -74,6 +183,12 @@ export default function ServiceJobDetailPage() {
   }
 
   const handleGenerateInvoice = async () => {
+    const incomplete = order.vehicles?.filter((v: any) => v.status !== 'COMPLETED' && v.status !== 'CANCELLED') || []
+    if (incomplete.length > 0) {
+      showToast('❌ ไม่สามารถออกใบวางบิลได้ เนื่องจากยังมีรถยนต์กำลังดำเนินการอยู่ (ต้องกดยกเลิกหรือเสร็จงานครบทุกคัน)')
+      return
+    }
+
     setUpdating(true)
     try {
       const res = await fetch(`/api/service-orders/${id}/invoice`, {
@@ -139,128 +254,7 @@ export default function ServiceJobDetailPage() {
 
   const statusColor = getServiceStatusColor(order.status)
 
-  // RENDER PRINT VIEW (A4 INVOICE SHEET)
-  if (isPrintView) {
-    return (
-      <div className="bg-white min-h-screen p-8 text-black print:p-0">
-        {/* Print Buttons Bar (hidden when printing) */}
-        <div className="flex gap-2 mb-6 border-b pb-4 print:hidden">
-          <Button variant="outline" size="sm" onClick={() => setIsPrintView(false)}>
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            กลับหน้ารายละเอียด
-          </Button>
-          <Button size="sm" className="bg-[#1d4ed8]" onClick={() => window.print()}>
-            <Printer className="w-4 h-4 mr-1" />
-            พิมพ์เอกสาร
-          </Button>
-        </div>
 
-        {/* A4 Invoice Layout */}
-        <div className="max-w-[800px] mx-auto border p-8 print:border-none print:p-0 space-y-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">EXPERT BODY &amp; PAINT</h1>
-              <p className="text-xs text-gray-500 mt-1">
-                บริษัท เอ็กซ์เพิร์ท บอดี้ แอนด์ เพ้นท์ จำกัด<br />
-                เลขประจำตัวผู้เสียภาษี: 0105566000000<br />
-                โทร: 081-234-5678
-              </p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-xl font-bold text-gray-700">ใบแจ้งหนี้ / ใบเสร็จรับเงิน</h2>
-              <p className="text-xs text-gray-500 mt-1">
-                เลขที่ใบเสร็จ: <span className="font-mono font-semibold">{order.invoiceNo || order.orderNo}</span><br />
-                วันที่เอกสาร: {formatDateShort(order.invoiceDate || order.createdAt)}<br />
-                กำหนดชำระ: {order.dueDate ? formatDateShort(order.dueDate) : '-'}
-              </p>
-            </div>
-          </div>
-
-          <hr className="border-gray-200" />
-
-          {/* Customer Info */}
-          <div className="grid grid-cols-2 gap-8 text-sm">
-            <div>
-              <h3 className="font-bold text-gray-700 mb-1">ข้อมูลลูกค้า / ผู้ว่าจ้าง:</h3>
-              <p className="text-gray-600 space-y-0.5">
-                <strong>{order.customer.name}</strong><br />
-                {order.customer.address && <>{order.customer.address}<br /></>}
-                {order.customer.taxId && <>เลขผู้เสียภาษี: {order.customer.taxId}<br /></>}
-                {order.customer.phone && <>โทร: {order.customer.phone}</>}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">
-                จำนวนรถทั้งหมด: {order.vehicles?.length || 0} คัน
-              </p>
-            </div>
-          </div>
-
-          {/* Items Table grouped by vehicle */}
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="border-y border-gray-200 bg-gray-50/50">
-                <th className="py-2 px-3 font-semibold text-gray-700 w-12 text-center">#</th>
-                <th className="py-2 px-3 font-semibold text-gray-700">รายการบริการ</th>
-                <th className="py-2 px-3 font-semibold text-gray-700 w-20 text-center">จำนวน</th>
-                <th className="py-2 px-3 font-semibold text-gray-700 w-32 text-right">ราคาต่อหน่วย</th>
-                <th className="py-2 px-3 font-semibold text-gray-700 w-32 text-right">ยอดรวม (บาท)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.vehicles?.map((vehicle: any, vIdx: number) => (
-                <optgroup key={vehicle.id} label={`คันที่ ${vIdx + 1}`}>
-                  {/* Header Row for Vehicle */}
-                  <tr className="bg-gray-50/40 border-b border-gray-200">
-                    <td colSpan={5} className="py-2 px-3 font-semibold text-[#1d4ed8] text-xs">
-                      คันที่ {vIdx + 1}: {vehicle.carPlate} {vehicle.carProvince ? `(${vehicle.carProvince})` : ''} - {vehicle.carBrand} {vehicle.carModel} (VIN: {vehicle.carVin})
-                    </td>
-                  </tr>
-                  {vehicle.items?.map((item: any, idx: number) => (
-                    <tr key={item.id} className="border-b border-gray-100">
-                      <td className="py-2 px-3 text-center text-gray-400 text-xs">{idx + 1}</td>
-                      <td className="py-2 px-3 text-gray-800 text-xs pl-6">{item.description}</td>
-                      <td className="py-2 px-3 text-center text-gray-600 text-xs">{item.quantity}</td>
-                      <td className="py-2 px-3 text-right text-gray-600 text-xs">฿{formatCurrency(item.priceUnit)}</td>
-                      <td className="py-2 px-3 text-right text-gray-800 font-semibold text-xs">฿{formatCurrency(item.totalPrice)}</td>
-                    </tr>
-                  ))}
-                </optgroup>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Pricing Summary */}
-          <div className="flex flex-col items-end space-y-1 text-sm font-medium text-gray-700 pt-4">
-            <div className="flex justify-between w-full max-w-[280px]">
-              <span>ราคารวม:</span>
-              <span>฿{formatCurrency(order.subtotal)}</span>
-            </div>
-            <div className="flex justify-between w-full max-w-[280px] text-gray-500">
-              <span>ภาษีมูลค่าเพิ่ม (7%):</span>
-              <span>฿{formatCurrency(order.vatAmount)}</span>
-            </div>
-            <div className="flex justify-between w-full max-w-[280px] text-base font-bold text-gray-900 border-t pt-1.5 mt-1">
-              <span>ยอดเงินรวมสุทธิ:</span>
-              <span>฿{formatCurrency(order.grandTotal)}</span>
-            </div>
-          </div>
-
-          {/* Signature Sections */}
-          <div className="grid grid-cols-2 gap-8 pt-12 text-center text-xs">
-            <div className="space-y-16">
-              <p>ผู้รับบริการ / ลูกค้าอนุมัติ...........................................</p>
-              <p>วันที่........./........./.........</p>
-            </div>
-            <div className="space-y-16">
-              <p>ผู้ให้บริการ / ผู้รับมอบเงิน...........................................</p>
-              <p>วันที่........./........./.........</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   // STANDARD DETAIL VIEW
   return (
@@ -298,11 +292,31 @@ export default function ServiceJobDetailPage() {
           <Button 
             variant="outline" 
             className="gap-1.5 border-gray-200 text-gray-700 hover:bg-gray-50"
-            onClick={() => setIsPrintView(true)}
+            onClick={() => window.open(`/service-jobs/${order.id}/pdf`, '_blank')}
           >
             <Printer className="w-4 h-4" />
-            พิมพ์เอกสาร
+            พิมพ์ใบสั่งงาน
           </Button>
+
+          {order.invoiceNo && (
+            <Button 
+              variant="outline" 
+              className="gap-1.5 border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
+              onClick={() => window.open(`/service-jobs/${order.id}/pdf?type=invoice`, '_blank')}
+            >
+              <Printer className="w-4 h-4" />
+              พิมพ์ใบวางบิล
+            </Button>
+          )}
+
+          {!order.invoiceNo && (
+            <Link href={`/service-jobs/${order.id}/edit`}>
+              <Button variant="outline" className="gap-1.5 border-gray-200 text-gray-700 hover:bg-gray-50">
+                <Edit3 className="w-4 h-4" />
+                แก้ไขใบสั่งงาน
+              </Button>
+            </Link>
+          )}
 
           {!order.invoiceNo && (
             <Button 
@@ -312,6 +326,17 @@ export default function ServiceJobDetailPage() {
             >
               <FileText className="w-4 h-4" />
               ออกใบวางบิล
+            </Button>
+          )}
+
+          {order.status !== 'COMPLETED' && (
+            <Button 
+              className="bg-green-600 hover:bg-green-700 gap-1.5 text-white"
+              onClick={handleCompleteAllOrder}
+              disabled={updating}
+            >
+              <Check className="w-4 h-4" />
+              เสร็จงานทั้งหมด
             </Button>
           )}
 
@@ -344,44 +369,95 @@ export default function ServiceJobDetailPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-[#0f172a]">รายการรถยนต์ ({order.vehicles?.length || 0} คัน)</h2>
             
-            {order.vehicles?.map((vehicle: any, idx: number) => (
-              <Card key={vehicle.id} className="shadow-sm border-gray-200">
-                <CardHeader className="bg-gray-50/50 border-b border-gray-100 p-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                    <span className="font-bold text-[#0f172a] text-sm">
-                      คันที่ {idx + 1}: {vehicle.carPlate} {vehicle.carProvince ? `(${vehicle.carProvince})` : ''} - {vehicle.carBrand} {vehicle.carModel}
-                    </span>
-                    <span className="font-mono text-xs text-gray-500 bg-white px-2 py-0.5 rounded border">
-                      VIN: {vehicle.carVin}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12 text-center">#</TableHead>
-                        <TableHead>รายการสั่งงาน</TableHead>
-                        <TableHead className="w-20 text-center">จำนวน</TableHead>
-                        <TableHead className="w-32 text-right">ราคาต่อหน่วย</TableHead>
-                        <TableHead className="w-32 text-right">ราคารวม</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {vehicle.items?.map((item: any, iIdx: number) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="text-center text-gray-400 text-xs">{iIdx + 1}</TableCell>
-                          <TableCell className="font-semibold text-gray-700 text-sm">{item.description}</TableCell>
-                          <TableCell className="text-center text-gray-600 text-sm">{item.quantity}</TableCell>
-                          <TableCell className="text-right text-gray-600 text-sm">฿{formatCurrency(item.priceUnit)}</TableCell>
-                          <TableCell className="text-right font-bold text-gray-800 text-sm">฿{formatCurrency(item.totalPrice)}</TableCell>
+            {order.vehicles?.map((vehicle: any, idx: number) => {
+              const isCompleted = vehicle.status === 'COMPLETED';
+              const isCancelled = vehicle.status === 'CANCELLED';
+              return (
+                <Card key={vehicle.id} className={`shadow-sm border-gray-200 overflow-hidden ${
+                  isCompleted ? 'border-l-4 border-l-green-500' :
+                  isCancelled ? 'border-l-4 border-l-red-500 opacity-65' : ''
+                }`}>
+                  <CardHeader className="bg-gray-50/50 border-b border-gray-100 p-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-[#0f172a] text-sm">
+                          คันที่ {idx + 1}: {vehicle.carPlate} {vehicle.carProvince ? `(${vehicle.carProvince})` : ''} - {vehicle.carBrand} {vehicle.carModel}
+                        </span>
+                        <Badge className={`${
+                          isCompleted ? 'bg-green-50 text-green-700' :
+                          isCancelled ? 'bg-red-50 text-red-700' :
+                          'bg-amber-50 text-amber-700'
+                        } px-2 py-0.5 border-none shadow-none text-[10px]`}>
+                          {isCompleted ? 'เสร็จงานแล้ว' :
+                           isCancelled ? 'ยกเลิกแล้ว' :
+                           'กำลังดำเนินการ'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] text-gray-500 bg-white px-2 py-0.5 rounded border">
+                          VIN: {vehicle.carVin}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 gap-1"
+                          onClick={() => handleOpenCompletionModal(vehicle)}
+                        >
+                          {isCompleted ? 'แก้ไขรูปภาพ/สถานะ' : 'เสร็จงานรายคัน'}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12 text-center">#</TableHead>
+                          <TableHead>รายการสั่งงาน</TableHead>
+                          <TableHead className="w-20 text-center">จำนวน</TableHead>
+                          <TableHead className="w-32 text-right">ราคาต่อหน่วย</TableHead>
+                          <TableHead className="w-32 text-right">ราคารวม</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            ))}
+                      </TableHeader>
+                      <TableBody>
+                        {vehicle.items?.map((item: any, iIdx: number) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="text-center text-gray-400 text-xs">{iIdx + 1}</TableCell>
+                            <TableCell className="font-semibold text-gray-700 text-sm">{item.description}</TableCell>
+                            <TableCell className="text-center text-gray-600 text-sm">{item.quantity}</TableCell>
+                            <TableCell className="text-right text-gray-600 text-sm">฿{formatCurrency(item.priceUnit)}</TableCell>
+                            <TableCell className="text-right font-bold text-gray-800 text-sm">฿{formatCurrency(item.totalPrice)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+
+                    {/* Completion Photos Gallery */}
+                    {vehicle.photos && vehicle.photos.length > 0 && (
+                      <div className="p-4 bg-gray-50/50 border-t border-gray-100 space-y-2">
+                        <span className="text-xs font-bold text-gray-600 block">{isCompleted ? 'รูปภาพผลงานเสร็จงาน:' : 'รูปภาพแนบการดำเนินงาน/รูปแนบ:'}</span>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                          {vehicle.photos.map((url: string, pIdx: number) => (
+                            <div key={pIdx} className="relative aspect-video rounded-lg overflow-hidden border bg-white group cursor-pointer" onClick={() => window.open(url, '_blank')}>
+                              <img src={url} alt="Completion preview" className="object-cover w-full h-full" />
+                              <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Eye className="w-4 h-4 text-white" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {vehicle.completedAt && (
+                          <span className="text-[10px] text-gray-400 block pt-1">
+                            ⏰ บันทึกเสร็จงานเมื่อ: {new Date(vehicle.completedAt).toLocaleString('th-TH')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
 
@@ -514,6 +590,122 @@ export default function ServiceJobDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Mechanic Completion Modal */}
+      {completingVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Camera className="w-5 h-5 text-[#1d4ed8]" />
+                บันทึกสถานะงานรายคัน
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCompletingVehicle(null)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveVehicleCompletion} className="p-5 overflow-y-auto space-y-4 flex-1">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">
+                  คันที่ต้องการบันทึก: <span className="text-[#1d4ed8]">{completingVehicle.carPlate} - {completingVehicle.carBrand} {completingVehicle.carModel}</span>
+                </p>
+              </div>
+
+              {/* Status Select */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 block">สถานะการทำงาน</label>
+                <Select
+                  value={completionStatus}
+                  onChange={e => setCompletionStatus(e.target.value)}
+                  className="w-full bg-white border-gray-200 mt-1"
+                  required
+                >
+                  <option value="COMPLETED">เสร็จงานแล้ว (COMPLETED)</option>
+                  <option value="PENDING">กำลังดำเนินการ / รอดำเนินการ (PENDING)</option>
+                  <option value="CANCELLED">ยกเลิกงานคันนี้ (CANCELLED)</option>
+                </Select>
+              </div>
+
+              {/* Completion Date */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 block">วันที่และเวลาเสร็จงาน *</label>
+                <Input
+                  type="datetime-local"
+                  value={completionTime}
+                  onChange={e => setCompletionTime(e.target.value)}
+                  className="w-full mt-1"
+                  required={completionStatus === 'COMPLETED'}
+                />
+              </div>
+
+              {/* Photo Upload */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 block">แนบรูปภาพผลงานเสร็จงาน (R2 Cloud)</label>
+                
+                {/* Upload box */}
+                <div className="border border-dashed border-gray-200 hover:border-[#1d4ed8]/40 rounded-xl p-4 bg-gray-50/50 text-center relative cursor-pointer group transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={uploading}
+                  />
+                  <div className="flex flex-col items-center justify-center space-y-1">
+                    <Upload className="w-6 h-6 text-gray-400 group-hover:text-[#1d4ed8]" />
+                    <span className="text-xs font-semibold text-gray-600 group-hover:text-[#1d4ed8]">
+                      {uploading ? 'กำลังอัปโหลด...' : 'กดเพื่อเลือกหรือถ่ายภาพผลงาน'}
+                    </span>
+                    <span className="text-[10px] text-gray-400">รองรับไฟล์ภาพหลายไฟล์พร้อมกัน</span>
+                  </div>
+                </div>
+
+                {/* Previews grid */}
+                {vehiclePhotos.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 pt-2">
+                    {vehiclePhotos.map((url, index) => (
+                      <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-white group">
+                        <img src={url} alt="Upload preview" className="object-cover w-full h-full" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveUploadedPhoto(index)}
+                          className="absolute top-1 right-1 bg-[#dc2626] text-white rounded-full p-0.5 shadow hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 flex gap-2 justify-end border-t border-gray-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => setCompletingVehicle(null)}
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={savingVehicleStatus || uploading}
+                  className="bg-[#1d4ed8] hover:bg-[#1e40af] text-white rounded-xl"
+                >
+                  {savingVehicleStatus ? 'กำลังบันทึก...' : 'บันทึก'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

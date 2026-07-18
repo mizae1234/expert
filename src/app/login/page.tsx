@@ -39,8 +39,11 @@ export default function LoginPage() {
       }
 
       setSuccess(true)
-      // Use window.location for full page reload with cookie
-      window.location.href = '/dashboard'
+      if (data.user?.role === 'MECHANIC') {
+        window.location.href = '/mechanic'
+      } else {
+        window.location.href = '/dashboard'
+      }
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาด ไม่สามารถเชื่อมต่อ server ได้')
       setLoading(false)
