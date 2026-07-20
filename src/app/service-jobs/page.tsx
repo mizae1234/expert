@@ -159,17 +159,17 @@ export default function ServiceJobsPage() {
         <Table>
           <TableHeader className="bg-gray-50 border-b border-gray-200">
             <TableRow>
-              <TableHead className="font-semibold text-gray-600">เลขที่สั่งงาน</TableHead>
-              <TableHead className="font-semibold text-gray-600">วันที่สร้าง</TableHead>
-              <TableHead className="font-semibold text-gray-600">ลูกค้า</TableHead>
-              <TableHead className="font-semibold text-gray-600">จำนวนรถยนต์</TableHead>
-              <TableHead className="font-semibold text-gray-600">ทะเบียนรถ</TableHead>
-              <TableHead className="font-semibold text-gray-600">ยี่ห้อ / รุ่น (ตัวอย่าง)</TableHead>
-              <TableHead className="font-semibold text-gray-600 text-right">ยอดรวมสุทธิ</TableHead>
-              <TableHead className="font-semibold text-gray-600 text-center">สถานะ</TableHead>
-              <TableHead className="font-semibold text-gray-600 text-center">เลขที่ใบเสร็จ</TableHead>
-              <TableHead className="font-semibold text-gray-600 text-center">PEAK Sync</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">เลขที่สั่งงาน</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">วันที่สร้าง</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">ลูกค้า</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3 text-center">จำนวนรถ</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">ทะเบียนรถ</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">ยี่ห้อ/รุ่น (ตัวอย่าง)</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3 text-right">ยอดรวมสุทธิ</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3 text-center">สถานะ</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3 text-center">เลขที่ใบวางบิล</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3 text-center">PEAK Sync</TableHead>
+              <TableHead className="w-[60px] h-9 px-3"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -199,45 +199,45 @@ export default function ServiceJobsPage() {
 
                 return (
                   <TableRow key={job.id} className="hover:bg-gray-50 transition-colors">
-                    <TableCell className="font-mono font-medium text-[#1d4ed8]">{job.orderNo}</TableCell>
-                    <TableCell className="text-sm text-gray-500">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                    <TableCell className="font-mono font-semibold text-[#1d4ed8] text-[11px] py-2 px-3">{job.orderNo}</TableCell>
+                    <TableCell className="text-[11px] text-gray-500 py-2 px-3">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-gray-400" />
                         {formatDateShort(job.createdAt)}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium text-[#0f172a]">{job.customer?.name}</TableCell>
-                    <TableCell className="text-sm font-semibold text-gray-700 text-center">
-                      <Badge className="bg-gray-100 text-gray-700 px-2 py-0.5 border-none shadow-none">
+                    <TableCell className="font-semibold text-[#0f172a] text-[11px] py-2 px-3">{job.customer?.name}</TableCell>
+                    <TableCell className="text-center py-2 px-3">
+                      <Badge className="bg-gray-150 text-gray-700 px-1.5 py-0.5 border-none shadow-none text-[10px] font-semibold">
                         {vehicleCount} คัน
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm font-semibold text-gray-700">
+                    <TableCell className="text-[11px] font-semibold text-gray-700 py-2 px-3">
                       {plateText}
                     </TableCell>
-                    <TableCell className="text-sm text-gray-600">
+                    <TableCell className="text-[11px] text-gray-600 py-2 px-3">
                       {brandModelText}
                     </TableCell>
-                    <TableCell className="text-right font-semibold text-[#0f172a]">
+                    <TableCell className="text-right font-bold text-[#0f172a] text-[11px] py-2 px-3">
                       ฿{formatCurrency(job.grandTotal)}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={`${statusColor.bg} ${statusColor.text} px-2.5 py-0.5 border-none shadow-none`}>
+                    <TableCell className="text-center py-2 px-3">
+                      <Badge className={`${statusColor.bg} ${statusColor.text} px-2 py-0.5 border-none shadow-none text-[10px] font-semibold`}>
                         {getServiceStatusLabel(job.status)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center text-sm font-mono font-medium text-gray-700">
+                    <TableCell className="text-center text-[11px] font-mono font-semibold text-gray-700 py-2 px-3">
                       {job.invoiceNo || '-'}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center py-2 px-3">
                       <div className="flex justify-center">
-                        <Cloud className={`w-5 h-5 ${job.isSynced ? 'text-green-500 fill-green-500/10' : 'text-gray-300'}`} />
+                        <Cloud className={`w-4 h-4 ${job.isSynced ? 'text-green-500 fill-green-500/10' : 'text-gray-300'}`} />
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center py-2 px-3">
                       <Link href={`/service-jobs/${job.id}`}>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                          <Eye className="w-4 h-4 text-gray-500" />
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                          <Eye className="w-3.5 h-3.5 text-gray-500" />
                         </Button>
                       </Link>
                     </TableCell>
