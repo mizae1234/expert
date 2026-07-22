@@ -641,26 +641,7 @@ export default function ServiceJobDetailPage() {
           )}
 
 
-          {order.status !== 'COMPLETED' && (
-            <>
-              <Button 
-                className="bg-green-600 hover:bg-green-700 gap-1.5 text-white font-bold"
-                onClick={handleBatchComplete}
-                disabled={updating || selectedVehicleIds.length === 0}
-              >
-                <Check className="w-4 h-4" />
-                เสร็จงาน
-              </Button>
-              <Button 
-                className="bg-red-600 hover:bg-red-700 gap-1.5 text-white font-bold"
-                onClick={handleBatchCancel}
-                disabled={updating || selectedVehicleIds.length === 0}
-              >
-                <X className="w-4 h-4" />
-                ยกเลิกรายการ
-              </Button>
-            </>
-          )}
+
 
           {order.invoiceNo && !order.isSynced && (
             <Button 
@@ -680,25 +661,55 @@ export default function ServiceJobDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* List of Vehicles Cards */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[#0f172a]">รายการรถยนต์ ({order.vehicles?.length || 0} คัน)</h2>
-              {order.vehicles?.some((v: any) => v.status === 'PENDING' || v.status === 'IN_PROGRESS') && (
-                <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
-                  <input 
-                    id="select-all-vehicles"
-                    type="checkbox" 
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    checked={
-                      (() => {
-                        const active = order.vehicles.filter((v: any) => v.status === 'PENDING' || v.status === 'IN_PROGRESS')
-                        return active.length > 0 && active.every((v: any) => selectedVehicleIds.includes(v.id))
-                      })()
-                    }
-                    onChange={toggleSelectAll}
-                  />
-                  <label htmlFor="select-all-vehicles" className="text-xs font-semibold text-gray-500 cursor-pointer select-none">เลือกทั้งหมดที่กำลังดำเนินการ</label>
-                </div>
-              )}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/50 p-4 rounded-xl border border-gray-150">
+              <h2 className="text-base font-bold text-[#0f172a]">รายการรถยนต์ ({order.vehicles?.length || 0} คัน)</h2>
+              
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Batch Actions when selected */}
+                {selectedVehicleIds.length > 0 && order.status !== 'COMPLETED' && (
+                  <div className="flex items-center gap-1.5 animate-fade-in bg-white border border-gray-200 py-1 px-2 rounded-lg shadow-sm">
+                    <span className="text-[11px] text-gray-500 font-semibold">เลือก {selectedVehicleIds.length} คัน:</span>
+                    <Button 
+                      size="sm"
+                      type="button"
+                      className="bg-green-600 hover:bg-green-700 gap-1 text-white font-bold h-7 text-[11px] py-1 px-2 rounded-md"
+                      onClick={handleBatchComplete}
+                      disabled={updating}
+                    >
+                      <Check className="w-3 h-3" />
+                      เสร็จงาน
+                    </Button>
+                    <Button 
+                      size="sm"
+                      type="button"
+                      className="bg-red-600 hover:bg-red-700 gap-1 text-white font-bold h-7 text-[11px] py-1 px-2 rounded-md"
+                      onClick={handleBatchCancel}
+                      disabled={updating}
+                    >
+                      <X className="w-3 h-3" />
+                      ยกเลิกรายการ
+                    </Button>
+                  </div>
+                )}
+
+                {order.vehicles?.some((v: any) => v.status === 'PENDING' || v.status === 'IN_PROGRESS') && (
+                  <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm">
+                    <input 
+                      id="select-all-vehicles"
+                      type="checkbox" 
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      checked={
+                        (() => {
+                          const active = order.vehicles.filter((v: any) => v.status === 'PENDING' || v.status === 'IN_PROGRESS')
+                          return active.length > 0 && active.every((v: any) => selectedVehicleIds.includes(v.id))
+                        })()
+                      }
+                      onChange={toggleSelectAll}
+                    />
+                    <label htmlFor="select-all-vehicles" className="text-[11px] font-semibold text-gray-500 cursor-pointer select-none">เลือกทั้งหมดที่กำลังทำงาน</label>
+                  </div>
+                )}
+              </div>
             </div>
             
             {order.vehicles?.map((vehicle: any, idx: number) => {
