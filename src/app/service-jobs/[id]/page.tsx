@@ -420,12 +420,24 @@ export default function ServiceJobDetailPage() {
 
           {!order.invoiceNo && (
             <Button 
-              className="bg-[#1d4ed8] hover:bg-[#1e40af] gap-1.5 text-white"
+              className="bg-[#1d4ed8] hover:bg-[#1e40af] gap-1.5 text-white font-bold"
               onClick={handleGenerateInvoice}
               disabled={updating}
             >
               <FileText className="w-4 h-4" />
               ออกใบวางบิล
+            </Button>
+          )}
+
+          {order.status !== 'CANCELLED' && (
+            <Button 
+              variant="outline"
+              className="border-red-200 text-red-600 bg-red-50/50 hover:bg-red-50 gap-1.5 font-bold animate-fade-in"
+              onClick={() => handleStatusChange('CANCELLED')}
+              disabled={updating}
+            >
+              <X className="w-4 h-4" />
+              ยกเลิกใบงาน
             </Button>
           )}
 
