@@ -161,6 +161,7 @@ export default function ServiceJobsPage() {
             <TableRow>
               <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">เลขที่สั่งงาน</TableHead>
               <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">วันที่สร้าง</TableHead>
+              <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">วันที่ปฏิบัติงาน</TableHead>
               <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">ลูกค้า</TableHead>
               <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3 text-center">จำนวนรถ</TableHead>
               <TableHead className="font-semibold text-gray-500 text-[11px] h-9 px-3">ทะเบียนรถ</TableHead>
@@ -175,13 +176,13 @@ export default function ServiceJobsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-gray-400">
+                <TableCell colSpan={12} className="text-center py-8 text-gray-400">
                   กำลังโหลดข้อมูล...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-gray-400">
+                <TableCell colSpan={12} className="text-center py-8 text-gray-400">
                   ไม่พบรายการงานบริการทั่วไป
                 </TableCell>
               </TableRow>
@@ -196,7 +197,7 @@ export default function ServiceJobsPage() {
                 const brandModelText = firstVehicle
                   ? `${firstVehicle.carBrand} ${firstVehicle.carModel}`
                   : '-'
-
+ 
                 return (
                   <TableRow key={job.id} className="hover:bg-gray-50 transition-colors">
                     <TableCell className="font-mono font-semibold text-[#1d4ed8] text-[11px] py-2 px-3">{job.orderNo}</TableCell>
@@ -205,6 +206,16 @@ export default function ServiceJobsPage() {
                         <Calendar className="w-3 h-3 text-gray-400" />
                         {formatDateShort(job.createdAt)}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-[11px] text-gray-500 py-2 px-3 font-semibold">
+                      {job.operationDate ? (
+                        <div className="flex items-center gap-1 text-[#1d4ed8]">
+                          <Calendar className="w-3 h-3 text-blue-400" />
+                          {formatDateShort(job.operationDate)}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="font-semibold text-[#0f172a] text-[11px] py-2 px-3">{job.customer?.name}</TableCell>
                     <TableCell className="text-center py-2 px-3">

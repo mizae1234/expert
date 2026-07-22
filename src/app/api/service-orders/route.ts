@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customerId, vehicles } = body
+    const { customerId, vehicles, operationDate } = body
 
     if (!customerId || !Array.isArray(vehicles) || vehicles.length === 0) {
       return NextResponse.json({ error: 'Missing customer or vehicles data' }, { status: 400 })
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
         const total = qty * price
         subtotal += total
         return {
+          serviceCode: item.serviceCode || null,
           description: item.description,
           quantity: qty,
           priceUnit: price,
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
       data: {
         orderNo,
         customerId,
+        operationDate: operationDate ? new Date(operationDate) : null,
         subtotal,
         vatAmount,
         grandTotal,

@@ -705,6 +705,7 @@ model ServiceOrder {
   invoiceNo       String?          @unique // e.g. IVS-20260700001
   invoiceDate     DateTime?
   dueDate         DateTime?
+  operationDate   DateTime?
   subtotal        Float
   vatAmount       Float
   grandTotal      Float
@@ -738,6 +739,7 @@ model ServiceItem {
   id               String         @id @default(cuid())
   serviceVehicleId String
   serviceVehicle   ServiceVehicle @relation(fields: [serviceVehicleId], references: [id])
+  serviceCode      String?        // e.g. "SV-00001"
   description      String
   quantity         Int            @default(1)
   priceUnit        Float

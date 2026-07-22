@@ -21,6 +21,7 @@ export default function EditServiceJobPage() {
   // API states
   const [customers, setCustomers] = useState<any[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
+  const [operationDate, setOperationDate] = useState('')
   const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(true)
 
@@ -50,6 +51,9 @@ export default function EditServiceJobPage() {
       if (data.error) throw new Error(data.error)
 
       setSelectedCustomerId(data.customerId || '')
+      if (data.operationDate) {
+        setOperationDate(new Date(data.operationDate).toISOString().split('T')[0])
+      }
       
       // Map vehicles to the edit form state
       if (Array.isArray(data.vehicles)) {
@@ -202,7 +206,8 @@ export default function EditServiceJobPage() {
         updatedItems[itemIdx] = { 
           ...updatedItems[itemIdx], 
           description: value,
-          priceUnit: matched ? matched.price : updatedItems[itemIdx].priceUnit
+          priceUnit: matched ? matched.price : updatedItems[itemIdx].priceUnit,
+          serviceCode: matched ? matched.serviceCode : null
         }
         return { ...v, items: updatedItems }
       }
@@ -230,15 +235,36 @@ export default function EditServiceJobPage() {
   }
 
   // Excel template downloader
+  const parseThaiExcelDate = (dateStr: string): string => {
+    if (!dateStr) return ''
+    const parts = dateStr.trim().split(/[\/\-\.]/)
+    if (parts.length === 3) {
+      let day = parseInt(parts[0], 10)
+      let month = parseInt(parts[1], 10)
+      let year = parseInt(parts[2], 10)
+      if (year > 2500) {
+        year = year - 543
+      } else if (year < 100) {
+        year = year + 2000
+      }
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      }
+    }
+    return ''
+  }
+
+  // Excel template downloader
   const handleDownloadTemplate = async () => {
     try {
       const XLSX = await import('xlsx')
       const data = [
-        ['พ่นทะเบียน', '', '', '', '', ''],
-        ['No.', 'Vin No.', 'ยี่ห้อ', 'Model', 'ทะเบียน', 'วันที่ส่งงาน'],
-        ['1', 'LNAAKAA19R5E02010', 'AION', 'ES', 'ทอ-7542', '1/6/2026'],
-        ['2', 'LNAAKAA13R5E01693', 'AION', 'ES', 'ทอ-7547', '1/6/2026'],
-        ['3', 'LNAAKAA1XR5E01707', 'AION', 'ES', 'ทอ-7548', '1/6/2026'],
+        ['พ่นทะเบียน', '', '', '', ''],
+        ['วันที่ปฏิบัติงาน', '1/6/2026', '', '', ''],
+        ['No.', 'Vin No.', 'ยี่ห้อ', 'Model', 'ทะเบียน'],
+        ['1', 'LNAAKAA19R5E02010', 'AION', 'ES', 'ทอ-7542'],
+        ['2', 'LNAAKAA13R5E01693', 'AION', 'ES', 'ทอ-7547'],
+        ['3', 'LNAAKAA1XR5E01707', 'AION', 'ES', 'ทอ-7548'],
       ]
       
       const ws = XLSX.utils.aoa_to_sheet(data)
@@ -251,17 +277,27 @@ export default function EditServiceJobPage() {
     }
   }
 
-  const parseExcelData = (grid: string[][]) => {
-    if (grid.length === 0) return { parsedVehicles: [], jobDescription: '' }
+  const parseExcelData = async (grid: string[][]) => {
+    if (grid.length === 0) return { parsedVehicles: [], jobDescription: '', parsedOperationDate: '' }
 
     let startRow = 0
     let jobDescription = ''
+    let parsedOperationDate = ''
 
     // Detect if Row 1 is a single description cell (A1 filled, others empty in the first row)
     const firstRowVal = grid[0].filter(c => c.trim() !== '')
     if (firstRowVal.length === 1 && grid[0][0]) {
       jobDescription = grid[0][0]
-      startRow = 1 // Headers are in Row 2
+      startRow = 1 // Headers/Dates are next
+    }
+
+    // Check if the next row has "วันที่ปฏิบัติงาน" in column A
+    if (grid[startRow] && grid[startRow].length >= 2) {
+      const firstCell = grid[startRow][0].trim()
+      if (firstCell.includes('วันที่ปฏิบัติงาน')) {
+        parsedOperationDate = grid[startRow][1].trim()
+        startRow = startRow + 1
+      }
     }
 
     const headerRow = grid[startRow] || []
@@ -298,16 +334,45 @@ export default function EditServiceJobPage() {
     const matchedService = serviceCatalog.find(s => s.name.trim().toLowerCase() === serviceName.trim().toLowerCase())
     const resolvedPrice = matchedService ? matchedService.price : (defaultPrice || 0)
 
+    const isSprayingPlate = serviceName.trim().toLowerCase() === 'พ่นทะเบียน'
+
     for (let i = startRow; i < grid.length; i++) {
       const row = grid[i]
       if (row.length === 0) continue
 
-      const vin = row[vinIdx] || ''
+      const vin = (row[vinIdx] || '').trim()
       const brand = row[brandIdx] || defaultBrand || 'BYD'
       const model = row[modelIdx] || defaultModel || 'ES'
-      const plate = row[plateIdx] || ''
+      const plate = (row[plateIdx] || '').trim()
+
+      if (isSprayingPlate && (plate === '' || plate === '-' || plate.length === 0)) {
+        throw new Error(`แถวที่ ${i - startRow + 1}: สำหรับบริการพ่นทะเบียน จำเป็นต้องระบุเลขทะเบียน ห้ามใส่ค่าว่าง, ช่องว่าง หรือเครื่องหมาย -`)
+      }
 
       if (vin || plate) {
+        let finalDescription = serviceName
+        let finalPrice = resolvedPrice
+        let isLocked = false
+
+        if (isSprayingPlate && vin) {
+          try {
+            const checkRes = await fetch(`/api/services/check-vin?vin=${vin}`)
+            if (checkRes.ok) {
+              const checkData = await checkRes.json()
+              if (checkData.hasDone) {
+                finalDescription = checkData.sv00001?.name || 'พ่นทะเบียนแบบมีพ่นข้างมาก่อน'
+                finalPrice = checkData.sv00001?.price ?? 200
+                isLocked = true
+              } else {
+                finalDescription = checkData.sv00004?.name || 'พ่นทะเบียนอย่างเดียวไม่มีพ่นข้างมาก่อน'
+                finalPrice = checkData.sv00004?.price ?? 400
+              }
+            }
+          } catch (apiErr) {
+            console.error('Error checking VIN history:', apiErr)
+          }
+        }
+
         parsedVehicles.push({
           id: `v-imported-${Date.now()}-${i}-${Math.random()}`,
           carPlate: plate,
@@ -316,37 +381,46 @@ export default function EditServiceJobPage() {
           carModel: model,
           carVin: vin,
           items: [{
-            description: serviceName,
+            description: finalDescription,
             quantity: 1,
-            priceUnit: resolvedPrice
+            priceUnit: finalPrice,
+            isLocked
           }]
         })
       }
     }
 
-    return { parsedVehicles, jobDescription }
+    return { parsedVehicles, jobDescription, parsedOperationDate }
   }
 
-  const handleImportExcel = () => {
+  const handleImportExcel = async () => {
     if (!pastedExcelText.trim()) return
 
     const rows = pastedExcelText.split('\n').map(r => r.trim()).filter(r => r.length > 0)
     if (rows.length === 0) return
 
     const grid = rows.map(r => r.split('\t').map(c => c.trim()))
-    const { parsedVehicles, jobDescription } = parseExcelData(grid)
+    try {
+      const { parsedVehicles, jobDescription, parsedOperationDate } = await parseExcelData(grid)
 
-    if (parsedVehicles.length > 0) {
-      if (jobDescription) {
-        setDefaultDescription(jobDescription)
+      if (parsedVehicles.length > 0) {
+        if (jobDescription) {
+          setDefaultDescription(jobDescription)
+        }
+        if (parsedOperationDate) {
+          const formatted = parseThaiExcelDate(parsedOperationDate)
+          if (formatted) setOperationDate(formatted)
+        }
+        if (vehicles.length === 1 && !vehicles[0].carPlate && !vehicles[0].carVin) {
+          setVehicles(parsedVehicles)
+        } else {
+          setVehicles([...vehicles, ...parsedVehicles])
+        }
+        setPastedExcelText('')
+        setIsImportModalOpen(false)
       }
-      if (vehicles.length === 1 && !vehicles[0].carPlate && !vehicles[0].carVin) {
-        setVehicles(parsedVehicles)
-      } else {
-        setVehicles([...vehicles, ...parsedVehicles])
-      }
-      setPastedExcelText('')
-      setIsImportModalOpen(false)
+    } catch (err: any) {
+      alert(err.message)
     }
   }
 
@@ -377,11 +451,15 @@ export default function EditServiceJobPage() {
             grid.push(rowArr)
           }
 
-          const { parsedVehicles, jobDescription } = parseExcelData(grid)
+          const { parsedVehicles, jobDescription, parsedOperationDate } = await parseExcelData(grid)
 
           if (parsedVehicles.length > 0) {
             if (jobDescription) {
               setDefaultDescription(jobDescription)
+            }
+            if (parsedOperationDate) {
+              const formatted = parseThaiExcelDate(parsedOperationDate)
+              if (formatted) setOperationDate(formatted)
             }
             if (vehicles.length === 1 && !vehicles[0].carPlate && !vehicles[0].carVin) {
               setVehicles(parsedVehicles)
@@ -440,7 +518,20 @@ export default function EditServiceJobPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: selectedCustomerId,
-          vehicles: validVehicles
+          operationDate: operationDate || null,
+          vehicles: validVehicles.map(v => ({
+            carPlate: v.carPlate,
+            carProvince: v.carProvince,
+            carBrand: v.carBrand,
+            carModel: v.carModel,
+            carVin: v.carVin,
+            items: v.items.filter((item: any) => item.description.trim() !== '').map((item: any) => ({
+              serviceCode: item.serviceCode || null,
+              description: item.description,
+              quantity: item.quantity,
+              priceUnit: item.priceUnit
+            }))
+          }))
         })
       })
 
@@ -493,21 +584,34 @@ export default function EditServiceJobPage() {
               <CardTitle className="text-base font-bold text-[#0f172a]">ข้อมูลผู้ว่าจ้าง / ลูกค้า</CardTitle>
             </CardHeader>
             <CardContent className="p-5">
-              <div className="w-full">
-                <Select
-                  value={selectedCustomerId}
-                  onChange={e => setSelectedCustomerId(e.target.value)}
-                  className="w-full bg-white border-gray-200"
-                  required
-                >
-                  <option value="">-- เลือกลูกค้า --</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.taxId ? `(Tax: ${c.taxId})` : ''}
-                    </option>
-                  ))}
-                </Select>
-                {loadingCustomers && <p className="text-xs text-gray-400 mt-1">กำลังโหลดข้อมูลลูกค้า...</p>}
+              <div className="w-full space-y-4">
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-gray-600 block">เลือกลูกค้า *</span>
+                  <Select
+                    value={selectedCustomerId}
+                    onChange={e => setSelectedCustomerId(e.target.value)}
+                    className="w-full bg-white border-gray-200"
+                    required
+                  >
+                    <option value="">-- เลือกลูกค้า --</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.taxId ? `(Tax: ${c.taxId})` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                  {loadingCustomers && <p className="text-xs text-gray-400 mt-1">กำลังโหลดข้อมูลลูกค้า...</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-gray-600 block">วันที่ปฏิบัติงาน (Operation Date)</span>
+                  <Input
+                    type="date"
+                    value={operationDate}
+                    onChange={e => setOperationDate(e.target.value)}
+                    className="w-full bg-white border-gray-200"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -678,6 +782,7 @@ export default function EditServiceJobPage() {
                               onChange={e => handleUpdateServiceItemDescription(vehicle.id, itemIdx, e.target.value)}
                               list="services-list"
                               required
+                              disabled={item.isLocked}
                             />
                           </div>
                           <div className="w-[80px]">
@@ -698,6 +803,7 @@ export default function EditServiceJobPage() {
                               min={0}
                               onChange={e => handleUpdateServiceItem(vehicle.id, itemIdx, 'priceUnit', parseFloat(e.target.value) || 0)}
                               required
+                              disabled={item.isLocked}
                             />
                           </div>
                           <Button
@@ -706,7 +812,7 @@ export default function EditServiceJobPage() {
                             size="sm"
                             className="h-9 w-9 p-0 text-red-400 hover:text-red-600"
                             onClick={() => handleRemoveServiceItem(vehicle.id, itemIdx)}
-                            disabled={vehicle.items.length <= 1}
+                            disabled={vehicle.items.length <= 1 || item.isLocked}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -809,9 +915,10 @@ export default function EditServiceJobPage() {
                   </Button>
                 </div>
                 <div className="text-[10px] space-y-1 mt-1 leading-relaxed">
-                  <p>• **แถวที่ 1 (ช่อง A1):** พิมพ์คำอธิบายบริการ (เช่น <code className="bg-blue-100 px-1 rounded font-mono">พ่นทะเบียน</code>)</p>
-                  <p>• **แถวที่ 2 (หัวตาราง):** <code className="bg-blue-100 px-1 rounded font-mono">No.</code>, <code className="bg-blue-100 px-1 rounded font-mono">Vin No.</code>, <code className="bg-blue-100 px-1 rounded font-mono">ยี่ห้อ</code>, <code className="bg-blue-100 px-1 rounded font-mono">Model</code>, <code className="bg-blue-100 px-1 rounded font-mono">ทะเบียน</code>, <code className="bg-blue-100 px-1 rounded font-mono">วันที่ส่งงาน</code></p>
-                  <p>• **แถวที่ 3 เป็นต้นไป:** รายชื่อรถแต่ละคัน</p>
+                  <p>• **แถวที่ 1 (ช่อง A1):** ชื่อรายการบริการ (เช่น <code className="bg-blue-100 px-1 rounded font-mono">พ่นทะเบียน</code>)</p>
+                  <p>• **แถวที่ 2:** ช่อง A2 ใส่คำว่า <code className="bg-blue-100 px-1 rounded font-mono">วันที่ปฏิบัติงาน</code> และช่อง B2 ใส่วันที่ (เช่น <code className="bg-blue-100 px-1 rounded font-mono">1/6/2026</code>)</p>
+                  <p>• **แถวที่ 3 (หัวตาราง):** <code className="bg-blue-100 px-1 rounded font-mono">No.</code>, <code className="bg-blue-100 px-1 rounded font-mono">Vin No.</code>, <code className="bg-blue-100 px-1 rounded font-mono">ยี่ห้อ</code>, <code className="bg-blue-100 px-1 rounded font-mono">Model</code>, <code className="bg-blue-100 px-1 rounded font-mono">ทะเบียน</code></p>
+                  <p>• **แถวที่ 4 เป็นต้นไป:** ข้อมูลรายละเอียดรถยนต์แต่ละคัน</p>
                 </div>
               </div>
 

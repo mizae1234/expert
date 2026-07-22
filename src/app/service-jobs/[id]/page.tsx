@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select } from '@/components/ui/select'
 import { 
-  ArrowLeft, Wrench, Calendar, User, FileText, Cloud, 
+  ArrowLeft, Wrench, Calendar, User, FileText, Cloud, Plus,
   Printer, Trash2, CheckCircle2, AlertTriangle, Play, Check, Edit3, Camera, Upload, Eye, X, ClipboardCheck
 } from 'lucide-react'
 import { 
@@ -34,9 +34,13 @@ export default function ServiceJobDetailPage() {
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
-    description: string;
+    description: React.ReactNode;
     variant: 'danger' | 'primary' | 'warning';
-    onConfirm: () => void;
+    showInput?: boolean;
+    inputPlaceholder?: string;
+    inputRequired?: boolean;
+    confirmText?: string;
+    onConfirm: (inputValue?: string) => void;
   } | null>(null)
 
   // Vehicle completion modal state
@@ -97,6 +101,90 @@ export default function ServiceJobDetailPage() {
 
   const handleRemoveUploadedPhoto = (index: number) => {
     setVehiclePhotos(vehiclePhotos.filter((_, idx) => idx !== index))
+  }
+
+  const handleDirectPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, vehicle: any) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUpdating(true)
+    try {
+      const newUrls: string[] = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        const yyyymm = order?.orderNo ? order.orderNo.substring(4, 10) : 'general'
+        const orderNo = order?.orderNo || id
+        formData.append('folder', `JobService/${yyyymm}/${orderNo}`)
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        })
+        const uploadData = await uploadRes.json()
+        if (uploadData.publicUrl) {
+          newUrls.push(uploadData.publicUrl)
+        }
+      }
+
+      if (newUrls.length > 0) {
+        // Save to DB
+        const res = await fetch(`/api/service-orders/${id}/vehicles/${vehicle.id}/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: vehicle.status,
+            photos: [...(vehicle.photos || []), ...newUrls],
+            completedAt: vehicle.completedAt
+          })
+        })
+
+        if (!res.ok) throw new Error('ไม่สามารถบันทึกรูปภาพเพิ่มเติมได้')
+        const data = await res.json()
+        setOrder(data)
+        showToast('✅ อัปเดตไฟล์แนบเพิ่มเติมสำเร็จ')
+      }
+    } catch (err: any) {
+      showToast('❌ ' + err.message)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handleRemovePhotoDirectly = async (vehicle: any, indexToRemove: number) => {
+    const updatedPhotos = (vehicle.photos || []).filter((_: any, idx: number) => idx !== indexToRemove)
+    
+    setConfirmConfig({
+      isOpen: true,
+      title: 'ยืนยันลบไฟล์แนบนี้',
+      description: 'คุณแน่ใจว่าต้องการลบไฟล์แนบรายการนี้ใช่หรือไม่?',
+      variant: 'danger',
+      onConfirm: async () => {
+        setUpdating(true)
+        try {
+          const res = await fetch(`/api/service-orders/${id}/vehicles/${vehicle.id}/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: vehicle.status,
+              photos: updatedPhotos,
+              completedAt: vehicle.completedAt
+            })
+          })
+
+          if (!res.ok) throw new Error('ไม่สามารถลบไฟล์แนบได้')
+          const data = await res.json()
+          setOrder(data)
+          showToast('✅ ลบไฟล์แนบสำเร็จ')
+        } catch (err: any) {
+          showToast('❌ ' + err.message)
+        } finally {
+          setUpdating(false)
+        }
+      }
+    })
   }
 
   const handleSaveVehicleCompletion = async (e: React.FormEvent) => {
@@ -167,9 +255,12 @@ export default function ServiceJobDetailPage() {
     setConfirmConfig({
       isOpen: true,
       title: 'ยืนยันยกเลิกรายการรถที่เลือก',
-      description: `คุณแน่ใจว่าต้องการยกเลิกงานรถที่เลือกจำนวน ${selectedVehicleIds.length} คันใช่หรือไม่?`,
+      description: `คุณแน่ใจว่าต้องการยกเลิกงานรถที่เลือกจำนวน ${selectedVehicleIds.length} คันใช่หรือไม่? กรุณาระบุเหตุผลการยกเลิก`,
       variant: 'danger',
-      onConfirm: async () => {
+      showInput: true,
+      inputPlaceholder: 'เช่น เปลี่ยนคัน, ตรวจสอบซ้ำ...',
+      inputRequired: true,
+      onConfirm: async (remark) => {
         setUpdating(true)
         try {
           const res = await fetch(`/api/service-orders/${id}`, {
@@ -177,7 +268,8 @@ export default function ServiceJobDetailPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               vehicleIds: selectedVehicleIds,
-              action: 'CANCEL'
+              action: 'CANCEL',
+              remark
             })
           })
 
@@ -200,9 +292,12 @@ export default function ServiceJobDetailPage() {
     setConfirmConfig({
       isOpen: true,
       title: 'ยืนยันยกเลิกงานรถยนต์คันนี้',
-      description: `คุณแน่ใจว่าต้องการยกเลิกงานรถยนต์ทะเบียน ${vehicle.carPlate} ใช่หรือไม่?`,
+      description: `คุณแน่ใจว่าต้องการยกเลิกงานรถยนต์ทะเบียน ${vehicle.carPlate} ใช่หรือไม่? กรุณาระบุเหตุผลการยกเลิก`,
       variant: 'danger',
-      onConfirm: async () => {
+      showInput: true,
+      inputPlaceholder: 'เช่น สั่งงานผิดคัน, รถออกจากอู่ก่อน...',
+      inputRequired: true,
+      onConfirm: async (remark) => {
         setUpdating(true)
         try {
           const res = await fetch(`/api/service-orders/${id}/vehicles/${vehicle.id}/complete`, {
@@ -211,7 +306,8 @@ export default function ServiceJobDetailPage() {
             body: JSON.stringify({
               status: 'CANCELLED',
               photos: vehicle.photos || [],
-              completedAt: null
+              completedAt: null,
+              remark
             })
           })
 
@@ -285,9 +381,12 @@ export default function ServiceJobDetailPage() {
       setConfirmConfig({
         isOpen: true,
         title: 'ยืนยันยกเลิกใบสั่งงานบริการ',
-        description: 'คุณแน่ใจว่าต้องการยกเลิกใบสั่งงานนี้และรถทุกคันในใบงานใช่หรือไม่?',
+        description: 'คุณแน่ใจว่าต้องการยกเลิกใบสั่งงานนี้และรถทุกคันที่เหลือในใบงานใช่หรือไม่? กรุณาระบุเหตุผลในการยกเลิก',
         variant: 'danger',
-        onConfirm: () => executeStatusChange(newStatus)
+        showInput: true,
+        inputPlaceholder: 'ระบุเหตุผลในการยกเลิกใบงาน...',
+        inputRequired: true,
+        onConfirm: (remark) => executeStatusChange(newStatus, remark)
       })
     } else if (newStatus === 'COMPLETED') {
       setConfirmConfig({
@@ -302,13 +401,13 @@ export default function ServiceJobDetailPage() {
     }
   }
 
-  const executeStatusChange = async (newStatus: string) => {
+  const executeStatusChange = async (newStatus: string, remark?: string) => {
     setUpdating(true)
     try {
       const res = await fetch(`/api/service-orders/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, remark })
       })
       if (!res.ok) throw new Error('Failed to update status')
       const updated = await res.json()
@@ -321,27 +420,71 @@ export default function ServiceJobDetailPage() {
     }
   }
 
-  const handleGenerateInvoice = async () => {
+  const handleGenerateInvoice = () => {
     const incomplete = order.vehicles?.filter((v: any) => v.status !== 'COMPLETED' && v.status !== 'CANCELLED') || []
     if (incomplete.length > 0) {
       showToast('❌ ไม่สามารถออกใบวางบิลได้ เนื่องจากยังมีรถยนต์กำลังดำเนินการอยู่ (ต้องกดยกเลิกหรือเสร็จงานครบทุกคัน)')
       return
     }
 
-    setUpdating(true)
-    try {
-      const res = await fetch(`/api/service-orders/${id}/invoice`, {
-        method: 'POST'
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to generate invoice')
-      setOrder(data)
-      showToast('✅ ออกใบวางบิล/ใบเสร็จสำเร็จ')
-    } catch (err: any) {
-      showToast('❌ ' + err.message)
-    } finally {
-      setUpdating(false)
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'ตรวจสอบและยืนยันการออกใบวางบิล',
+      variant: 'primary',
+      confirmText: 'ออกใบวางบิล',
+      description: (
+        <div className="space-y-4 text-xs">
+          <p className="text-gray-550">กรุณาตรวจสอบรายละเอียดความถูกต้องของรายการเรียกเก็บเงินด้านล่างก่อนยืนยัน:</p>
+          <div className="bg-gray-50 p-3.5 rounded-xl border space-y-2 text-gray-700">
+            <div className="flex justify-between">
+              <span className="text-gray-400">ลูกค้า / ผู้ว่าจ้าง:</span>
+              <span className="font-bold">{order.customer?.name}</span>
+            </div>
+            <div className="flex justify-between border-t border-gray-200/60 pt-2">
+              <span className="text-gray-400">จำนวนรถทั้งหมด:</span>
+              <span className="font-semibold">{order.vehicles?.length || 0} คัน</span>
+            </div>
+            <div className="flex justify-between border-t border-gray-200/60 pt-2">
+              <span className="text-gray-400">ราคารวม (Subtotal):</span>
+              <span className="font-semibold">฿{formatCurrency(order.subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">ภาษีมูลค่าเพิ่ม (VAT 7%):</span>
+              <span className="font-semibold text-gray-500">฿{formatCurrency(order.vatAmount)}</span>
+            </div>
+            <div className="flex justify-between border-t border-gray-200 pt-2 font-bold text-sm text-[#0f172a]">
+              <span>ยอดรวมสุทธิ (Grand Total):</span>
+              <span className="text-[#1d4ed8]">฿{formatCurrency(order.grandTotal)}</span>
+            </div>
+          </div>
+          <div className="max-h-[120px] overflow-y-auto border border-dashed rounded-lg p-2 bg-gray-50/30 text-[10px] space-y-1">
+            <span className="font-semibold text-gray-500 block mb-1">รายชื่อรถยนต์ในเอกสาร:</span>
+            {order.vehicles?.map((v: any, index: number) => (
+              <div key={v.id} className="flex justify-between text-gray-600">
+                <span>{index + 1}. {v.carPlate} - {v.carBrand} {v.carModel}</span>
+                <span className="font-mono text-gray-400">{v.carVin}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
+      onConfirm: async () => {
+        setUpdating(true)
+        try {
+          const res = await fetch(`/api/service-orders/${id}/invoice`, {
+            method: 'POST'
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Failed to generate invoice')
+          setOrder(data)
+          showToast('✅ ออกใบวางบิล/ใบเสร็จสำเร็จ')
+        } catch (err: any) {
+          showToast('❌ ' + err.message)
+        } finally {
+          setUpdating(false)
+        }
+      }
+    })
   }
 
   const handleExportPEAK = async () => {
@@ -413,29 +556,39 @@ export default function ServiceJobDetailPage() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-gray-100 pb-4">
         <div className="flex items-center gap-3">
           <Link href="/service-jobs">
-            <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg border-gray-200 hover:bg-gray-50">
+            <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg border-gray-200 hover:bg-gray-50 flex-shrink-0">
               <ArrowLeft className="w-4 h-4 text-gray-600" />
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-[#0f172a]">{order.orderNo}</h1>
-              <Badge className={`${statusColor.bg} ${statusColor.text} px-2.5 py-0.5 border-none shadow-none`}>
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <h1 className="text-2xl font-bold text-[#0f172a] whitespace-nowrap">{order.orderNo}</h1>
+              <Badge className={`${statusColor.bg} ${statusColor.text} px-2.5 py-0.5 border-none shadow-none whitespace-nowrap`}>
                 {getServiceStatusLabel(order.status)}
               </Badge>
             </div>
-            <p className="text-sm text-[#94a3b8] mt-0.5">
-              สร้างเมื่อ {formatDateShort(order.createdAt)}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-[#94a3b8] mt-0.5">
+              <div>
+                <span className="font-semibold text-gray-500">วันที่สั่งงาน:</span> {formatDateShort(order.createdAt)}
+              </div>
+              {order.operationDate && (
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-300 hidden sm:inline">•</span>
+                  <div>
+                    <span className="font-semibold text-gray-500">วันที่สั่งให้ปฏิบัติงาน:</span> {formatDateShort(order.operationDate)}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {/* Actions */}
-          {order.status !== 'CANCELLED' && (
+          {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
             <Button 
               variant="outline"
               className="border-red-200 text-red-600 bg-red-50/50 hover:bg-red-50 gap-1.5 font-bold animate-fade-in"
@@ -521,12 +674,13 @@ export default function ServiceJobDetailPage() {
           )}
 
           <Button 
-            variant="ghost" 
-            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2.5"
+            variant="outline" 
+            className="border-red-200 text-red-600 bg-red-50/50 hover:bg-red-50 gap-1.5 font-bold"
             onClick={handleDelete}
             disabled={updating}
           >
             <Trash2 className="w-4 h-4" />
+            ลบใบงาน
           </Button>
         </div>
       </div>
@@ -643,30 +797,47 @@ export default function ServiceJobDetailPage() {
                     </Table>
  
                      {/* Completion Photos Gallery */}
-                     {vehicle.photos && vehicle.photos.length > 0 && (
+                     {isCompleted && (
                       <div className="p-4 bg-gray-50/50 border-t border-gray-100 space-y-2">
-                        <span className="text-xs font-bold text-gray-600 block">{isCompleted ? 'รูปภาพผลงานเสร็จงาน:' : 'รูปภาพแนบการดำเนินงาน/รูปแนบ:'}</span>
+                        <span className="text-xs font-bold text-gray-600 block">รูปภาพผลงานเสร็จงาน:</span>
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                          {vehicle.photos.map((url: string, pIdx: number) => {
+                          {vehicle.photos?.map((url: string, pIdx: number) => {
                             const isImg = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(url) || url.startsWith('data:image/')
                             return (
-                              <div key={pIdx} className="relative aspect-video rounded-lg overflow-hidden border bg-white group cursor-pointer" onClick={() => window.open(url, '_blank')}>
+                              <div key={pIdx} className="relative aspect-video rounded-lg overflow-hidden border bg-white group cursor-pointer">
                                 {isImg ? (
-                                  <img src={url} alt="Completion preview" className="object-cover w-full h-full" />
+                                  <img src={url} alt="Completion preview" className="object-cover w-full h-full" onClick={() => window.open(url, '_blank')} />
                                 ) : (
-                                  <div className="flex flex-col items-center justify-center h-full w-full bg-blue-50/50 p-2">
+                                  <div className="flex flex-col items-center justify-center h-full w-full bg-blue-50/50 p-2" onClick={() => window.open(url, '_blank')}>
                                     <FileText className="w-6 h-6 text-blue-500" />
                                     <span className="text-[10px] font-semibold text-blue-700 mt-1 truncate max-w-full">
                                       {url.substring(url.lastIndexOf('/') + 1).substring(9) || 'เอกสารแนบ'}
                                     </span>
                                   </div>
                                 )}
-                                <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                  <Eye className="w-4 h-4 text-white" />
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePhotoDirectly(vehicle, pIdx)}
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
                               </div>
                             )
                           })}
+
+                          {/* Direct Upload Box */}
+                          <div className="relative aspect-video rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-500 bg-white hover:bg-blue-50/30 flex flex-col items-center justify-center cursor-pointer transition-colors group">
+                            <input
+                              type="file"
+                              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                              multiple
+                              onChange={(e) => handleDirectPhotoUpload(e, vehicle)}
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                            <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
+                            <span className="text-[9px] text-gray-400 group-hover:text-blue-500 mt-0.5">เพิ่มรูป/ไฟล์</span>
+                          </div>
                         </div>
                         {vehicle.completedAt && (
                           <span className="text-[10px] text-gray-400 block pt-1">
@@ -994,8 +1165,12 @@ export default function ServiceJobDetailPage() {
           title={confirmConfig.title}
           description={confirmConfig.description}
           variant={confirmConfig.variant}
-          onConfirm={() => {
-            confirmConfig.onConfirm()
+          showInput={confirmConfig.showInput}
+          inputPlaceholder={confirmConfig.inputPlaceholder}
+          inputRequired={confirmConfig.inputRequired}
+          confirmText={confirmConfig.confirmText}
+          onConfirm={(val) => {
+            confirmConfig.onConfirm(val)
             setConfirmConfig(null)
           }}
           onCancel={() => setConfirmConfig(null)}

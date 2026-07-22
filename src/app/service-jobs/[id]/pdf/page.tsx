@@ -149,7 +149,26 @@ export default function ServiceJobPdfPage() {
     const carPlates = order.vehicles?.map((v: any) => `${v.carPlate} ${v.carProvince || ''}`).join(', ') || '-'
 
     return (
-      <div className="bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-6 text-xs">
+      <div className="print-container bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-0 text-xs">
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            @page {
+              margin: 0 !important;
+            }
+            body {
+              margin: 15mm !important;
+              padding: 0 !important;
+              width: auto !important;
+            }
+            .print-container {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: none !important;
+            }
+          }
+        `}} />
         {/* Print Buttons Bar (hidden when printing) */}
         <div className="flex gap-2 mb-6 border-b pb-4 print:hidden">
           <Button variant="outline" size="sm" onClick={() => window.close()}>
@@ -365,6 +384,25 @@ export default function ServiceJobPdfPage() {
   // Fallback / Standard Service Order template
   return (
     <div className="bg-white min-h-screen p-8 text-black print:p-0 text-xs">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            margin: 0 !important;
+          }
+          body {
+            margin: 15mm !important;
+            padding: 0 !important;
+            width: auto !important;
+          }
+          .print-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+          }
+        }
+      `}} />
       {/* Print Buttons Bar (hidden when printing) */}
       <div className="flex gap-2 mb-6 border-b pb-4 print:hidden">
         <Button variant="outline" size="sm" onClick={() => window.close()}>
@@ -378,7 +416,7 @@ export default function ServiceJobPdfPage() {
       </div>
 
       {/* A4 Invoice Layout */}
-      <div className="max-w-[800px] mx-auto border p-8 print:border-none print:p-0 space-y-6">
+      <div className="print-container max-w-[800px] mx-auto border p-8 print:border-none print:p-0 space-y-6">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 uppercase">{company.name}</h1>
@@ -393,6 +431,7 @@ export default function ServiceJobPdfPage() {
             <p className="text-xs text-gray-500 mt-1">
               เลขที่ใบสั่งงาน: <span className="font-mono font-semibold">{order.orderNo}</span><br />
               วันที่สั่งงาน: {formatDateShort(order.createdAt)}<br />
+              {order.operationDate && <>วันที่สั่งให้ปฏิบัติงาน: {formatDateShort(order.operationDate)}<br /></>}
               {order.invoiceNo && <>เลขที่ใบวางบิล: <span className="font-mono">{order.invoiceNo}</span><br /></>}
             </p>
           </div>
@@ -425,8 +464,6 @@ export default function ServiceJobPdfPage() {
               <th className="py-2 px-3 font-semibold text-gray-700 w-12 text-center">#</th>
               <th className="py-2 px-3 font-semibold text-gray-700">รายการบริการ</th>
               <th className="py-2 px-3 font-semibold text-gray-700 w-20 text-center">จำนวน</th>
-              <th className="py-2 px-3 font-semibold text-gray-700 w-32 text-right">ราคาต่อหน่วย</th>
-              <th className="py-2 px-3 font-semibold text-gray-700 w-32 text-right">ยอดรวม (บาท)</th>
             </tr>
           </thead>
           <tbody>
@@ -434,7 +471,7 @@ export default function ServiceJobPdfPage() {
               <Fragment key={vehicle.id}>
                 {/* Header Row for Vehicle */}
                 <tr className="bg-gray-50/40 border-b border-gray-200">
-                  <td colSpan={5} className="py-2 px-3 font-semibold text-[#1d4ed8] text-xs">
+                  <td colSpan={3} className="py-2 px-3 font-semibold text-[#1d4ed8] text-xs">
                     คันที่ {vIdx + 1}: {vehicle.carPlate} {vehicle.carProvince ? `(${vehicle.carProvince})` : ''} - {vehicle.carBrand} {vehicle.carModel} (VIN: {vehicle.carVin})
                   </td>
                 </tr>
@@ -443,30 +480,12 @@ export default function ServiceJobPdfPage() {
                     <td className="py-2 px-3 text-center text-gray-400 text-xs">{idx + 1}</td>
                     <td className="py-2 px-3 text-gray-800 text-xs pl-6">{item.description}</td>
                     <td className="py-2 px-3 text-center text-gray-600 text-xs">{item.quantity}</td>
-                    <td className="py-2 px-3 text-right text-gray-600 text-xs">฿{formatCurrency(item.priceUnit)}</td>
-                    <td className="py-2 px-3 text-right text-gray-800 font-semibold text-xs">฿{formatCurrency(item.totalPrice)}</td>
                   </tr>
                 ))}
               </Fragment>
             ))}
           </tbody>
         </table>
-
-        {/* Pricing Summary */}
-        <div className="flex flex-col items-end space-y-1 text-sm font-medium text-gray-700 pt-4">
-          <div className="flex justify-between w-full max-w-[280px]">
-            <span>ราคารวม:</span>
-            <span>฿{formatCurrency(order.subtotal)}</span>
-          </div>
-          <div className="flex justify-between w-full max-w-[280px] text-gray-500">
-            <span>ภาษีมูลค่าเพิ่ม (7%):</span>
-            <span>฿{formatCurrency(order.vatAmount)}</span>
-          </div>
-          <div className="flex justify-between w-full max-w-[280px] text-base font-bold text-gray-900 border-t pt-1.5 mt-1">
-            <span>ยอดเงินรวมสุทธิ:</span>
-            <span>฿{formatCurrency(order.grandTotal)}</span>
-          </div>
-        </div>
 
         {/* Signature Sections */}
         <div className="grid grid-cols-2 gap-8 pt-12 text-center text-xs">

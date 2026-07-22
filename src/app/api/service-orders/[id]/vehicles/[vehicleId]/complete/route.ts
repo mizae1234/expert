@@ -31,7 +31,7 @@ export async function POST(
     const orderId = params.id
     const vehicleId = params.vehicleId
     const body = await request.json()
-    const { status, photos, completedAt, uploadedBy } = body
+    const { status, photos, completedAt, uploadedBy, remark } = body
 
     if (!status) {
       return NextResponse.json({ error: 'Status is required' }, { status: 400 })
@@ -105,7 +105,7 @@ export async function POST(
         data: {
           serviceOrderId: orderId,
           action: status === 'COMPLETED' ? 'COMPLETE_VEHICLE' : status === 'CANCELLED' ? 'CANCEL_VEHICLE' : 'UPDATE_VEHICLE',
-          details: `${actionText} รถทะเบียน ${vehiclePlate} (สถานะ: ${status === 'COMPLETED' ? 'เสร็จงาน' : status === 'CANCELLED' ? 'ยกเลิกงาน' : status}) แนบไฟล์จำนวน ${photos?.length || 0} รายการ`,
+          details: `${actionText} รถทะเบียน ${vehiclePlate} (สถานะ: ${status === 'COMPLETED' ? 'เสร็จงาน' : status === 'CANCELLED' ? 'ยกเลิกงาน' : status})${remark ? ` (เหตุผล: ${remark})` : ''} แนบไฟล์จำนวน ${photos?.length || 0} รายการ`,
           changedBy: changer
         }
       })

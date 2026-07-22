@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -10,17 +10,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { AlertTriangle, HelpCircle } from "lucide-react"
 
 interface ConfirmDialogProps {
   isOpen: boolean
   title: string
-  description: string
-  onConfirm: () => void
+  description: React.ReactNode
+  onConfirm: (inputValue?: string) => void
   onCancel: () => void
   confirmText?: string
   cancelText?: string
   variant?: 'danger' | 'primary' | 'warning'
+  showInput?: boolean
+  inputPlaceholder?: string
+  inputRequired?: boolean
 }
 
 export function ConfirmDialog({
@@ -31,9 +35,20 @@ export function ConfirmDialog({
   onCancel,
   confirmText = "ยืนยัน",
   cancelText = "ยกเลิก",
-  variant = "primary"
+  variant = "primary",
+  showInput = false,
+  inputPlaceholder = "ระบุเหตุผล...",
+  inputRequired = false
 }: ConfirmDialogProps) {
-  
+  const [inputValue, setInputValue] = useState("")
+
+  // Reset input when dialog state changes
+  useEffect(() => {
+    if (isOpen) {
+      setInputValue("")
+    }
+  }, [isOpen])
+
   const getIcon = () => {
     switch (variant) {
       case "danger":
@@ -56,6 +71,15 @@ export function ConfirmDialog({
     }
   }
 
+  const handleConfirm = () => {
+    if (showInput && inputRequired && !inputValue.trim()) {
+      return
+    }
+    onConfirm(inputValue)
+  }
+
+  const isConfirmDisabled = showInput && inputRequired && !inputValue.trim()
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel() }}>
       <DialogContent className="sm:max-w-[425px]">
@@ -65,14 +89,33 @@ export function ConfirmDialog({
           </div>
           <DialogTitle className="text-base font-bold text-[#0f172a]">{title}</DialogTitle>
         </DialogHeader>
-        <div className="py-2">
+        <div className="py-2 space-y-3">
           <DialogDescription className="text-sm text-gray-500">{description}</DialogDescription>
+          {showInput && (
+            <div className="space-y-1 pt-1">
+              <Input
+                type="text"
+                placeholder={inputPlaceholder}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                className="w-full bg-white border-gray-200"
+                autoFocus
+              />
+              {inputRequired && !inputValue.trim() && (
+                <p className="text-[10px] text-red-500">* จำเป็นต้องระบุเหตุผล</p>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter className="flex gap-2 sm:justify-end">
           <Button variant="outline" onClick={onCancel} className="font-semibold">
             {cancelText}
           </Button>
-          <Button onClick={onConfirm} className={getConfirmButtonClass()}>
+          <Button 
+            onClick={handleConfirm} 
+            className={getConfirmButtonClass()}
+            disabled={isConfirmDisabled}
+          >
             {confirmText}
           </Button>
         </DialogFooter>

@@ -63,7 +63,7 @@ export async function PATCH(
     const changer = session ? `${session.name} (${session.username})` : 'System'
 
     const body = await request.json()
-    const { status, vehicleIds, action } = body
+    const { status, vehicleIds, action, remark } = body
 
     if (Array.isArray(vehicleIds) && vehicleIds.length > 0 && action) {
       await prisma.$transaction(async (tx) => {
@@ -115,7 +115,7 @@ export async function PATCH(
           data: {
             serviceOrderId: params.id,
             action: action === 'COMPLETE' ? 'BATCH_COMPLETE' : 'BATCH_CANCEL',
-            details: `${action === 'COMPLETE' ? 'เสร็จงาน' : 'ยกเลิก'} รถจำนวน ${vehicleIds.length} คัน: ${vehicleNames}`,
+            details: `${action === 'COMPLETE' ? 'เสร็จงาน' : 'ยกเลิก'} รถจำนวน ${vehicleIds.length} คัน: ${vehicleNames}${remark ? ` (เหตุผล: ${remark})` : ''}`,
             changedBy: changer
           }
         })
@@ -144,8 +144,12 @@ export async function PATCH(
       })
     } else if (status === 'CANCELLED') {
       await prisma.$transaction(async (tx) => {
+        // ONLY cancel vehicles that are NOT completed!
         await tx.serviceVehicle.updateMany({
-          where: { serviceOrderId: params.id, NOT: { status: 'CANCELLED' } },
+          where: { 
+            serviceOrderId: params.id, 
+            status: { in: ['PENDING', 'IN_PROGRESS'] } 
+          },
           data: {
             status: 'CANCELLED',
             completedAt: null
@@ -159,7 +163,7 @@ export async function PATCH(
           data: {
             serviceOrderId: params.id,
             action: 'CANCEL_ALL',
-            details: 'ยกเลิกใบสั่งงานและรถทุกคันในใบสั่งงาน',
+            details: `ยกเลิกใบสั่งงานและรถที่กำลังดำเนินการทั้งหมด${remark ? ` (เหตุผล: ${remark})` : ''}`,
             changedBy: changer
           }
         })
@@ -243,7 +247,7 @@ export async function PUT(
   try {
     const orderId = params.id
     const body = await request.json()
-    const { customerId, vehicles } = body
+    const { customerId, vehicles, operationDate } = body
 
     if (!customerId) {
       return NextResponse.json({ error: 'Customer is required' }, { status: 400 })
@@ -288,7 +292,8 @@ export async function PUT(
       await tx.serviceOrder.update({
         where: { id: orderId },
         data: {
-          customerId,
+          customer: { connect: { id: customerId } },
+          operationDate: operationDate ? new Date(operationDate) : null,
           subtotal,
           vatAmount,
           grandTotal,
@@ -313,6 +318,7 @@ export async function PUT(
             await tx.serviceItem.create({
               data: {
                 serviceVehicleId: newVehicle.id,
+                serviceCode: item.serviceCode || null,
                 description: item.description,
                 quantity: item.quantity || 1,
                 priceUnit: item.priceUnit || 0,
