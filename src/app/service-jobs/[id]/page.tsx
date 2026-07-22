@@ -672,16 +672,6 @@ export default function ServiceJobDetailPage() {
               {syncing ? 'กำลังส่ง...' : 'Export Excel สำหรับ PEAK'}
             </Button>
           )}
-
-          <Button 
-            variant="outline" 
-            className="border-red-200 text-red-600 bg-red-50/50 hover:bg-red-50 gap-1.5 font-bold"
-            onClick={handleDelete}
-            disabled={updating}
-          >
-            <Trash2 className="w-4 h-4" />
-            ลบใบงาน
-          </Button>
         </div>
       </div>
 
