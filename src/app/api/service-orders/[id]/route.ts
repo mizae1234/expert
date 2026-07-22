@@ -142,6 +142,28 @@ export async function PATCH(
           }
         })
       })
+    } else if (status === 'CANCELLED') {
+      await prisma.$transaction(async (tx) => {
+        await tx.serviceVehicle.updateMany({
+          where: { serviceOrderId: params.id, NOT: { status: 'CANCELLED' } },
+          data: {
+            status: 'CANCELLED',
+            completedAt: null
+          }
+        })
+        await tx.serviceOrder.update({
+          where: { id: params.id },
+          data: { status: 'CANCELLED' }
+        })
+        await tx.serviceLog.create({
+          data: {
+            serviceOrderId: params.id,
+            action: 'CANCEL_ALL',
+            details: 'ยกเลิกใบสั่งงานและรถทุกคันในใบสั่งงาน',
+            changedBy: changer
+          }
+        })
+      })
     } else {
       const updateData: any = {}
       if (status) updateData.status = status

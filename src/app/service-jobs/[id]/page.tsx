@@ -254,6 +254,16 @@ export default function ServiceJobDetailPage() {
   }, [id])
 
   const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === 'CANCELLED') {
+      if (!confirm('คุณแน่ใจว่าต้องการยกเลิกใบสั่งงานนี้และรถทุกคันในใบงานใช่หรือไม่?')) {
+        return
+      }
+    }
+    if (newStatus === 'COMPLETED') {
+      if (!confirm('คุณแน่ใจว่าต้องการบันทึกเสร็จงานสำหรับรถทุกคันในใบงานใช่หรือไม่?')) {
+        return
+      }
+    }
     setUpdating(true)
     try {
       const res = await fetch(`/api/service-orders/${id}`, {
