@@ -39,7 +39,7 @@ export default function LoginPage() {
       }
 
       setSuccess(true)
-      if (data.user?.role === 'MECHANIC') {
+      if (data.user?.role === 'MECHANIC' || data.user?.role === 'SERVICE_VENDOR') {
         window.location.href = '/mechanic'
       } else {
         window.location.href = '/dashboard'

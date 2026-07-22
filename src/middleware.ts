@@ -66,8 +66,8 @@ export async function middleware(request: NextRequest) {
   // Enforce role-based access control at middleware level
   const userRole = payload.role
 
-  // Mechanic restriction
-  if (userRole === 'MECHANIC') {
+  // Mechanic and Service Vendor restriction
+  if (userRole === 'MECHANIC' || userRole === 'SERVICE_VENDOR') {
     const isAllowed = 
       pathname === '/mechanic' ||
       pathname.startsWith('/mechanic/') ||

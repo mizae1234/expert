@@ -509,12 +509,14 @@ export default function SettingsPage() {
                               u.role === 'ACCOUNTANT' ? 'bg-blue-50 text-blue-600 border-none' :
                               u.role === 'FINANCE' ? 'bg-purple-50 text-purple-600 border-none' :
                               u.role === 'MECHANIC' ? 'bg-orange-50 text-orange-600 border-none' :
+                              u.role === 'SERVICE_VENDOR' ? 'bg-teal-50 text-teal-600 border-none' :
                               'bg-gray-50 text-gray-600 border-none'
                             }>
                               {u.role === 'ADMIN' ? 'Admin' : 
                                u.role === 'ACCOUNTANT' ? 'Accountant' : 
                                u.role === 'FINANCE' ? 'Finance' :
                                u.role === 'MECHANIC' ? 'Mechanic' : 
+                               u.role === 'SERVICE_VENDOR' ? 'Service Vendor' :
                                'Staff'}
                             </Badge>
                           </TableCell>
@@ -613,6 +615,7 @@ export default function SettingsPage() {
                   <option value="ACCOUNTANT">Accountant (ฝ่ายบัญชี/รายงาน/PEAK)</option>
                   <option value="FINANCE">Finance (ฝ่ายการเงิน)</option>
                   <option value="MECHANIC">Mechanic (ช่างอู่ - ดูใบสั่งงานอย่างเดียว)</option>
+                  <option value="SERVICE_VENDOR">Service Vendor (ผู้ให้บริการภายนอก)</option>
                   <option value="ADMIN">Admin (จัดการระบบ/สิทธิ์ผู้ใช้/ทั้งหมด)</option>
                 </select>
               </div>

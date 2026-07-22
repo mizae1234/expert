@@ -52,9 +52,9 @@ export async function requireAuth() {
   return session
 }
 
-export async function requireRole(allowedRoles: ('ADMIN' | 'ACCOUNTANT' | 'STAFF' | 'FINANCE' | 'MECHANIC')[]) {
+export async function requireRole(allowedRoles: ('ADMIN' | 'ACCOUNTANT' | 'STAFF' | 'FINANCE' | 'MECHANIC' | 'SERVICE_VENDOR')[]) {
   const session = await requireAuth()
-  if (!allowedRoles.includes(session.role)) {
+  if (!allowedRoles.includes(session.role as any)) {
     throw new Error('Forbidden')
   }
   return session

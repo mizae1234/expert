@@ -121,7 +121,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const filteredNavGroups = currentNavGroups.map((group) => {
     const items = group.items.filter((item) => {
-      if (role === 'MECHANIC') {
+      if (role === 'MECHANIC' || role === 'SERVICE_VENDOR') {
         return item.href === '/service-jobs'
       }
       return true

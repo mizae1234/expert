@@ -657,6 +657,7 @@ enum UserRole {
   STAFF
   FINANCE
   MECHANIC
+  SERVICE_VENDOR
 }
 
 model User {

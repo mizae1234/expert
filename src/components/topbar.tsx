@@ -60,6 +60,7 @@ export default function Topbar() {
       case 'FINANCE': return 'ฝ่ายการเงิน'
       case 'STAFF': return 'เจ้าหน้าที่ทั่วไป'
       case 'MECHANIC': return 'ช่างอู่'
+      case 'SERVICE_VENDOR': return 'ผู้ให้บริการภายนอก (Service Vendor)'
       default: return 'ผู้ใช้ทั่วไป'
     }
   }
