@@ -389,6 +389,18 @@ export default function ServiceJobDetailPage() {
 
         <div className="flex flex-wrap gap-2">
           {/* Actions */}
+          {order.status !== 'CANCELLED' && (
+            <Button 
+              variant="outline"
+              className="border-red-200 text-red-600 bg-red-50/50 hover:bg-red-50 gap-1.5 font-bold animate-fade-in"
+              onClick={() => handleStatusChange('CANCELLED')}
+              disabled={updating}
+            >
+              <X className="w-4 h-4" />
+              ยกเลิกใบงาน
+            </Button>
+          )}
+
           <Button 
             variant="outline" 
             className="gap-1.5 border-gray-200 text-gray-700 hover:bg-gray-50"
@@ -429,17 +441,6 @@ export default function ServiceJobDetailPage() {
             </Button>
           )}
 
-          {order.status !== 'CANCELLED' && (
-            <Button 
-              variant="outline"
-              className="border-red-200 text-red-600 bg-red-50/50 hover:bg-red-50 gap-1.5 font-bold animate-fade-in"
-              onClick={() => handleStatusChange('CANCELLED')}
-              disabled={updating}
-            >
-              <X className="w-4 h-4" />
-              ยกเลิกใบงาน
-            </Button>
-          )}
 
           {order.status !== 'COMPLETED' && (
             <>
