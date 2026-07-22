@@ -712,6 +712,7 @@ model ServiceOrder {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   vehicles        ServiceVehicle[]
+  logs            ServiceLog[]
 }
 
 model ServiceVehicle {
@@ -766,4 +767,16 @@ model Attachment {
   createdAt   DateTime @default(now())
 
   @@index([entityType, entityId])
+}
+
+model ServiceLog {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  action         String       // e.g. "COMPLETE_VEHICLE", "CANCEL_VEHICLE", "BATCH_COMPLETE", "BATCH_CANCEL", "EDIT_ORDER"
+  details        String       // Details of what was changed/done
+  changedBy      String       // Person/User who made the change
+  createdAt      DateTime     @default(now())
+
+  @@index([serviceOrderId])
 }

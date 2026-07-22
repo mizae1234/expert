@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getSession } from '@/lib/auth'
 
 async function attachPhotosToOrder(order: any) {
   if (!order) return null
@@ -38,10 +39,13 @@ export async function POST(
 
     const resolvedCompletedAt = status === 'COMPLETED' ? (completedAt ? new Date(completedAt) : new Date()) : null
     
+    const session = await getSession()
+    const changer = session ? `${session.name} (${session.username})` : (uploadedBy || 'Mechanic/User')
+
     // Execute in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // 1. Update the vehicle status and completedAt
-      await tx.serviceVehicle.update({
+      const vehicle = await tx.serviceVehicle.update({
         where: { id: vehicleId },
         data: {
           status,
@@ -62,14 +66,15 @@ export async function POST(
       if (Array.isArray(photos) && photos.length > 0) {
         for (const url of photos) {
           const fileName = url.substring(url.lastIndexOf('/') + 1) || 'vehicle_photo.jpg'
+          const fileType = url.toLowerCase().endsWith('.pdf') ? 'pdf' : (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url) ? 'image' : 'other')
           await tx.attachment.create({
             data: {
               entityType: 'SERVICE_VEHICLE',
               entityId: vehicleId,
               fileName,
               fileUrl: url,
-              fileType: 'image',
-              uploadedBy: uploadedBy || 'Mechanic'
+              fileType,
+              uploadedBy: changer
             }
           })
         }
@@ -93,6 +98,18 @@ export async function POST(
         nextOrderStatus = 'PENDING'
       }
 
+      // Log status change
+      const vehiclePlate = `${vehicle.carPlate} (${vehicle.carBrand} ${vehicle.carModel})`
+      const actionText = status === 'COMPLETED' ? 'เสร็จงาน' : status === 'CANCELLED' ? 'ยกเลิกงาน' : 'เปลี่ยนสถานะ'
+      await tx.serviceLog.create({
+        data: {
+          serviceOrderId: orderId,
+          action: status === 'COMPLETED' ? 'COMPLETE_VEHICLE' : status === 'CANCELLED' ? 'CANCEL_VEHICLE' : 'UPDATE_VEHICLE',
+          details: `${actionText} รถทะเบียน ${vehiclePlate} (สถานะ: ${status === 'COMPLETED' ? 'เสร็จงาน' : status === 'CANCELLED' ? 'ยกเลิกงาน' : status}) แนบไฟล์จำนวน ${photos?.length || 0} รายการ`,
+          changedBy: changer
+        }
+      })
+
       // 4. Update parent order status
       return await tx.serviceOrder.update({
         where: { id: orderId },
@@ -105,6 +122,9 @@ export async function POST(
             include: {
               items: true
             }
+          },
+          logs: {
+            orderBy: { createdAt: 'desc' }
           }
         }
       })

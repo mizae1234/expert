@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getSession } from '@/lib/auth'
 
 async function attachPhotosToOrder(order: any) {
   if (!order) return null
@@ -35,6 +36,9 @@ export async function GET(
           include: {
             items: true
           }
+        },
+        logs: {
+          orderBy: { createdAt: 'desc' }
         }
       }
     })
@@ -55,30 +59,105 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getSession()
+    const changer = session ? `${session.name} (${session.username})` : 'System'
+
     const body = await request.json()
-    const { status } = body
+    const { status, vehicleIds, action } = body
 
-    const updateData: any = {}
-    if (status) updateData.status = status
+    if (Array.isArray(vehicleIds) && vehicleIds.length > 0 && action) {
+      await prisma.$transaction(async (tx) => {
+        if (action === 'COMPLETE') {
+          await tx.serviceVehicle.updateMany({
+            where: { id: { in: vehicleIds } },
+            data: {
+              status: 'COMPLETED',
+              completedAt: new Date()
+            }
+          })
+        } else if (action === 'CANCEL') {
+          await tx.serviceVehicle.updateMany({
+            where: { id: { in: vehicleIds } },
+            data: {
+              status: 'CANCELLED',
+              completedAt: null
+            }
+          })
+        }
 
-    if (status === 'COMPLETED') {
-      await prisma.$transaction([
-        prisma.serviceVehicle.updateMany({
+        // Recalculate parent order status
+        const allVehicles = await tx.serviceVehicle.findMany({
+          where: { serviceOrderId: params.id }
+        })
+
+        const totalCount = allVehicles.length
+        const completedCount = allVehicles.filter(v => v.status === 'COMPLETED').length
+        const cancelledCount = allVehicles.filter(v => v.status === 'CANCELLED').length
+
+        let nextOrderStatus = 'PENDING'
+        if (completedCount === totalCount - cancelledCount && totalCount > 0) {
+          nextOrderStatus = 'COMPLETED'
+        } else if (completedCount > 0) {
+          nextOrderStatus = 'IN_PROGRESS'
+        } else {
+          nextOrderStatus = 'PENDING'
+        }
+
+        await tx.serviceOrder.update({
+          where: { id: params.id },
+          data: { status: nextOrderStatus as any }
+        })
+
+        // Log batch action
+        const vehiclesList = allVehicles.filter(v => vehicleIds.includes(v.id))
+        const vehicleNames = vehiclesList.map(v => `${v.carPlate} (${v.carBrand} ${v.carModel})`).join(', ')
+        await tx.serviceLog.create({
+          data: {
+            serviceOrderId: params.id,
+            action: action === 'COMPLETE' ? 'BATCH_COMPLETE' : 'BATCH_CANCEL',
+            details: `${action === 'COMPLETE' ? 'เสร็จงาน' : 'ยกเลิก'} รถจำนวน ${vehicleIds.length} คัน: ${vehicleNames}`,
+            changedBy: changer
+          }
+        })
+      })
+    } else if (status === 'COMPLETED') {
+      await prisma.$transaction(async (tx) => {
+        await tx.serviceVehicle.updateMany({
           where: { serviceOrderId: params.id, NOT: { status: 'COMPLETED' } },
           data: {
             status: 'COMPLETED',
             completedAt: new Date()
           }
-        }),
-        prisma.serviceOrder.update({
+        })
+        await tx.serviceOrder.update({
           where: { id: params.id },
           data: { status: 'COMPLETED' }
         })
-      ])
+        await tx.serviceLog.create({
+          data: {
+            serviceOrderId: params.id,
+            action: 'COMPLETE_ALL',
+            details: 'เสร็จงานรถทุกคันในใบสั่งงาน',
+            changedBy: changer
+          }
+        })
+      })
     } else {
-      await prisma.serviceOrder.update({
-        where: { id: params.id },
-        data: updateData
+      const updateData: any = {}
+      if (status) updateData.status = status
+      await prisma.$transaction(async (tx) => {
+        await tx.serviceOrder.update({
+          where: { id: params.id },
+          data: updateData
+        })
+        await tx.serviceLog.create({
+          data: {
+            serviceOrderId: params.id,
+            action: 'UPDATE_STATUS',
+            details: `เปลี่ยนสถานะใบสั่งงานเป็น ${status === 'PENDING' ? 'รอดำเนินการ' : status === 'IN_PROGRESS' ? 'กำลังทำสี' : status === 'CANCELLED' ? 'ยกเลิก' : status}`,
+            changedBy: changer
+          }
+        })
       })
     }
 
@@ -90,6 +169,9 @@ export async function PATCH(
           include: {
             items: true
           }
+        },
+        logs: {
+          orderBy: { createdAt: 'desc' }
         }
       }
     })
@@ -219,6 +301,18 @@ export async function PUT(
         }
       }
 
+      // Log edit action
+      const session = await getSession()
+      const changer = session ? `${session.name} (${session.username})` : 'System'
+      await tx.serviceLog.create({
+        data: {
+          serviceOrderId: orderId,
+          action: 'EDIT_ORDER',
+          details: 'แก้ไขรายละเอียดใบสั่งงาน (ข้อมูลลูกค้า/รถยนต์/รายการสั่งซ่อม)',
+          changedBy: changer
+        }
+      })
+
       // Fetch the fully updated order
       return await tx.serviceOrder.findUnique({
         where: { id: orderId },
@@ -228,6 +322,9 @@ export async function PUT(
             include: {
               items: true
             }
+          },
+          logs: {
+            orderBy: { createdAt: 'desc' }
           }
         }
       })

@@ -34,16 +34,20 @@ export async function POST(request: NextRequest) {
     const yyyymm = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
     const prefix = `JOB-${yyyymm}`
 
-    const latestOrder = await prisma.serviceOrder.findFirst({
+    // Fetch the 10 most recent orders with the prefix to ensure we find a valid pattern
+    const recentOrders = await prisma.serviceOrder.findMany({
       where: { orderNo: { startsWith: prefix } },
-      orderBy: { orderNo: 'desc' }
+      orderBy: { orderNo: 'desc' },
+      take: 10
     })
 
     let nextNo = 1
-    if (latestOrder) {
-      const match = latestOrder.orderNo.match(/(\d+)$/)
-      if (match) {
-        nextNo = parseInt(match[1], 10) + 1
+    const validLatestOrder = recentOrders.find(o => o.orderNo.length === prefix.length + 5)
+    if (validLatestOrder) {
+      const seqPart = validLatestOrder.orderNo.slice(prefix.length)
+      const parsed = parseInt(seqPart, 10)
+      if (!isNaN(parsed)) {
+        nextNo = parsed + 1
       }
     }
     const orderNo = `${prefix}${String(nextNo).padStart(5, '0')}`

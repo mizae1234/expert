@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select } from '@/components/ui/select'
 import { 
   ArrowLeft, Wrench, Calendar, User, FileText, Cloud, 
-  Printer, Trash2, CheckCircle2, AlertTriangle, Play, Check, Edit3, Camera, Upload, Eye, X
+  Printer, Trash2, CheckCircle2, AlertTriangle, Play, Check, Edit3, Camera, Upload, Eye, X, ClipboardCheck
 } from 'lucide-react'
 import { 
   getServiceStatusColor, getServiceStatusLabel, 
@@ -28,6 +28,7 @@ export default function ServiceJobDetailPage() {
   const [updating, setUpdating] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([])
 
   // Vehicle completion modal state
   const [completingVehicle, setCompletingVehicle] = useState<any>(null)
@@ -62,7 +63,10 @@ export default function ServiceJobDetailPage() {
       const file = files[i]
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('folder', `service-jobs/${id}/vehicles`)
+      
+      const yyyymm = order?.orderNo ? order.orderNo.substring(4, 10) : 'general'
+      const orderNo = order?.orderNo || id
+      formData.append('folder', `JobService/${yyyymm}/${orderNo}`)
 
       try {
         const res = await fetch('/api/upload', {
@@ -115,26 +119,112 @@ export default function ServiceJobDetailPage() {
     }
   }
 
-  const handleCompleteAllOrder = async () => {
-    if (!confirm('คุณแน่ใจว่าต้องการทำสีเสร็จและเสร็จงานรถทุกคันในใบสั่งงานนี้ใช่หรือไม่?')) return
+  const handleBatchComplete = async () => {
+    if (selectedVehicleIds.length === 0) return
+    if (!confirm(`คุณแน่ใจว่าต้องการบันทึกเสร็จงานรถที่เลือกจำนวน ${selectedVehicleIds.length} คันใช่หรือไม่?`)) return
 
     setUpdating(true)
     try {
       const res = await fetch(`/api/service-orders/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'COMPLETED' })
+        body: JSON.stringify({
+          vehicleIds: selectedVehicleIds,
+          action: 'COMPLETE'
+        })
       })
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ')
 
-      showToast('✅ เสร็จสิ้นการทำงานรถยนต์ทุกคันเรียบร้อยแล้ว')
+      showToast('✅ บันทึกเสร็จงานรถที่เลือกสำเร็จเรียบร้อยแล้ว')
+      setSelectedVehicleIds([])
       setOrder(data)
     } catch (err: any) {
       showToast('❌ ' + err.message)
     } finally {
       setUpdating(false)
+    }
+  }
+
+  const handleBatchCancel = async () => {
+    if (selectedVehicleIds.length === 0) return
+    if (!confirm(`คุณแน่ใจว่าต้องการยกเลิกงานรถที่เลือกจำนวน ${selectedVehicleIds.length} คันใช่หรือไม่?`)) return
+
+    setUpdating(true)
+    try {
+      const res = await fetch(`/api/service-orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicleIds: selectedVehicleIds,
+          action: 'CANCEL'
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ')
+
+      showToast('✅ ยกเลิกงานรถที่เลือกสำเร็จเรียบร้อยแล้ว')
+      setSelectedVehicleIds([])
+      setOrder(data)
+    } catch (err: any) {
+      showToast('❌ ' + err.message)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handleCancelSingleVehicle = async (vehicle: any) => {
+    if (!confirm(`คุณแน่ใจว่าต้องการยกเลิกงานรถยนต์ทะเบียน ${vehicle.carPlate} ใช่หรือไม่?`)) return
+
+    setUpdating(true)
+    try {
+      const res = await fetch(`/api/service-orders/${id}/vehicles/${vehicle.id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'CANCELLED',
+          photos: vehicle.photos || [],
+          completedAt: null
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'ยกเลิกไม่สำเร็จ')
+
+      showToast('✅ ยกเลิกงานรถยนต์คันนี้สำเร็จ')
+      setOrder(data)
+    } catch (err: any) {
+      showToast('❌ ' + err.message)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const toggleSelectVehicle = (vehicleId: string) => {
+    setSelectedVehicleIds(prev =>
+      prev.includes(vehicleId)
+        ? prev.filter(vid => vid !== vehicleId)
+        : [...prev, vehicleId]
+    )
+  }
+
+  const toggleSelectAll = () => {
+    const activeVehicles = order?.vehicles?.filter((v: any) => v.status === 'PENDING' || v.status === 'IN_PROGRESS') || []
+    const activeIds = activeVehicles.map((v: any) => v.id)
+    const allSelected = activeIds.length > 0 && activeIds.every((id: string) => selectedVehicleIds.includes(id))
+
+    if (allSelected) {
+      setSelectedVehicleIds(prev => prev.filter(id => !activeIds.includes(id)))
+    } else {
+      setSelectedVehicleIds(prev => {
+        const newIds = [...prev]
+        activeIds.forEach((id: string) => {
+          if (!newIds.includes(id)) newIds.push(id)
+        })
+        return newIds
+      })
     }
   }
 
@@ -330,14 +420,24 @@ export default function ServiceJobDetailPage() {
           )}
 
           {order.status !== 'COMPLETED' && (
-            <Button 
-              className="bg-green-600 hover:bg-green-700 gap-1.5 text-white"
-              onClick={handleCompleteAllOrder}
-              disabled={updating}
-            >
-              <Check className="w-4 h-4" />
-              เสร็จงานทั้งหมด
-            </Button>
+            <>
+              <Button 
+                className="bg-green-600 hover:bg-green-700 gap-1.5 text-white font-bold"
+                onClick={handleBatchComplete}
+                disabled={updating || selectedVehicleIds.length === 0}
+              >
+                <Check className="w-4 h-4" />
+                เสร็จงาน
+              </Button>
+              <Button 
+                className="bg-red-600 hover:bg-red-700 gap-1.5 text-white font-bold"
+                onClick={handleBatchCancel}
+                disabled={updating || selectedVehicleIds.length === 0}
+              >
+                <X className="w-4 h-4" />
+                ยกเลิกรายการ
+              </Button>
+            </>
           )}
 
           {order.invoiceNo && !order.isSynced && (
@@ -367,7 +467,26 @@ export default function ServiceJobDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* List of Vehicles Cards */}
           <div className="space-y-4">
-            <h2 className="text-lg font-bold text-[#0f172a]">รายการรถยนต์ ({order.vehicles?.length || 0} คัน)</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[#0f172a]">รายการรถยนต์ ({order.vehicles?.length || 0} คัน)</h2>
+              {order.vehicles?.some((v: any) => v.status === 'PENDING' || v.status === 'IN_PROGRESS') && (
+                <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
+                  <input 
+                    id="select-all-vehicles"
+                    type="checkbox" 
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    checked={
+                      (() => {
+                        const active = order.vehicles.filter((v: any) => v.status === 'PENDING' || v.status === 'IN_PROGRESS')
+                        return active.length > 0 && active.every((v: any) => selectedVehicleIds.includes(v.id))
+                      })()
+                    }
+                    onChange={toggleSelectAll}
+                  />
+                  <label htmlFor="select-all-vehicles" className="text-xs font-semibold text-gray-500 cursor-pointer select-none">เลือกทั้งหมดที่กำลังดำเนินการ</label>
+                </div>
+              )}
+            </div>
             
             {order.vehicles?.map((vehicle: any, idx: number) => {
               const isCompleted = vehicle.status === 'COMPLETED';
@@ -380,6 +499,14 @@ export default function ServiceJobDetailPage() {
                   <CardHeader className="bg-gray-50/50 border-b border-gray-100 p-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {!isCompleted && !isCancelled && (
+                          <input 
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer mr-1"
+                            checked={selectedVehicleIds.includes(vehicle.id)}
+                            onChange={() => toggleSelectVehicle(vehicle.id)}
+                          />
+                        )}
                         <span className="font-bold text-[#0f172a] text-sm">
                           คันที่ {idx + 1}: {vehicle.carPlate} {vehicle.carProvince ? `(${vehicle.carProvince})` : ''} - {vehicle.carBrand} {vehicle.carModel}
                         </span>
@@ -397,15 +524,28 @@ export default function ServiceJobDetailPage() {
                         <span className="font-mono text-[10px] text-gray-500 bg-white px-2 py-0.5 rounded border">
                           VIN: {vehicle.carVin}
                         </span>
+                        
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-7 text-xs border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 gap-1"
+                          className="h-7 text-xs border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 gap-1 font-semibold"
                           onClick={() => handleOpenCompletionModal(vehicle)}
                         >
                           {isCompleted ? 'แก้ไขรูปภาพ/สถานะ' : 'เสร็จงานรายคัน'}
                         </Button>
+
+                        {!isCompleted && !isCancelled && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-red-200 text-red-700 bg-red-50 hover:bg-red-100 gap-1 font-semibold"
+                            onClick={() => handleCancelSingleVehicle(vehicle)}
+                          >
+                            ยกเลิกรายคัน
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -432,20 +572,32 @@ export default function ServiceJobDetailPage() {
                         ))}
                       </TableBody>
                     </Table>
-
-                    {/* Completion Photos Gallery */}
-                    {vehicle.photos && vehicle.photos.length > 0 && (
+ 
+                     {/* Completion Photos Gallery */}
+                     {vehicle.photos && vehicle.photos.length > 0 && (
                       <div className="p-4 bg-gray-50/50 border-t border-gray-100 space-y-2">
                         <span className="text-xs font-bold text-gray-600 block">{isCompleted ? 'รูปภาพผลงานเสร็จงาน:' : 'รูปภาพแนบการดำเนินงาน/รูปแนบ:'}</span>
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                          {vehicle.photos.map((url: string, pIdx: number) => (
-                            <div key={pIdx} className="relative aspect-video rounded-lg overflow-hidden border bg-white group cursor-pointer" onClick={() => window.open(url, '_blank')}>
-                              <img src={url} alt="Completion preview" className="object-cover w-full h-full" />
-                              <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <Eye className="w-4 h-4 text-white" />
+                          {vehicle.photos.map((url: string, pIdx: number) => {
+                            const isImg = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(url) || url.startsWith('data:image/')
+                            return (
+                              <div key={pIdx} className="relative aspect-video rounded-lg overflow-hidden border bg-white group cursor-pointer" onClick={() => window.open(url, '_blank')}>
+                                {isImg ? (
+                                  <img src={url} alt="Completion preview" className="object-cover w-full h-full" />
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center h-full w-full bg-blue-50/50 p-2">
+                                    <FileText className="w-6 h-6 text-blue-500" />
+                                    <span className="text-[10px] font-semibold text-blue-700 mt-1 truncate max-w-full">
+                                      {url.substring(url.lastIndexOf('/') + 1).substring(9) || 'เอกสารแนบ'}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <Eye className="w-4 h-4 text-white" />
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                         {vehicle.completedAt && (
                           <span className="text-[10px] text-gray-400 block pt-1">
@@ -588,6 +740,66 @@ export default function ServiceJobDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Activity History Card */}
+          <Card className="shadow-sm border-gray-200">
+            <CardHeader className="border-b border-gray-100 bg-gray-50/50">
+              <CardTitle className="text-base font-bold text-[#0f172a] flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-gray-500" />
+                ประวัติการดำเนินงาน ({order.logs?.length || 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 max-h-[350px] overflow-y-auto space-y-4">
+              {order.logs && order.logs.length > 0 ? (
+                <div className="relative border-l border-gray-200 pl-4 ml-2 space-y-4">
+                  {order.logs.map((log: any) => {
+                    let actionBadgeColor = 'bg-gray-100 text-gray-700'
+                    let actionText = log.action
+                    if (log.action === 'COMPLETE_VEHICLE' || log.action === 'BATCH_COMPLETE' || log.action === 'COMPLETE_ALL') {
+                      actionBadgeColor = 'bg-green-50 text-green-700 border border-green-200'
+                      actionText = 'เสร็จงาน'
+                    } else if (log.action === 'CANCEL_VEHICLE' || log.action === 'BATCH_CANCEL') {
+                      actionBadgeColor = 'bg-red-50 text-red-700 border border-red-200'
+                      actionText = 'ยกเลิกรายการ'
+                    } else if (log.action === 'EDIT_ORDER') {
+                      actionBadgeColor = 'bg-blue-50 text-blue-700 border border-blue-200'
+                      actionText = 'แก้ไขใบสั่งงาน'
+                    } else if (log.action === 'UPDATE_STATUS') {
+                      actionBadgeColor = 'bg-amber-50 text-amber-700 border border-amber-200'
+                      actionText = 'เปลี่ยนสถานะ'
+                    }
+
+                    return (
+                      <div key={log.id} className="relative group text-xs">
+                        {/* Dot indicator */}
+                        <div className="absolute -left-[21px] top-1 bg-white border-2 border-blue-500 rounded-full h-2 w-2 group-hover:bg-blue-500 transition-colors" />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${actionBadgeColor}`}>
+                            {actionText}
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-mono">
+                            {new Date(log.createdAt).toLocaleString('th-TH', {
+                              year: 'numeric',
+                              month: 'numeric',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-gray-700 mt-1 font-semibold leading-relaxed">{log.details}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">ดำเนินการโดย: <span className="font-bold text-gray-600">{log.changedBy}</span></p>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-xs text-gray-400">
+                  ไม่มีประวัติการดำเนินงานสำหรับใบสั่งงานนี้
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -651,7 +863,7 @@ export default function ServiceJobDetailPage() {
                 <div className="border border-dashed border-gray-200 hover:border-[#1d4ed8]/40 rounded-xl p-4 bg-gray-50/50 text-center relative cursor-pointer group transition-colors">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
                     multiple
                     onChange={handlePhotoUpload}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -660,9 +872,9 @@ export default function ServiceJobDetailPage() {
                   <div className="flex flex-col items-center justify-center space-y-1">
                     <Upload className="w-6 h-6 text-gray-400 group-hover:text-[#1d4ed8]" />
                     <span className="text-xs font-semibold text-gray-600 group-hover:text-[#1d4ed8]">
-                      {uploading ? 'กำลังอัปโหลด...' : 'กดเพื่อเลือกหรือถ่ายภาพผลงาน'}
+                      {uploading ? 'กำลังอัปโหลด...' : 'กดเพื่อเลือกรูปภาพหรือไฟล์เอกสาร'}
                     </span>
-                    <span className="text-[10px] text-gray-400">รองรับไฟล์ภาพหลายไฟล์พร้อมกัน</span>
+                    <span className="text-[10px] text-gray-400">รองรับ: รูปภาพ, PDF, Word, Excel (หลายไฟล์พร้อมกัน)</span>
                   </div>
                 </div>
 

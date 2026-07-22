@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { 
-  ArrowLeft, Camera, Upload, Eye, X, User, Calendar, ClipboardCheck
+  ArrowLeft, Camera, Upload, Eye, X, User, Calendar, ClipboardCheck, FileText
 } from 'lucide-react'
 import { formatDateShort } from '@/lib/utils'
 
@@ -79,7 +79,10 @@ export default function MechanicJobDetailPage() {
       const file = files[i]
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('folder', `service-jobs/${id}/vehicles`)
+      
+      const yyyymm = order?.orderNo ? order.orderNo.substring(4, 10) : 'general'
+      const orderNo = order?.orderNo || id
+      formData.append('folder', `JobService/${yyyymm}/${orderNo}`)
 
       try {
         const res = await fetch('/api/upload', {
@@ -293,14 +296,26 @@ export default function MechanicJobDetailPage() {
                             {isCompleted ? 'รูปภาพผลงานเสร็จงาน:' : 'รูปภาพการดำเนินงาน/รูปแนบ:'}
                           </span>
                           <div className="grid grid-cols-3 gap-2">
-                            {vehicle.photos.map((url: string, pIdx: number) => (
-                              <div key={pIdx} className="relative aspect-video rounded-lg overflow-hidden border bg-white group cursor-pointer" onClick={() => window.open(url, '_blank')}>
-                                <img src={url} alt="Completion preview" className="object-cover w-full h-full" />
-                                <div className="absolute inset-0 bg-black/35 opacity-0 flex items-center justify-center">
-                                  <Eye className="w-4 h-4 text-white" />
+                            {vehicle.photos.map((url: string, pIdx: number) => {
+                              const isImg = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(url) || url.startsWith('data:image/')
+                              return (
+                                <div key={pIdx} className="relative aspect-video rounded-lg overflow-hidden border bg-white group cursor-pointer" onClick={() => window.open(url, '_blank')}>
+                                  {isImg ? (
+                                    <img src={url} alt="Completion preview" className="object-cover w-full h-full" />
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center h-full w-full bg-blue-50/50 p-2">
+                                      <FileText className="w-6 h-6 text-blue-500" />
+                                      <span className="text-[10px] font-semibold text-blue-700 mt-1 truncate max-w-full">
+                                        {url.substring(url.lastIndexOf('/') + 1).substring(9) || 'เอกสารแนบ'}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-black/35 opacity-0 flex items-center justify-center">
+                                    <Eye className="w-4 h-4 text-white" />
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                           {vehicle.completedAt && (
                             <span className="text-[9px] text-gray-400 block pt-0.5">
@@ -347,7 +362,7 @@ export default function MechanicJobDetailPage() {
                             <div className="border border-dashed border-gray-200 hover:border-[#1d4ed8]/40 rounded-xl p-4 bg-white text-center relative cursor-pointer group transition-colors">
                               <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
                                 multiple
                                 onChange={handlePhotoUpload}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -356,27 +371,39 @@ export default function MechanicJobDetailPage() {
                               <div className="flex flex-col items-center justify-center space-y-1.5">
                                 <Upload className="w-6 h-6 text-gray-400 group-hover:text-[#1d4ed8]" />
                                 <span className="text-xs font-semibold text-gray-600 group-hover:text-[#1d4ed8]">
-                                  {uploading ? 'กำลังอัปโหลด...' : 'กดถ่ายรูปผลงาน / แนบรูปภาพ'}
+                                  {uploading ? 'กำลังอัปโหลด...' : 'กดถ่ายรูปผลงาน / แนบไฟล์'}
                                 </span>
-                                <span className="text-[9px] text-gray-400">อัปโหลดได้หลายรูปภาพจากมือถือ</span>
+                                <span className="text-[9px] text-gray-400">รองรับ: รูปภาพ, PDF, Word, Excel (หลายไฟล์พร้อมกัน)</span>
                               </div>
                             </div>
 
                             {/* Previews */}
                             {vehiclePhotos.length > 0 && (
                               <div className="grid grid-cols-4 gap-2 pt-2">
-                                {vehiclePhotos.map((url, index) => (
-                                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-white group">
-                                    <img src={url} alt="Upload preview" className="object-cover w-full h-full" />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveUploadedPhoto(index)}
-                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 shadow hover:bg-red-600 transition-colors"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                ))}
+                                {vehiclePhotos.map((url, index) => {
+                                  const isImg = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(url) || url.startsWith('data:image/')
+                                  return (
+                                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-white group">
+                                      {isImg ? (
+                                        <img src={url} alt="Upload preview" className="object-cover w-full h-full" />
+                                      ) : (
+                                        <div className="flex flex-col items-center justify-center h-full w-full bg-blue-50/50 p-1">
+                                          <FileText className="w-5 h-5 text-blue-500" />
+                                          <span className="text-[8px] font-semibold text-blue-700 mt-0.5 truncate max-w-full text-center">
+                                            {url.substring(url.lastIndexOf('/') + 1).substring(9) || 'ไฟล์'}
+                                          </span>
+                                        </div>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveUploadedPhoto(index)}
+                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 shadow hover:bg-red-600 transition-colors"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )
+                                })}
                               </div>
                             )}
                           </div>
