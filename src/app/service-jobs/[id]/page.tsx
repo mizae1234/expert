@@ -17,6 +17,7 @@ import {
   formatCurrency, formatDateShort 
 } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 export default function ServiceJobDetailPage() {
   const params = useParams()
@@ -29,6 +30,14 @@ export default function ServiceJobDetailPage() {
   const [syncing, setSyncing] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([])
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant: 'danger' | 'primary' | 'warning';
+    onConfirm: () => void;
+  } | null>(null)
 
   // Vehicle completion modal state
   const [completingVehicle, setCompletingVehicle] = useState<any>(null)
@@ -119,87 +128,105 @@ export default function ServiceJobDetailPage() {
     }
   }
 
-  const handleBatchComplete = async () => {
+  const handleBatchComplete = () => {
     if (selectedVehicleIds.length === 0) return
-    if (!confirm(`คุณแน่ใจว่าต้องการบันทึกเสร็จงานรถที่เลือกจำนวน ${selectedVehicleIds.length} คันใช่หรือไม่?`)) return
+    setConfirmConfig({
+      isOpen: true,
+      title: 'ยืนยันเสร็จงานรถที่เลือก',
+      description: `คุณแน่ใจว่าต้องการบันทึกเสร็จงานรถที่เลือกจำนวน ${selectedVehicleIds.length} คันใช่หรือไม่?`,
+      variant: 'primary',
+      onConfirm: async () => {
+        setUpdating(true)
+        try {
+          const res = await fetch(`/api/service-orders/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vehicleIds: selectedVehicleIds,
+              action: 'COMPLETE'
+            })
+          })
 
-    setUpdating(true)
-    try {
-      const res = await fetch(`/api/service-orders/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vehicleIds: selectedVehicleIds,
-          action: 'COMPLETE'
-        })
-      })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ')
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ')
-
-      showToast('✅ บันทึกเสร็จงานรถที่เลือกสำเร็จเรียบร้อยแล้ว')
-      setSelectedVehicleIds([])
-      setOrder(data)
-    } catch (err: any) {
-      showToast('❌ ' + err.message)
-    } finally {
-      setUpdating(false)
-    }
+          showToast('✅ บันทึกเสร็จงานรถที่เลือกสำเร็จเรียบร้อยแล้ว')
+          setSelectedVehicleIds([])
+          setOrder(data)
+        } catch (err: any) {
+          showToast('❌ ' + err.message)
+        } finally {
+          setUpdating(false)
+        }
+      }
+    })
   }
 
-  const handleBatchCancel = async () => {
+  const handleBatchCancel = () => {
     if (selectedVehicleIds.length === 0) return
-    if (!confirm(`คุณแน่ใจว่าต้องการยกเลิกงานรถที่เลือกจำนวน ${selectedVehicleIds.length} คันใช่หรือไม่?`)) return
+    setConfirmConfig({
+      isOpen: true,
+      title: 'ยืนยันยกเลิกรายการรถที่เลือก',
+      description: `คุณแน่ใจว่าต้องการยกเลิกงานรถที่เลือกจำนวน ${selectedVehicleIds.length} คันใช่หรือไม่?`,
+      variant: 'danger',
+      onConfirm: async () => {
+        setUpdating(true)
+        try {
+          const res = await fetch(`/api/service-orders/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vehicleIds: selectedVehicleIds,
+              action: 'CANCEL'
+            })
+          })
 
-    setUpdating(true)
-    try {
-      const res = await fetch(`/api/service-orders/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vehicleIds: selectedVehicleIds,
-          action: 'CANCEL'
-        })
-      })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ')
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ')
-
-      showToast('✅ ยกเลิกงานรถที่เลือกสำเร็จเรียบร้อยแล้ว')
-      setSelectedVehicleIds([])
-      setOrder(data)
-    } catch (err: any) {
-      showToast('❌ ' + err.message)
-    } finally {
-      setUpdating(false)
-    }
+          showToast('✅ ยกเลิกงานรถที่เลือกสำเร็จเรียบร้อยแล้ว')
+          setSelectedVehicleIds([])
+          setOrder(data)
+        } catch (err: any) {
+          showToast('❌ ' + err.message)
+        } finally {
+          setUpdating(false)
+        }
+      }
+    })
   }
 
-  const handleCancelSingleVehicle = async (vehicle: any) => {
-    if (!confirm(`คุณแน่ใจว่าต้องการยกเลิกงานรถยนต์ทะเบียน ${vehicle.carPlate} ใช่หรือไม่?`)) return
+  const handleCancelSingleVehicle = (vehicle: any) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'ยืนยันยกเลิกงานรถยนต์คันนี้',
+      description: `คุณแน่ใจว่าต้องการยกเลิกงานรถยนต์ทะเบียน ${vehicle.carPlate} ใช่หรือไม่?`,
+      variant: 'danger',
+      onConfirm: async () => {
+        setUpdating(true)
+        try {
+          const res = await fetch(`/api/service-orders/${id}/vehicles/${vehicle.id}/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: 'CANCELLED',
+              photos: vehicle.photos || [],
+              completedAt: null
+            })
+          })
 
-    setUpdating(true)
-    try {
-      const res = await fetch(`/api/service-orders/${id}/vehicles/${vehicle.id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'CANCELLED',
-          photos: vehicle.photos || [],
-          completedAt: null
-        })
-      })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'ยกเลิกไม่สำเร็จ')
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'ยกเลิกไม่สำเร็จ')
-
-      showToast('✅ ยกเลิกงานรถยนต์คันนี้สำเร็จ')
-      setOrder(data)
-    } catch (err: any) {
-      showToast('❌ ' + err.message)
-    } finally {
-      setUpdating(false)
-    }
+          showToast('✅ ยกเลิกงานรถยนต์คันนี้สำเร็จ')
+          setOrder(data)
+        } catch (err: any) {
+          showToast('❌ ' + err.message)
+        } finally {
+          setUpdating(false)
+        }
+      }
+    })
   }
 
   const toggleSelectVehicle = (vehicleId: string) => {
@@ -253,17 +280,29 @@ export default function ServiceJobDetailPage() {
     }
   }, [id])
 
-  const handleStatusChange = async (newStatus: string) => {
+  const handleStatusChange = (newStatus: string) => {
     if (newStatus === 'CANCELLED') {
-      if (!confirm('คุณแน่ใจว่าต้องการยกเลิกใบสั่งงานนี้และรถทุกคันในใบงานใช่หรือไม่?')) {
-        return
-      }
+      setConfirmConfig({
+        isOpen: true,
+        title: 'ยืนยันยกเลิกใบสั่งงานบริการ',
+        description: 'คุณแน่ใจว่าต้องการยกเลิกใบสั่งงานนี้และรถทุกคันในใบงานใช่หรือไม่?',
+        variant: 'danger',
+        onConfirm: () => executeStatusChange(newStatus)
+      })
+    } else if (newStatus === 'COMPLETED') {
+      setConfirmConfig({
+        isOpen: true,
+        title: 'ยืนยันเสร็จงานทั้งใบงาน',
+        description: 'คุณแน่ใจว่าต้องการบันทึกเสร็จงานสำหรับรถทุกคันในใบงานใช่หรือไม่?',
+        variant: 'primary',
+        onConfirm: () => executeStatusChange(newStatus)
+      })
+    } else {
+      executeStatusChange(newStatus)
     }
-    if (newStatus === 'COMPLETED') {
-      if (!confirm('คุณแน่ใจว่าต้องการบันทึกเสร็จงานสำหรับรถทุกคันในใบงานใช่หรือไม่?')) {
-        return
-      }
-    }
+  }
+
+  const executeStatusChange = async (newStatus: string) => {
     setUpdating(true)
     try {
       const res = await fetch(`/api/service-orders/${id}`, {
@@ -331,17 +370,24 @@ export default function ServiceJobDetailPage() {
     }
   }
 
-  const handleDelete = async () => {
-    if (!confirm('คุณต้องการลบใบสั่งงานบริการนี้ใช่หรือไม่? ข้อมูลจะไม่สามารถกู้คืนได้')) return
-    setUpdating(true)
-    try {
-      const res = await fetch(`/api/service-orders/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete order')
-      router.push('/service-jobs')
-    } catch (err: any) {
-      showToast('❌ ' + err.message)
-      setUpdating(false)
-    }
+  const handleDelete = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'ยืนยันลบใบสั่งงานบริการ',
+      description: 'คุณต้องการลบใบสั่งงานบริการนี้ใช่หรือไม่? ข้อมูลทั้งหมดจะไม่สามารถกู้คืนได้',
+      variant: 'danger',
+      onConfirm: async () => {
+        setUpdating(true)
+        try {
+          const res = await fetch(`/api/service-orders/${id}`, { method: 'DELETE' })
+          if (!res.ok) throw new Error('Failed to delete order')
+          router.push('/service-jobs')
+        } catch (err: any) {
+          showToast('❌ ' + err.message)
+          setUpdating(false)
+        }
+      }
+    })
   }
 
   if (loading) {
@@ -940,6 +986,20 @@ export default function ServiceJobDetailPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {confirmConfig && (
+        <ConfirmDialog
+          isOpen={confirmConfig.isOpen}
+          title={confirmConfig.title}
+          description={confirmConfig.description}
+          variant={confirmConfig.variant}
+          onConfirm={() => {
+            confirmConfig.onConfirm()
+            setConfirmConfig(null)
+          }}
+          onCancel={() => setConfirmConfig(null)}
+        />
       )}
     </div>
   )
