@@ -110,7 +110,12 @@ export async function PATCH(
 
         // Log batch action
         const vehiclesList = allVehicles.filter(v => vehicleIds.includes(v.id))
-        const vehicleNames = vehiclesList.map(v => `${v.carPlate} (${v.carBrand} ${v.carModel})`).join(', ')
+        const vehicleNames = vehiclesList.map(v => {
+          const hasPlate = v.carPlate && v.carPlate !== '-'
+          return hasPlate
+            ? (v.carVin ? `${v.carVin} | ${v.carPlate}` : v.carPlate)
+            : (v.carVin || v.carPlate)
+        }).join(', ')
         await tx.serviceLog.create({
           data: {
             serviceOrderId: params.id,

@@ -99,7 +99,10 @@ export async function POST(
       }
 
       // Log status change
-      const vehiclePlate = `${vehicle.carPlate} (${vehicle.carBrand} ${vehicle.carModel})`
+      const hasPlate = vehicle.carPlate && vehicle.carPlate !== '-'
+      const vehiclePlate = hasPlate
+        ? (vehicle.carVin ? `${vehicle.carVin} | ${vehicle.carPlate}` : vehicle.carPlate)
+        : (vehicle.carVin || vehicle.carPlate)
       const actionText = status === 'COMPLETED' ? 'เสร็จงาน' : status === 'CANCELLED' ? 'ยกเลิกงาน' : 'เปลี่ยนสถานะ'
       await tx.serviceLog.create({
         data: {
