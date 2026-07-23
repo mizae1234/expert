@@ -332,11 +332,27 @@ export async function PUT(
       // Log edit action
       const session = await getSession()
       const changer = session ? `${session.name} (${session.username})` : 'System'
+      
+      const formatVehicle = (v: any) => {
+        const itemsStr = v.items && v.items.length > 0
+          ? v.items.map((i: any) => `  - ${i.description} [จำนวน: ${Number(i.quantity || 1)}, ราคา: ${Number(i.priceUnit || 0)}]`).join('\n') 
+          : '  ไม่มีรายการ';
+        return `ทะเบียน: ${v.carPlate || '-'} (VIN: ${v.carVin || '-'}) \nรายการ:\n${itemsStr}`;
+      }
+
+      const oldVehiclesStr = existingVehicles.map(formatVehicle).join('\n\n');
+      const newVehiclesStr = vehicles.map(formatVehicle).join('\n\n');
+
+      let detailsLog = 'แก้ไขรายละเอียดใบสั่งงาน (ข้อมูลลูกค้า/รถยนต์/รายการสั่งซ่อม)';
+      if (oldVehiclesStr !== newVehiclesStr) {
+        detailsLog += `\n\n[ข้อมูลเดิม]\n${oldVehiclesStr}\n\n[ข้อมูลใหม่]\n${newVehiclesStr}`;
+      }
+
       await tx.serviceLog.create({
         data: {
           serviceOrderId: orderId,
           action: 'EDIT_ORDER',
-          details: 'แก้ไขรายละเอียดใบสั่งงาน (ข้อมูลลูกค้า/รถยนต์/รายการสั่งซ่อม)',
+          details: detailsLog,
           changedBy: changer
         }
       })
