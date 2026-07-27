@@ -39,8 +39,10 @@ export default function LoginPage() {
       }
 
       setSuccess(true)
-      if (data.user?.role === 'MECHANIC' || data.user?.role === 'SERVICE_VENDOR') {
+      if (data.user?.role === 'MECHANIC') {
         window.location.href = '/mechanic'
+      } else if (data.user?.role === 'SERVICE_VENDOR') {
+        window.location.href = '/service-jobs'
       } else {
         window.location.href = '/dashboard'
       }

@@ -66,11 +66,28 @@ export async function middleware(request: NextRequest) {
   // Enforce role-based access control at middleware level
   const userRole = payload.role
 
-  // Mechanic and Service Vendor restriction
-  if (userRole === 'MECHANIC' || userRole === 'SERVICE_VENDOR') {
+  // Mechanic restriction
+  if (userRole === 'MECHANIC') {
     const isAllowed = 
       pathname === '/mechanic' ||
       pathname.startsWith('/mechanic/') ||
+      pathname === '/service-jobs' ||
+      pathname.startsWith('/service-jobs/') ||
+      pathname.startsWith('/api/service-orders') ||
+      pathname.startsWith('/api/upload') ||
+      pathname.startsWith('/api/auth/me')
+
+    if (!isAllowed) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      return NextResponse.redirect(new URL('/mechanic', request.url))
+    }
+  }
+
+  // Service Vendor restriction
+  if (userRole === 'SERVICE_VENDOR') {
+    const isAllowed = 
       pathname === '/service-jobs' ||
       pathname.startsWith('/service-jobs/') ||
       pathname.startsWith('/api/service-orders') ||
