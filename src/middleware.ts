@@ -74,6 +74,10 @@ export async function middleware(request: NextRequest) {
       pathname === '/service-jobs' ||
       pathname.startsWith('/service-jobs/') ||
       pathname.startsWith('/api/service-orders') ||
+      pathname.startsWith('/api/customers') ||
+      pathname.startsWith('/api/services') ||
+      pathname.startsWith('/api/settings') ||
+      pathname.startsWith('/api/peak') ||
       pathname.startsWith('/api/upload') ||
       pathname.startsWith('/api/auth/me')
 
@@ -91,6 +95,10 @@ export async function middleware(request: NextRequest) {
       pathname === '/service-jobs' ||
       pathname.startsWith('/service-jobs/') ||
       pathname.startsWith('/api/service-orders') ||
+      pathname.startsWith('/api/customers') ||
+      pathname.startsWith('/api/services') ||
+      pathname.startsWith('/api/settings') ||
+      pathname.startsWith('/api/peak') ||
       pathname.startsWith('/api/upload') ||
       pathname.startsWith('/api/auth/me')
 

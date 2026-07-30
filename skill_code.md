@@ -652,9 +652,38 @@ Largest Pages by JS:
 
 - **Dev:** `npm run dev` → `http://localhost:3000`
 - **Build:** `prisma generate && next build`
-- **Deploy:** `git push` → `bash deploy.sh` (SSH + Docker multi-stage build)
+- **Deploy:** `git add . && git commit -m "..." && git push origin main` (push only, ไม่มี deploy.sh)
 - **DB:** PostgreSQL via `DATABASE_URL`
 - **Storage:** Cloudflare R2 via `R2_*` env vars
 - **AI:** Claude/OpenRouter via `ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`
 - **Auth:** JWT via `JWT_SECRET` env var (default fallback exists for dev)
 - **Stack:** Next.js 14.2.35, Prisma 5.22.0, React 18, TailwindCSS 3.4
+
+---
+
+## 14. Service Orders & Vehicle Log Logic
+
+### 14.1 VIN + ทะเบียน Display Rule (Service Log)
+
+เมื่อบันทึก log เสร็จงาน/ยกเลิกรถ ใช้ logic แสดงตัวระบุรถ:
+
+```typescript
+const hasPlate = vehicle.carPlate && vehicle.carPlate !== '-'
+const vehiclePlate = hasPlate
+  ? (vehicle.carVin ? `${vehicle.carVin} | ${vehicle.carPlate}` : vehicle.carPlate)
+  : (vehicle.carVin || vehicle.carPlate)
+```
+
+| ทะเบียน | VIN | แสดงผล |
+|---------|-----|--------|
+| `กก 1234` | `LSJA...` | `LSJA... \| กก 1234` |
+| `กก 1234` | ไม่มี | `กก 1234` |
+| `-` | `LSJA...` | `LSJA...` |
+| `-` | ไม่มี | `-` (fallback) |
+
+**ไฟล์ที่เกี่ยวข้อง:**
+- `api/service-orders/[id]/vehicles/[vehicleId]/complete/route.ts` — เสร็จงานรายคัน
+- `api/service-orders/[id]/route.ts` — batch เสร็จงาน/ยกเลิก
+
+**เหตุผล:** ไม่แสดงยี่ห้อ/รุ่น (carBrand + carModel) เพราะยาวเกินไป เช่น "AION Y Plus 490 Premium" ทำให้ timeline อ่านยาก
+
