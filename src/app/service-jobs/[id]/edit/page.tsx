@@ -330,11 +330,12 @@ export default function EditServiceJobPage() {
     if (plateIdx === -1) plateIdx = 4
 
     const parsedVehicles: any[] = []
-    const serviceName = jobDescription || defaultDescription || 'พ่นทะเบียน'
-    const matchedService = serviceCatalog.find(s => s.name.trim().toLowerCase() === serviceName.trim().toLowerCase())
+    const rawServiceName = jobDescription || defaultDescription || 'พ่นทะเบียน'
+    const serviceName = rawServiceName.replace(/^['"\s]+|['"\s]+$/g, '').trim()
+    const matchedService = serviceCatalog.find(s => s.name.trim().toLowerCase() === serviceName.toLowerCase())
     const resolvedPrice = matchedService ? matchedService.price : (defaultPrice || 0)
 
-    const isSprayingPlate = serviceName.trim().toLowerCase() === 'พ่นทะเบียน'
+    const isSprayingPlate = serviceName.toLowerCase() === 'พ่นทะเบียน'
 
     for (let i = startRow; i < grid.length; i++) {
       const row = grid[i]

@@ -16,13 +16,18 @@ export async function GET(request: NextRequest) {
     })
     const searchName = sv00003?.name || 'พ่นข้าง'
 
-    // Check if this VIN has done this service before
+    // Check if this VIN has done this service before (SV-00003, SV-00002, or description containing "พ่นข้าง")
     const record = await prisma.serviceItem.findFirst({
       where: {
-        description: searchName,
         serviceVehicle: {
           carVin: vin
-        }
+        },
+        OR: [
+          { serviceCode: 'SV-00003' },
+          { serviceCode: 'SV-00002' },
+          { description: { contains: searchName } },
+          { description: { contains: 'พ่นข้าง' } }
+        ]
       }
     })
 
