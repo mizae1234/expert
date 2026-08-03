@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { PEAK_CONFIG } from '@/lib/constants'
 
 function formatDate(dateStr: string | Date): string {
   const d = new Date(dateStr)
@@ -21,11 +22,15 @@ export async function POST(req: NextRequest) {
   try {
     const { type, ids } = await req.json()
     
-    // Config constants (ideally from DB)
-    const ACCOUNT_REVENUE_LABOR = '410202'
-    const ACCOUNT_REVENUE_PARTS = '410102'
-    const ACCOUNT_COST_PARTS = '510103'
-    const ACCOUNT_COST_LABOR = '510127'
+    const {
+      ACCOUNT_REVENUE_LABOR,
+      ACCOUNT_REVENUE_PARTS,
+      ACCOUNT_COST_PARTS,
+      ACCOUNT_COST_LABOR,
+      PRODUCT_PARTS,
+      PRODUCT_LABOR,
+    } = PEAK_CONFIG
+
 
     const categoryLabels: Record<string, string> = {
       shipping: 'ค่าส่งอะไหล่',
@@ -85,7 +90,7 @@ export async function POST(req: NextRequest) {
             'เลขสาขา 5 หลัก': '',
             'เป็นใบกำกับภาษี': '',
             'ประเภทราคา': 1,
-            'สินค้า/บริการ': 'P00035',
+            'สินค้า/บริการ': PRODUCT_LABOR,
             'บัญชี': ACCOUNT_REVENUE_LABOR,
             'คำอธิบาย': `ค่าแรง|${inv.claim.carPlate}|${inv.claim.insurance?.name || ''}`,
             'จำนวน': 1,
@@ -109,7 +114,7 @@ export async function POST(req: NextRequest) {
             'เลขสาขา 5 หลัก': '',
             'เป็นใบกำกับภาษี': '',
             'ประเภทราคา': 1,
-            'สินค้า/บริการ': 'P00033',
+            'สินค้า/บริการ': PRODUCT_PARTS,
             'บัญชี': ACCOUNT_REVENUE_PARTS,
             'คำอธิบาย': `ค่าอะไหล่|${inv.claim.carPlate}|${inv.claim.insurance?.name || ''}`,
             'จำนวน': 1,
@@ -143,7 +148,7 @@ export async function POST(req: NextRequest) {
               'เลขสาขา 5 หลัก': order.customer.branchCode || '00000',
               'เป็นใบกำกับภาษี': '',
               'ประเภทราคา': 1,
-              'สินค้า/บริการ': 'P00035',
+              'สินค้า/บริการ': PRODUCT_LABOR,
               'บัญชี': ACCOUNT_REVENUE_LABOR,
               'คำอธิบาย': `${item.description}|${vehicle.carPlate}`,
               'จำนวน': item.quantity,
@@ -203,7 +208,7 @@ export async function POST(req: NextRequest) {
           'วันที่ใบกำกับฯ (ถ้ามี)': formatDate(si.invoiceDate),
           'วันที่บันทึกภาษีซื้อ (ถ้ามี)': formatDate(si.invoiceDate),
           'ประเภทราคา': 1,
-          'สินค้า/บริการ': 'P00033',
+          'สินค้า/บริการ': PRODUCT_PARTS,
           'บัญชี': ACCOUNT_COST_PARTS,
           'คำอธิบาย': si.claim 
             ? `ค่าอะไหล่|${si.claim.carPlate}|${si.claim.claimNo}` 
@@ -233,7 +238,7 @@ export async function POST(req: NextRequest) {
           'วันที่ใบกำกับฯ (ถ้ามี)': formatDate(gi.invoiceDate),
           'วันที่บันทึกภาษีซื้อ (ถ้ามี)': formatDate(gi.invoiceDate),
           'ประเภทราคา': 1,
-          'สินค้า/บริการ': 'P00035',
+          'สินค้า/บริการ': PRODUCT_LABOR,
           'บัญชี': ACCOUNT_COST_LABOR,
           'คำอธิบาย': `ค่าแรง|${gi.claim.carPlate}|${gi.claim.claimNo}`,
           'จำนวน': 1,

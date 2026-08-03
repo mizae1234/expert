@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { PEAK_CONFIG } from '@/lib/constants'
 
 function formatDate(dateStr: string | Date): string {
   const d = new Date(dateStr)
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
 }
 
-const PEAK_CONFIG = {
-  ACCOUNT_REVENUE_LABOR: '410202',
-  ACCOUNT_REVENUE_PARTS: '410102',
-  ACCOUNT_COST_PARTS: '510103',
-  ACCOUNT_COST_LABOR: '510127',
-  PAYMENT_CHANNEL_TRANSFER: 'โอนเงิน',
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -55,7 +49,7 @@ export async function GET(request: NextRequest) {
           allRows.push({
             ลำดับที่: seq, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: '',
             อ้างอิงถึง: claim.claimNo, ลูกค้า: insurance.peakCustomerId,
-            สินค้า: 'P00057', บัญชี: conf.ACCOUNT_REVENUE_LABOR,
+            สินค้า: conf.PRODUCT_LABOR, บัญชี: conf.ACCOUNT_REVENUE_LABOR,
             คำอธิบาย: `ค่าแรง|${claim.carPlate}|${insurance.name}`,
             จำนวน: 1, 'ราคา/หน่วย': inv.laborTotal, อัตราภาษี: '7%',
             'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 'ไม่ระบุ',
@@ -66,7 +60,7 @@ export async function GET(request: NextRequest) {
           allRows.push({
             ลำดับที่: seq, วันที่: formatDate(inv.invoiceDate), เลขที่เอกสาร: '',
             อ้างอิงถึง: claim.claimNo, ลูกค้า: insurance.peakCustomerId,
-            สินค้า: 'P00056', บัญชี: conf.ACCOUNT_REVENUE_PARTS,
+            สินค้า: conf.PRODUCT_PARTS, บัญชี: conf.ACCOUNT_REVENUE_PARTS,
             คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${insurance.name}`,
             จำนวน: 1, 'ราคา/หน่วย': inv.partsTotal, อัตราภาษี: '7%',
             'ถูกหัก ณ ที่จ่าย(ถ้ามี)': 'ไม่ระบุ',
@@ -111,7 +105,7 @@ export async function GET(request: NextRequest) {
             'เลขสาขา 5 หลัก': vendor.branchCode || '00000',
             เลขที่ใบกำกับฯ: si.invoiceNo, วันที่ใบกำกับฯ: formatDate(si.invoiceDate),
             วันที่บันทึกภาษีซื้อ: formatDate(si.invoiceDate), ประเภทราคา: 1,
-            'สินค้า/บริการ': 'P00056', บัญชี: conf.ACCOUNT_COST_PARTS,
+            'สินค้า/บริการ': conf.PRODUCT_PARTS, บัญชี: conf.ACCOUNT_COST_PARTS,
             คำอธิบาย: `ค่าอะไหล่|${claim.carPlate}|${claim.claimNo}`,
             จำนวน: 1, 'ราคา/หน่วย': si.totalAmount / 1.07, อัตราภาษี: '7%',
             'หัก ณ ที่จ่าย': 0, ชำระโดย: '', จำนวนเงินที่ชำระ: 0,
@@ -129,7 +123,7 @@ export async function GET(request: NextRequest) {
             'เลขสาขา 5 หลัก': garage.branchCode || '00000',
             เลขที่ใบกำกับฯ: gi.invoiceNo, วันที่ใบกำกับฯ: formatDate(gi.invoiceDate),
             วันที่บันทึกภาษีซื้อ: formatDate(gi.invoiceDate), ประเภทราคา: 1,
-            'สินค้า/บริการ': 'P00057', บัญชี: conf.ACCOUNT_COST_LABOR,
+            'สินค้า/บริการ': conf.PRODUCT_LABOR, บัญชี: conf.ACCOUNT_COST_LABOR,
             คำอธิบาย: `ค่าแรง|${claim.carPlate}|${claim.claimNo}`,
             จำนวน: 1, 'ราคา/หน่วย': gi.totalAmount / 1.07, อัตราภาษี: '7%',
             'หัก ณ ที่จ่าย': 0, ชำระโดย: '', จำนวนเงินที่ชำระ: 0,
