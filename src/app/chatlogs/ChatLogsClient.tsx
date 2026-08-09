@@ -9,8 +9,6 @@ import {
   Search, 
   User, 
   Users, 
-  ChevronDown, 
-  ChevronUp, 
   RefreshCw,
   ArrowLeft
 } from 'lucide-react'
@@ -38,7 +36,7 @@ export default function ChatLogsClient({ initialLogs }: ChatLogsClientProps) {
   const [logs, setLogs] = useState<ChatLog[]>(initialLogs)
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'ALL' | 'USER' | 'GROUP'>('ALL')
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
+  const [selectedLog, setSelectedLog] = useState<ChatLog | null>(null)
 
   // คำนวณสรุปสถิติเบื้องต้น
   const stats = useMemo(() => {
@@ -84,13 +82,6 @@ export default function ChatLogsClient({ initialLogs }: ChatLogsClientProps) {
     })
   }, [logs, search, sourceFilter])
 
-  const toggleExpand = (id: string) => {
-    setExpandedIds(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }))
-  };
-
   const handleRefresh = () => {
     window.location.reload()
   };
@@ -105,6 +96,20 @@ export default function ChatLogsClient({ initialLogs }: ChatLogsClientProps) {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
+      })
+    } catch {
+      return dateStr
+    }
+  };
+
+  const formatDateShort = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr)
+      return d.toLocaleString('th-TH', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       })
     } catch {
       return dateStr
@@ -134,39 +139,6 @@ export default function ChatLogsClient({ initialLogs }: ChatLogsClientProps) {
         >
           <RefreshCw size={16} /> รีโหลดข้อมูล
         </button>
-      </div>
-
-      {/* บล็อกสถิติ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex items-center gap-4">
-          <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
-            <MessageSquare size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400">จำนวนคำถามทั้งหมด</p>
-            <p className="text-2xl font-bold text-slate-100">{logs.length} ครั้ง</p>
-          </div>
-        </div>
-
-        <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex items-center gap-4">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
-            <Clock size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400">เวลาประมวลผลเฉลี่ย</p>
-            <p className="text-2xl font-bold text-slate-100">{stats.avgResponseTime} วินาที</p>
-          </div>
-        </div>
-
-        <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex items-center gap-4">
-          <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
-            <Cpu size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400">จำนวน Token สะสม</p>
-            <p className="text-2xl font-bold text-slate-100">{stats.totalTokens.toLocaleString()} tkn</p>
-          </div>
-        </div>
       </div>
 
       {/* เครื่องมือค้นหาและฟิลเตอร์ */}
@@ -218,105 +190,155 @@ export default function ChatLogsClient({ initialLogs }: ChatLogsClientProps) {
         </div>
       </div>
 
-      {/* รายการข้อความ Log */}
-      <div className="space-y-4">
-        {filteredLogs.length === 0 ? (
-          <div className="text-center py-12 bg-slate-800/30 rounded-2xl border border-slate-800 text-slate-500">
-            <MessageSquare className="mx-auto mb-2 opacity-30" size={40} />
-            <p className="text-sm">ไม่พบประวัติการแชทตามคำค้นหาดังกล่าว</p>
-          </div>
-        ) : (
-          filteredLogs.map(log => {
-            const isExpanded = !!expandedIds[log.id]
-            const isUser = log.sourceType === 'user'
-            const totalTokens = (log.inputTokens || 0) + (log.outputTokens || 0)
+      {/* ตารางแสดงผลลัพธ์แบบ Compact */}
+      <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs md:text-sm text-slate-300 border-collapse">
+            <thead>
+              <tr className="bg-slate-800/80 border-b border-slate-700 text-slate-400 text-xs font-bold uppercase">
+                <th className="p-4">เวลา</th>
+                <th className="p-4">ผู้ส่ง</th>
+                <th className="p-4">ช่องทาง</th>
+                <th className="p-4">ข้อความคำถาม</th>
+                <th className="p-4">คำตอบกลับจากบอท</th>
+                <th className="p-4 text-center">สถิติประมวลผล</th>
+                <th className="p-4 text-center">การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-12 text-slate-500">
+                    <MessageSquare className="mx-auto mb-2 opacity-30" size={40} />
+                    <p className="text-sm">ไม่พบประวัติการแชทตามคำค้นหาดังกล่าว</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredLogs.map(log => {
+                  const isUser = log.sourceType === 'user'
+                  const totalTokens = (log.inputTokens || 0) + (log.outputTokens || 0)
 
-            return (
-              <div 
-                key={log.id}
-                className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden hover:border-slate-600 transition shadow-md"
-              >
-                {/* แถบหัวข้อการแชท */}
-                <div 
-                  onClick={() => toggleExpand(log.id)}
-                  className="flex flex-col md:flex-row md:items-center justify-between p-4 gap-3 cursor-pointer select-none"
-                >
-                  <div className="flex items-center gap-3">
-                    {/* ไอคอนแสดงต้นทาง */}
-                    <div className={`p-2 rounded-lg ${isUser ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                      {isUser ? <User size={18} /> : <Users size={18} />}
-                    </div>
-                    {/* ชื่อผู้ส่งและเวลา */}
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-slate-200">{log.userName || 'ไม่ระบุชื่อ'}</span>
+                  return (
+                    <tr 
+                      key={log.id}
+                      onClick={() => setSelectedLog(log)}
+                      className="hover:bg-slate-800/40 transition-colors cursor-pointer"
+                    >
+                      <td className="p-4 whitespace-nowrap text-slate-400">
+                        {formatDateShort(log.createdAt)}
+                      </td>
+                      <td className="p-4 font-semibold text-slate-200 truncate max-w-[120px]">
+                        {log.userName || 'ไม่ระบุชื่อ'}
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           isUser ? 'bg-blue-500/20 text-blue-300' : 'bg-emerald-500/20 text-emerald-300'
                         }`}>
                           {log.sourceType.toUpperCase()}
                         </span>
-                      </div>
-                      <span className="text-[11px] text-slate-400">{formatDate(log.createdAt)}</span>
-                    </div>
-                  </div>
-
-                  {/* สรุป Meta ด้านขวา */}
-                  <div className="flex items-center gap-2 flex-wrap md:justify-end text-[11px]">
-                    {log.responseTimeMs && (
-                      <span className="flex items-center gap-1 bg-slate-700/80 px-2.5 py-1 rounded-lg text-slate-300">
-                        <Clock size={12} className="text-slate-400" /> {(log.responseTimeMs / 1000).toFixed(1)}s
-                      </span>
-                    )}
-                    {totalTokens > 0 && (
-                      <span className="flex items-center gap-1 bg-slate-700/80 px-2.5 py-1 rounded-lg text-slate-300">
-                        <Layers size={12} className="text-slate-400" /> {totalTokens.toLocaleString()} tkn
-                      </span>
-                    )}
-                    {log.modelName && (
-                      <span className="flex items-center gap-1 bg-slate-700/80 px-2.5 py-1 rounded-lg text-slate-300">
-                        <Cpu size={12} className="text-slate-400" /> {log.modelName}
-                      </span>
-                    )}
-                    <div className="text-slate-400 ml-2">
-                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                    </div>
-                  </div>
-                </div>
-
-                {/* รายละเอียดแชท (ส่วนที่พับ/ขยาย) */}
-                {isExpanded && (
-                  <div className="border-t border-slate-700 bg-slate-900/60 p-4 space-y-4">
-                    {/* คำถามผู้ใช้ */}
-                    <div className="flex gap-3 max-w-[85%]">
-                      <div className="flex-none w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 text-xs font-bold shadow">
-                        U
-                      </div>
-                      <div className="bg-slate-800 text-slate-100 p-3 rounded-2xl rounded-tl-none text-sm shadow-md border border-slate-700 whitespace-pre-wrap">
+                      </td>
+                      <td className="p-4 truncate max-w-[180px] text-slate-400" title={log.userMessage}>
                         {log.userMessage}
-                      </div>
-                    </div>
-
-                    {/* คำตอบบอท */}
-                    <div className="flex gap-3 max-w-[90%] ml-auto justify-end">
-                      <div className="bg-amber-500/10 text-amber-100 p-4 rounded-2xl rounded-tr-none text-sm shadow-md border border-amber-500/20 whitespace-pre-wrap font-sans overflow-x-auto w-full">
+                      </td>
+                      <td className="p-4 truncate max-w-[240px] text-slate-400" title={log.botReply}>
                         {log.botReply}
-                      </div>
-                      <div className="flex-none w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-slate-950 text-xs font-bold shadow">
-                        BEN
-                      </div>
-                    </div>
-
-                    {/* ข้อมูลดิบสำหรับการวิเคราะห์ */}
-                    <div className="text-[10px] text-slate-500 font-mono text-right pt-2 border-t border-slate-800/80">
-                      ID: {log.id} | Line Source ID: {log.sourceId || 'Direct'}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })
-        )}
+                      </td>
+                      <td className="p-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5 text-[10px]">
+                          {log.responseTimeMs && (
+                            <span className="bg-slate-700/60 text-slate-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                              {(log.responseTimeMs / 1000).toFixed(1)}s
+                            </span>
+                          )}
+                          {totalTokens > 0 && (
+                            <span className="bg-slate-700/60 text-slate-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                              {totalTokens.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 text-center whitespace-nowrap">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedLog(log)
+                          }}
+                          className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition"
+                        >
+                          ดูเพิ่มเติม
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Modal สำหรับแสดงรายละเอียดแชท */}
+      {selectedLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-3xl bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-700 bg-slate-800/80">
+              <div>
+                <h3 className="font-bold text-lg text-slate-200">รายละเอียดบทสนทนา</h3>
+                <p className="text-xs text-slate-400">
+                  ส่งโดย: {selectedLog.userName} ({selectedLog.sourceType.toUpperCase()}) | เมื่อ: {formatDate(selectedLog.createdAt)}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="text-slate-400 hover:text-white transition font-semibold text-lg p-1.5"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Area */}
+            <div className="p-6 overflow-y-auto space-y-4 bg-slate-900/40 flex-1">
+              {/* User message */}
+              <div className="flex gap-3 max-w-[85%]">
+                <div className="flex-none w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 text-xs font-bold shadow">
+                  U
+                </div>
+                <div className="bg-slate-800 text-slate-100 p-3.5 rounded-2xl rounded-tl-none text-sm shadow-md border border-slate-700 whitespace-pre-wrap">
+                  {selectedLog.userMessage}
+                </div>
+              </div>
+
+              {/* Bot reply */}
+              <div className="flex gap-3 max-w-[90%] ml-auto justify-end">
+                <div className="bg-amber-500/10 text-amber-100 p-4 rounded-2xl rounded-tr-none text-sm shadow-md border border-amber-500/20 whitespace-pre-wrap font-sans overflow-x-auto w-full">
+                  {selectedLog.botReply}
+                </div>
+                <div className="flex-none w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-slate-950 text-xs font-bold shadow">
+                  BEN
+                </div>
+              </div>
+            </div>
+
+            {/* Footer metadata */}
+            <div className="p-4 bg-slate-800/80 border-t border-slate-700 flex justify-between items-center text-xs text-slate-400">
+              <div className="flex gap-3 flex-wrap">
+                <span>รุ่น: {selectedLog.modelName || '-'}</span>
+                <span>•</span>
+                <span>เวลา: {selectedLog.responseTimeMs ? `${(selectedLog.responseTimeMs / 1000).toFixed(2)} วินาที` : '-'}</span>
+                <span>•</span>
+                <span>Tokens: {((selectedLog.inputTokens || 0) + (selectedLog.outputTokens || 0)).toLocaleString()}</span>
+              </div>
+              <button
+                onClick={() => setSelectedLog(null)}
+                className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 font-semibold transition"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
