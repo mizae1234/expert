@@ -6,8 +6,41 @@ export const lineConfig = {
 }
 
 /**
+ * ─── Quick Reply Menu ───
+ * รายการเมนูลัดสำหรับให้ผู้ใช้เลือกกดที่ด้านล่างของหน้าจอแชท LINE
+ */
+export const quickReplyItems = {
+  items: [
+    {
+      type: 'action',
+      action: {
+        type: 'message',
+        label: '📊 สรุปสถิติเคลม',
+        text: 'ช่างเบน สรุปสถิติเคลมหน่อยครับ'
+      }
+    },
+    {
+      type: 'action',
+      action: {
+        type: 'message',
+        label: '🔧 สรุปงานซ่อมค้าง',
+        text: 'ช่างเบน สรุปงานซ่อมค้างทั้งหมดให้หน่อยครับ'
+      }
+    },
+    {
+      type: 'action',
+      action: {
+        type: 'message',
+        label: '📖 แนะนำวิธีใช้งาน',
+        text: 'ช่างเบน แนะนำวิธีใช้งานหน่อยครับ'
+      }
+    }
+  ]
+}
+
+/**
  * ─── replyText ───
- * ส่งข้อความธรรมดา (Text) ตอบกลับไปยังผู้ใช้ตาม replyToken
+ * ส่งข้อความธรรมดา (Text) ตอบกลับไปยังผู้ใช้ตาม replyToken พร้อมแสดงเมนูลัด
  */
 export async function replyText(replyToken: string, text: string) {
   if (!lineConfig.channelAccessToken) {
@@ -23,7 +56,11 @@ export async function replyText(replyToken: string, text: string) {
       },
       body: JSON.stringify({
         replyToken,
-        messages: [{ type: 'text', text }],
+        messages: [{
+          type: 'text',
+          text,
+          quickReply: quickReplyItems,
+        }],
       }),
     })
     if (!res.ok) {
