@@ -80,7 +80,7 @@ export async function askBen(
       text: 'ช่างเบนยังไม่พร้อมให้บริการในขณะนี้ครับ ขออภัยด้วยนะครับ (กรุณาตั้งค่า GEMINI_API_KEY ในระบบก่อนนะครับ) 🔑',
       inputTokens: 0,
       outputTokens: 0,
-      modelName: 'gemini-3.5-flash'
+      modelName: 'gemini-2.5-flash'
     }
   }
 
@@ -97,7 +97,7 @@ export async function askBen(
 - ข้อมูลผู้ถาม: ${userContext?.userName || 'ลูกค้า/ผู้ใช้งาน'} (สิทธิ์: ${userContext?.userRole || 'USER'})`
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-3.5-flash',
+    model: 'gemini-2.5-flash',
     systemInstruction: dynamicPrompt,
     // ประกาศเครื่องมือสำหรับดึงข้อมูล
     tools: [{
@@ -226,6 +226,6 @@ export async function askBen(
     text: response.response.text(),
     inputTokens: usage?.promptTokenCount || 0,
     outputTokens: usage?.candidatesTokenCount || 0,
-    modelName: 'gemini-3.5-flash'
+    modelName: 'gemini-2.5-flash'
   }
 }
