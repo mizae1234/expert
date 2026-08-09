@@ -109,6 +109,10 @@ async function handleWebhookEvent(event: any) {
         if (strippedText.startsWith(',') || strippedText.startsWith(':')) {
           strippedText = strippedText.substring(1).trim()
         }
+        // หากเรียกแต่ชื่อเฉยๆ ให้ตีความเป็นข้อความ "สวัสดี" เพื่อให้บอททักทายตอบกลับ
+        if (!strippedText) {
+          strippedText = "สวัสดี"
+        }
         shouldProcess = true
       }
     } else {
