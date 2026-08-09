@@ -1,6 +1,6 @@
 # พิมพ์เขียวและสถาปัตยกรรม: ระบบ LINE Chatbot (AI) คอนเน็กต์ฐานข้อมูลอย่างปลอดภัย (Read-Only)
 
-เอกสารฉบับนี้เป็นคู่มือ (Blueprint) สำหรับนำไปใช้กับโปรเจกต์อื่นๆ เพื่อเชื่อมต่อ LINE Chatbot เข้ากับฐานข้อมูลโดยใช้ AI (เช่น Gemini API) และมีระบบป้องกันความปลอดภัยอย่างสมบูรณ์แบบ (DB Command Prevention) เพื่อไม่ให้ AI หรือผู้ใช้ป้อนคำสั่งแก้ไข/ทำลายฐานข้อมูล Production
+เอกสารฉบับนี้เป็นคู่มือ (Blueprint) สำหรับนำไปใช้กับโปรเจกต์อื่นๆ เพื่อเชื่อมต่อ LINE Chatbot เข้ากับฐานข้อมูลโดยใช้ AI (เช่น Gemini API) และมีระบบป้องกันความปลอดภัยอย่างสมบูรณ์แบบ (DB Command Prevention) เพื่อไม่ให้ AI หรือผู้ใช้ป้อนคำสั่งแก้ไข/ทำลายฐานข้อมูล Production รวมถึงสถาปัตยกรรมการแสดงผลอินเตอร์เฟสแบบ Premium (Flex Message & Quick Replies) และการตั้งค่า Middleware
 
 ---
 
@@ -11,40 +11,73 @@ sequenceDiagram
     actor User as ผู้ใช้ LINE
     participant LINE as LINE Platform
     participant Webhook as Next.js Webhook (API)
+    participant Middleware as Next.js Middleware
     participant Gemini as Gemini AI API
     participant DB as Production DB (PostgreSQL)
 
-    User->>LINE: ส่งข้อความ "ขอดูข้อมูล..."
-    LINE->>Webhook: HTTP POST (Webhook Event)
-    Webhook->>Webhook: ตรวจสอบลายเซ็น (Signature Verification)
-    Webhook->>Gemini: ส่งข้อความพร้อมประวัติย้อนหลัง (History)
-    Gemini->>Webhook: ขอใช้ Tool (runCustomQuery: SQL)
-    Webhook->>Webhook: ตรวจกรองคำสั่ง SQL (SQL Security Filter)
-    alt SQL ปลอดภัย (SELECT/WITH เท่านั้น)
-        Webhook->>DB: รันคำสั่งอ่านข้อมูล (Read-Only)
-        DB-->>Webhook: คืนข้อมูลผลลัพธ์ (max 20 rows)
-        Webhook->>Gemini: ส่งผลข้อมูลกลับไปให้ AI วิเคราะห์
-        Gemini-->>Webhook: คืนคำตอบอธิบายเป็นภาษาธรรมดา
-        Webhook-->>LINE: ส่งข้อความตอบกลับหาผู้ใช้
-    else SQL ผิดกฎ (เช่น UPDATE, DELETE, INSERT)
-        Webhook-->>LINE: ส่งข้อความแจ้งเตือนความปลอดภัยทันที
+    User->>LINE: ส่งข้อความ "ขอดูข้อมูล..." หรือกดเมนู
+    LINE->>Middleware: HTTP POST (Webhook Event)
+    Note over Middleware: ข้ามด่านเช็ค Cookie สิทธิ์ (Public Path Whitelisted)
+    Middleware->>Webhook: ส่งต่อไปยัง API Route
+    Webhook->>Webhook: ตรวจสอบลายเซ็น LINE (Signature Verification)
+    
+    alt ลูกค้ากดเลือก "เมนู" (Flex Message)
+        Webhook-->>LINE: ส่งคืนข้อความรูปโครงสร้างปุ่มกด (Flex Message Carousel) ทันที
+    else คุยแชททั่วไปกับ AI (ช่างเบน)
+        Webhook->>Gemini: ส่งข้อความพร้อมประวัติย้อนหลัง (History)
+        Gemini->>Webhook: ขอใช้ Tool (runCustomQuery: SQL)
+        Webhook->>Webhook: ตรวจกรองคำสั่ง SQL (SQL Security Filter)
+        
+        alt SQL ปลอดภัย (SELECT/WITH เท่านั้น)
+            Webhook->>DB: รันคำสั่งอ่านข้อมูล (Read-Only)
+            DB-->>Webhook: คืนข้อมูลผลลัพธ์ (มี BigInt)
+            Note over Webhook: แปลงประเภท BigInt เป็น Number (Prevent Serialization Error)
+            Webhook->>Gemini: ส่งผลข้อมูลที่คลีนแล้วกลับไปให้ AI วิเคราะห์
+            Gemini-->>Webhook: คืนคำตอบอธิบายเป็นภาษาธรรมดา (ลงท้ายด้วย "ครับ")
+            Webhook-->>LINE: ส่งข้อความตอบกลับพร้อมแถบเมนูลัด (Quick Replies)
+        else SQL ผิดกฎ (เช่น UPDATE, DELETE, INSERT)
+            Webhook-->>LINE: ส่งข้อความแจ้งเตือนความปลอดภัยทันที
+        end
     end
 ```
 
 ---
 
-## 2. ระบบป้องกันคำสั่งเขียนข้อมูล (Database Command Prevention)
+## 2. ระบบป้องกันคำสั่งเขียนข้อมูลและแก้ไขบั๊ก BigInt (DB Command & BigInt Safeguard)
 
-เพื่อป้องกันไม่ให้ AI หรือผู้ใช้งานหลอกล่อให้ AI เขียนคำสั่งทำลายข้อมูลในตาราง Production (SQL Injection / Jailbreak) เราต้องสร้างระบบตรวจสอบคำสั่ง SQL ที่เข้มงวดที่สุดในฝั่งแอปพลิเคชัน (Code-Level Safeguard)
+เพื่อป้องกันไม่ให้ AI หรือผู้ใช้งานหลอกล่อให้ AI เขียนคำสั่งทำลายข้อมูลในตาราง Production (SQL Jailbreak) และป้องกันไม่ให้เกิดความผิดพลาดในการส่งข้อมูลประเภท `BigInt` (เช่นคำสั่ง `COUNT(*)`) กลับไปยัง AI เราต้องออกแบบฟังก์ชันประมวลผลคำสั่ง SQL ดังนี้:
 
-### โค้ดต้นแบบฟังก์ชันคิวรี่ข้อมูลอย่างปลอดภัย (TypeScript)
+### โค้ดต้นแบบฟังก์ชันคิวรี่ข้อมูลอย่างปลอดภัย (`bot-queries.ts`)
 ```typescript
 import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
+/**
+ * แปลงค่า BigInt ทั้งหมดใน Object ให้เป็น Number แบบ Recursive
+ * ป้องกันความผิดพลาด TypeError: Do not know how to serialize a BigInt
+ */
+export function sanitizeBigInt(obj: any): any {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj === 'bigint') {
+    return Number(obj)
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeBigInt)
+  }
+  if (typeof obj === 'object') {
+    const res: Record<string, any> = {}
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        res[key] = sanitizeBigInt(obj[key])
+      }
+    }
+    return res
+  }
+  return obj
+}
+
 export async function runCustomQuery(sqlQuery: string) {
   // 1. ตัด SQL Comments ทั้งแบบบรรทัดเดียว (--) และหลายบรรทัด (/* */) ออกก่อนตรวจสอบ
-  // เพื่อป้องกันการซ่อนคำสั่งไว้ข้างหลังคอมเมนต์
   const stripped = sqlQuery
     .replace(/--[^\n]*/g, '')
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -59,35 +92,38 @@ export async function runCustomQuery(sqlQuery: string) {
     'INTO', 'UPSERT', 'REPLACE', 'DATABASE', 'SCHEMA', 'ROLE', 'USER', 'PASSWORD'
   ]
 
-  // 3. ตรวจสอบหาคำต้องห้ามโดยอ้างอิงขอบเขตคำ (\b) เพื่อป้องกันไม่ให้กระทบคำที่สะกดใกล้เคียงกัน
+  // 3. ตรวจสอบหาคำต้องห้ามโดยอ้างอิงขอบเขตคำ (\b)
   for (const word of forbiddenKeywords) {
     if (new RegExp('\\b' + word + '\\b', 'i').test(upper)) {
-      return { error: `⛔ ตรวจพบคำสั่งที่ไม่ปลอดภัย (${word}) ระบบอนุญาตเฉพาะ SELECT เท่านั้น` }
+      return { error: `⛔ ตรวจพบคำสั่งที่ไม่ปลอดภัย (${word}) ระบบอนุญาตเฉพาะ SELECT/WITH อ่านข้อมูลเท่านั้นครับ` }
     }
   }
 
-  // 4. บังคับว่าคำสั่งต้องเริ่มต้นด้วย SELECT หรือ WITH (สำหรับ CTE Read Queries) เท่านั้น
+  // 4. บังคับว่าคำสั่งต้องเริ่มต้นด้วย SELECT หรือ WITH เท่านั้น
   const isSelect = upper.startsWith('SELECT') || upper.startsWith('WITH')
   if (!isSelect) {
-    return { error: '⛔ คำสั่งต้องขึ้นต้นด้วย SELECT หรือ WITH เท่านั้น' }
+    return { error: '⛔ คำสั่งต้องขึ้นต้นด้วย SELECT หรือ WITH เท่านั้นครับ' }
   }
 
   // 5. ป้องกันคำสั่งซ้อน (Chained Queries) โดยห้ามมีเครื่องหมาย Semicolon (;)
   if (stripped.includes(';')) {
-    return { error: '⛔ ไม่อนุญาตให้รัน SQL หลายคำสั่งพร้อมกัน (ห้ามใช้เครื่องหมาย ;)' }
+    return { error: '⛔ ไม่อนุญาตให้รัน SQL หลายคำสั่งพร้อมกัน (ห้ามมีเครื่องหมาย ;)' }
   }
 
   try {
     // รันคำสั่งแบบ Read-Only
-    const result = await prisma.$queryRawUnsafe(sqlQuery) as any[]
+    const result = await prisma.$queryRawUnsafe(stripped) as any[]
     
-    // จำกัดจำนวนบรรทัดที่ส่งกลับไปหา AI เพื่อป้องกันปัญหา Token บวม
+    // จำกัดจำนวนแถวที่ส่งกลับไปหา AI เพื่อป้องกันปัญหา Token บวม
     const rows = result.slice(0, 20)
+    
+    // แปลงโครงสร้าง BigInt ก่อนทำ JSON.stringify
+    const sanitizedRows = sanitizeBigInt(rows)
     
     return {
       rowCount: result.length,
       shownRows: rows.length,
-      data: rows,
+      data: sanitizedRows,
     }
   } catch (err: any) {
     return { error: `เกิดข้อผิดพลาดในการดึงข้อมูล: ${err.message}` }
@@ -99,10 +135,10 @@ export async function runCustomQuery(sqlQuery: string) {
 
 ## 3. โครงสร้างฐานข้อมูลสำหรับเก็บข้อมูล LINE Bot (Database Schema Pattern)
 
-การทำ LINE Bot ที่มีประสิทธิภาพควรเก็บข้อมูลการใช้งานและประวัติการสนทนาของ AI เพื่อใช้อ้างอิงบริบท (Context History) และเก็บข้อมูลกลุ่ม/ผู้ใช้เพื่อใช้ทำระบบแจ้งเตือน (Notifications)
+ควรเก็บข้อมูลการใช้งานและประวัติการสนทนาของ AI เพื่อใช้เป็นประวัติอ้างอิงบริบท (Context History) และเก็บข้อมูลกลุ่ม/ผู้ใช้เพื่อใช้ทำระบบส่งการแจ้งเตือน (Push Notifications) ภายหลัง
 
 ```prisma
-// โครงสร้างตารางต้นแบบสำหรับ Prisma (PostgreSQL / MySQL)
+// ตารางต้นแบบสำหรับ Prisma (PostgreSQL / MySQL)
 
 model LineUser {
   id             String   @id @default(cuid())
@@ -151,40 +187,31 @@ model ChatLog {
 
 ---
 
-## 4. ระบบวิเคราะห์บริบทและการใช้ Tool (Gemini AI Client)
+## 4. ระบบวิเคราะห์บริบทและการใช้ Tool (Gemini AI Client Pattern)
 
-เมื่อได้รับข้อความเข้ามา AI จะพิจารณาว่าจำเป็นต้องดึงข้อมูลจาก DB หรือไม่ หากจำเป็นมันจะเรียกฟังก์ชัน `runCustomQuery` เพื่อรันคำสั่ง SQL ที่ปลอดภัย
+เมื่อได้รับข้อความเข้ามา AI จะพิจารณาว่าจำเป็นต้องดึงข้อมูลจาก DB หรือไม่ หากจำเป็นจะเรียกฟังก์ชัน `runCustomQuery` เพื่อรันคำสั่ง SQL ที่ปลอดภัย โครงสร้างการคืนค่า Tool Response ต้องเป็นโครงสร้าง `functionResponse` ที่ตรงตามสเปกของ Google Generative AI SDK:
 
 ```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai'
 import { runCustomQuery } from './bot-queries'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
-const SYSTEM_PROMPT = `คุณคือ "ช่างเบน" บอทวิเคราะห์ฐานข้อมูลระบบ...
-หน้าที่ของคุณคือช่วยตอบคำถามของผู้ใช้งานโดยวิเคราะห์จากฐานข้อมูล
-
-กฎสำคัญ:
-- ถ้าผู้ใช้ถามหาข้อมูลในตาราง ให้เรียกฟังก์ชัน 'runCustomQuery' เพื่อดึงข้อมูลด้วยคำสั่ง SELECT
-- ห้ามดึงพาสเวิร์ดผู้ใช้เด็ดขาด
-- ให้ตอบคำถามอย่างเป็นมิตร สุภาพ ลงท้ายด้วยครับ`
-
-export async function askBen(userMessage: string, history: any[], userContext: any) {
+export async function askBen(userMessage: string, history: any[]) {
   const model = genAI.getGenerativeModel({
     model: 'gemini-3.5-flash',
-    systemInstruction: SYSTEM_PROMPT,
-    // ประกาศฟังก์ชันให้ AI สามารถเรียกใช้ได้ (Function Calling)
+    systemInstruction: `คุณคือ "ช่างเบน" บอทวิเคราะห์ฐานข้อมูลระบบ... สุภาพ ลงท้ายด้วยครับ`,
     tools: [{
       functionDeclarations: [
         {
           name: 'runCustomQuery',
-          description: 'รันคำสั่ง SQL (เฉพาะ SELECT เท่านั้น) เพื่อดึงข้อมูลประกอบการตอบคำถามผู้ใช้',
+          description: 'รันคำสั่ง SQL PostgreSQL เพื่อดึงข้อมูลประกอบการตอบคำถามผู้ใช้',
           parameters: {
-            type: 'OBJECT',
+            type: SchemaType.OBJECT,
             properties: {
               sqlQuery: {
-                type: 'STRING',
-                description: 'คำสั่ง SQL ภาษา PostgreSQL แท้ๆ ที่เป็น SELECT เพื่อดึงข้อมูล'
+                type: SchemaType.STRING,
+                description: 'คำสั่ง SQL PostgreSQL แท้ๆ (SELECT/WITH เท่านั้น)'
               }
             },
             required: ['sqlQuery']
@@ -196,11 +223,9 @@ export async function askBen(userMessage: string, history: any[], userContext: a
 
   const chat = model.startChat({ history })
   let response = await chat.sendMessage(userMessage)
-
   let iterations = 0
   const maxIterations = 5
 
-  // วนลูปรับคำขอใช้ Tool จาก AI (จนกว่า AI จะได้ข้อมูลครบถ้วนแล้วตอบเป็นข้อความธรรมดา)
   while (iterations < maxIterations) {
     const candidate = response.response.candidates?.[0]
     const functionCalls = candidate?.content?.parts?.filter(p => p.functionCall) || []
@@ -214,117 +239,253 @@ export async function askBen(userMessage: string, history: any[], userContext: a
 
       if (fc.name === 'runCustomQuery') {
         const args = fc.args as { sqlQuery: string }
-        // ส่งต่อไปยังระบบตรวจสอบความปลอดภัยของ SQL
         result = await runCustomQuery(args.sqlQuery)
       } else {
         result = { error: 'Unknown tool call' }
       }
 
+      // รูปแบบที่ถูกต้องในการส่งผลลัพธ์กลับไปให้ AI SDK
       functionResponses.push({
-        response: { name: fc.name, content: result }
+        functionResponse: {
+          name: fc.name,
+          response: result as object
+        }
       })
     }
 
-    // ส่งผลลัพธ์จากการรัน SQL กลับไปให้ AI พิจารณาตอบ
     response = await chat.sendMessage(functionResponses)
     iterations++
   }
 
   return {
     text: response.response.text(),
-    inputTokens: response.response.usageMetadata?.promptTokenCount,
-    outputTokens: response.response.usageMetadata?.candidatesTokenCount,
-    modelName: 'gemini-3.5-flash'
+    inputTokens: response.response.usageMetadata?.promptTokenCount || 0,
+    outputTokens: response.response.usageMetadata?.candidatesTokenCount || 0
   }
 }
 ```
 
 ---
 
-## 5. ระบบรับ Webhook ของ LINE API และตรวจสอบลายเซ็น (Next.js App Router)
+## 5. อินเตอร์เฟสระดับพรีเมียม (Quick Replies & Flex Carousel Menu)
 
-หัวใจของการทำ Webhook คือต้อง **ตรวจสอบลายเซ็น (Signature Verification)** จาก LINE เสมอเพื่อตรวจสอบว่าข้อมูลมาจากไลน์จริงๆ ไม่ใช่ถูกสแปมด้วยโปรแกรมอื่น และต้องจัดการการหน่วงเวลาไม่ให้ LINE คิวหมดเวลา (ต้องตอบ HTTP 200 ทันที แล้วทำงานประมวลผลต่อด้านหลัง)
+การสร้างประสบการณ์ใช้งานที่ยอดเยี่ยมแก่ผู้ใช้งาน (WOW Experience) สามารถทำได้โดยแนบเมนูลัด **Quick Reply** ไปกับทุกข้อความตอบกลับ และสร้าง **Flex Message Carousel** เพื่อเป็นเมนูตัวเลือกสำหรับให้ผู้ใช้สามารถกดใช้คำสั่งต่างๆ ได้ง่าย
 
+### โค้ดส่งข้อความและสร้างปุ่มกดลัด (`src/lib/line.ts`)
 ```typescript
-// src/app/api/line/webhook/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
-import { askBen } from '@/lib/gemini'
-
-// 1. ฟังก์ชันตรวจสอบลายเซ็นความปลอดภัย
-function verifySignature(body: string, signature: string, channelSecret: string): boolean {
-  const hash = crypto
-    .createHmac('sha256', channelSecret)
-    .update(body)
-    .digest('base64')
-  return hash === signature
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const channelSecret = process.env.LINE_CHANNEL_SECRET || ''
-    const body = await req.text() // อ่านข้อมูลดิบ (Raw Body) สำหรับแกะ Hashed Signature
-    const signature = req.headers.get('x-line-signature') ?? ''
-
-    if (!verifySignature(body, signature, channelSecret)) {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    }
-
-    const payload = JSON.parse(body)
-    const events = payload.events || []
-
-    // 2. ทำงานเบื้องหลัง (Background Worker Pattern)
-    // ส่ง HTTP 200 ทันทีเพื่อป้องกันบอทหน่วงเกิน 5 วินาทีแล้วบอทค้าง
-    Promise.allSettled(events.map(async (event: any) => {
-      if (event.type === 'message' && event.message.type === 'text') {
-        const text = event.message.text
-        const replyToken = event.replyToken
-        
-        // รัน AI ถาม-ตอบ
-        const result = await askBen(text, [], { userId: event.source.userId })
-        
-        // ส่งข้อความกลับหาผู้ใช้ผ่าน LINE Messaging API
-        await sendLineReply(replyToken, result.text)
+export const quickReplyItems = {
+  items: [
+    {
+      type: 'action',
+      action: {
+        type: 'message',
+        label: '📊 สรุปสถิติเคลม',
+        text: 'ช่างเบน สรุปสถิติเคลมหน่อยครับ'
       }
-    })).catch(err => console.error('[Webhook process error]', err))
-
-    return NextResponse.json({ ok: true })
-  } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
-  }
+    },
+    {
+      type: 'action',
+      action: {
+        type: 'message',
+        label: '🔧 สรุปงานซ่อมค้าง',
+        text: 'ช่างเบน สรุปงานซ่อมค้างทั้งหมดให้หน่อยครับ'
+      }
+    },
+    {
+      type: 'action',
+      action: {
+        type: 'message',
+        label: '📖 แนะนำวิธีใช้งาน',
+        text: 'ช่างเบน แนะนำวิธีใช้งานหน่อยครับ'
+      }
+    }
+  ]
 }
 
-// 3. ฟังก์ชันส่งข้อความตอบกลับหา LINE
-async function sendLineReply(replyToken: string, text: string) {
-  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN || ''
+export async function replyMessage(replyToken: string, messages: any[]) {
   await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
     },
-    body: JSON.stringify({
-      replyToken: replyToken,
-      messages: [{ type: 'text', text }]
-    })
+    body: JSON.stringify({ replyToken, messages })
   })
+}
+
+export async function replyText(replyToken: string, text: string) {
+  // แนบ Quick Reply ไปกับทุกข้อความ Text เพื่อความสะดวกของผู้ใช้งาน
+  await replyMessage(replyToken, [{
+    type: 'text',
+    text,
+    quickReply: quickReplyItems
+  }])
+}
+
+export function getMenuMessage() {
+  const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID}`
+  return {
+    type: 'flex',
+    altText: '📖 เมนูคำสั่งช่างเบน (Ben Bot)',
+    contents: {
+      type: 'carousel',
+      contents: [
+        // Bubble 1: แนะนำวิธีการพิมพ์
+        {
+          type: 'bubble',
+          size: 'mega',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🤖 ช่างเบน (Ben Bot)', weight: 'bold', size: 'xl', color: '#ffffff' },
+              { type: 'text', text: 'ผู้ช่วยระบบงานเคลมและใบสั่งซ่อมสี', size: 'xs', color: '#FFE0B2', margin: 'xs' }
+            ],
+            backgroundColor: '#FF6D00',
+            paddingAll: 'lg'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'md',
+            contents: [
+              { type: 'text', text: '💡 วิธีพิมพ์สั่งการ', weight: 'bold', size: 'sm', color: '#FF6D00' },
+              {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'xs',
+                contents: [
+                  {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                      { type: 'text', text: '• แชทเดี่ยว:', size: 'xs', weight: 'bold', color: '#555555', flex: 3 },
+                      { type: 'text', text: 'พิมพ์ถามได้ตรงๆ เลยครับ', size: 'xs', color: '#666666', flex: 7 }
+                    ]
+                  },
+                  {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                      { type: 'text', text: '• แชทกลุ่ม:', size: 'xs', weight: 'bold', color: '#555555', flex: 3 },
+                      { type: 'text', text: 'พิมพ์ "ช่างเบน" นำหน้าคำถามครับ', size: 'xs', color: '#666666', flex: 7 }
+                    ]
+                  }
+                ]
+              }
+            ],
+            paddingAll: 'lg'
+          }
+        },
+        // Bubble 2: รายงานการเคลมสี
+        {
+          type: 'bubble',
+          size: 'mega',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '📊 งานเคลม & สถิติสี', weight: 'bold', size: 'lg', color: '#ffffff' },
+              { type: 'text', text: 'ดูสถิติและข้อมูลเคลมรถยนต์หลัก', size: 'xs', color: '#DBEAFE', margin: 'xs' }
+            ],
+            backgroundColor: '#2563EB',
+            paddingAll: 'lg'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'md',
+            contents: [
+              {
+                type: 'box',
+                layout: 'horizontal',
+                action: { type: 'message', label: 'สรุปสถิติเคลม', text: 'ช่างเบน สรุปสถิติเคลมหน่อยครับ' },
+                contents: [
+                  { type: 'text', text: '📊 สรุปสถิติเคลม', size: 'xs', weight: 'bold', color: '#2563EB', flex: 6 },
+                  { type: 'text', text: 'ดูยอดวิเคราะห์ใบเคลม', size: 'xs', color: '#888888', align: 'end', flex: 4 }
+                ]
+              }
+            ],
+            paddingAll: 'lg'
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: 'lg',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#2563EB',
+                height: 'sm',
+                action: { type: 'uri', label: '📊 เปิดดูแดชบอร์ด', uri: `${liffUrl}?path=/dashboard` }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
 }
 ```
 
 ---
 
-## 6. สรุปเช็คลิสต์ขั้นตอนการนำไปประยุกต์ใช้ (Implementation Checklist)
+## 6. การกำหนดสิทธิ์เข้าถึงสาธารณะของ Webhook ใน Next.js Middleware
+
+ในระบบที่มีการใช้ JWT/Cookie Auth ป้องกัน API ทั้งหมดใน Middleware สัญญาณเรียกเข้า (POST Webhook) จาก LINE Platform จะถูกบล็อกจนทำให้เกิดข้อผิดพลาด `401 Unauthorized` ทันที เนื่องจากบอทของ LINE ไม่มี Cookie รหัสผ่านของเรา จึงจำเป็นต้องยกเว้นเส้นทาง Webhook ไว้ดังนี้:
+
+### โค้ดต้นแบบของ Middleware (`middleware.ts`)
+```typescript
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // 1. ระบุรายชื่อ Path ที่ข้ามด่านการตรวจเช็ค Token/Cookie ได้
+  const isPublicPath = 
+    pathname === '/login' ||
+    pathname.startsWith('/api/auth/') ||
+    pathname.startsWith('/api/line/webhook') || // ยกเว้น LINE Webhook
+    pathname.startsWith('/_next') ||
+    pathname.includes('.')
+
+  if (isPublicPath) {
+    return NextResponse.next()
+  }
+
+  // 2. ด่านการตรวจสิทธิ์และ Cookies ปกติ
+  const token = request.cookies.get('expert-token')?.value
+  if (!token) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
+}
+```
+
+---
+
+## 7. สรุปเช็คลิสต์ขั้นตอนการนำไปประยุกต์ใช้ (Implementation Checklist)
 
 1. [ ] **ตั้งค่า `.env`**: บันทึก `GEMINI_API_KEY`, `LINE_CHANNEL_SECRET`, และ `LINE_CHANNEL_ACCESS_TOKEN`
 2. [ ] **เขียนโมเดลใน `schema.prisma`**: ปรับแต่งตาราง LINE บอทตามโปรเจกต์
 3. [ ] **รัน Migration แบบปลอดภัย**: สร้างและ Deploy ด้วยคำสั่ง `prisma migrate`
     > [!CAUTION]
     > **ข้อควรระวังอย่างยิ่งเกี่ยวกับขั้นตอนการซิงก์ฐานข้อมูล (Database Sync Safeguard)**:
-    > ก่อนเริ่มทำการซิงก์ตารางใหม่ลงสู่ฐานข้อมูล ให้ดำเนินการตรวจสอบก่อนเสมอ:
-    > - ตรวจสอบว่าโปรเจกต์เป้าหมายใช้แนวทางการย้ายข้อมูลแบบใด: หากโปรเจกต์ใช้ **Prisma Migrate** (มีโฟลเดอร์ `prisma/migrations`) **ต้องใช้คำสั่ง `prisma migrate` เท่านั้น** ห้ามใช้ `db push` เด็ดขาด เพื่อป้องกันความเสียหายของข้อมูลเดิมบน Production
-    > - ห้ามทำให้ข้อมูลเดิมในตารางอื่นๆ เสียหายเป็นอันขาด และควรทดสอบจำลองบน Local/Staging ก่อนเสมอ
-4. [ ] **สร้างไฟล์ควบคุมความปลอดภัย SQL (`bot-queries.ts`)**: คัดลอกระบบฟิลเตอร์ และตรวจสอบว่า syntax ตรงกับ Database Engine นั้นๆ
-5. [ ] **เขียนฟังก์ชันเชื่อมต่อ AI (`gemini.ts`)**: แนะนำ Prompt วิธีการ JOIN ตารางของระบบนั้นๆ ให้ AI ทราบล่วงหน้าใน System Prompt
-6. [ ] **สร้าง Webhook API Route**: เชื่อมเส้นทางของ LINE Developers เข้ากับเซิร์ฟเวอร์
-
+    > ก่อนเริ่มทำการซิงก์ตารางใหม่ลงสู่ฐานข้อมูล ให้ดำเนินการตรวจสอบก่อนเสมอว่าโปรเจกต์เป้าหมายใช้แนวทางการย้ายข้อมูลแบบใด: หากโปรเจกต์ใช้ **Prisma Migrate** (มีโฟลเดอร์ `prisma/migrations`) **ต้องใช้คำสั่ง `prisma migrate` เท่านั้น** ห้ามใช้ `db push` เด็ดขาด เพื่อป้องกันความเสียหายของข้อมูลเดิมบน Production
+4. [ ] **ยกเว้น Webhook ใน `middleware.ts`**: เพิ่ม `/api/line/webhook` ไปในข้อยกเว้น Public Path เพื่อเลี่ยงข้อผิดพลาด 401
+5. [ ] **สร้างไฟล์ควบคุมความปลอดภัย SQL (`bot-queries.ts`)**: คัดลอกระบบฟิลเตอร์คำต้องห้าม, บล็อก Chained Query และทำการกรองแปลง `BigInt` ป้องกันข้อผิดพลาดในการแปลงเป็น JSON
+6. [ ] **เขียนฟังก์ชันเชื่อมต่อ AI (`gemini.ts`)**: ระบุวิธีการดึงข้อมูลอ้างอิง และแปลงค่าส่งกลับ Tool ด้วยฟังก์ชันโครงสร้าง `functionResponse`
+7. [ ] **สร้าง Webhook API Route (`route.ts`)**: เชื่อมเส้นทางของ LINE Developers เข้ากับเซิร์ฟเวอร์ โดยส่ง HTTP 200 ทันทีแล้วย้ายงานรันด้วย Pattern Background Worker เพื่อไม่ให้เกิดปัญหาสายหลุด (Timeout)
+8. [ ] **ติดตั้ง Flex Carousel และ Quick Menu**: เพื่อเพิ่มความง่ายและสะดวกในการคิวรี่รายงานสถิติต่างๆ แบบ WOW Design

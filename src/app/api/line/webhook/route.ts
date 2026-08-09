@@ -5,6 +5,8 @@ import { askBen } from '@/lib/gemini'
 import {
   lineConfig,
   replyText,
+  replyMessage,
+  getMenuMessage,
   getProfile,
   saveGroupToDb,
   deactivateGroupInDb,
@@ -114,6 +116,14 @@ async function handleWebhookEvent(event: any) {
     }
 
     if (!shouldProcess || !strippedText) return
+
+    // ตรวจสอบเมนูคำสั่งเพื่อตอบกลับด้วย Flex Message Carousel
+    const checkMenu = strippedText.toLowerCase()
+    const menuTriggers = ['เมนู', 'menu', 'help', 'ช่วย', 'คำสั่ง', 'ทำอะไรได้บ้าง']
+    if (menuTriggers.some((t) => checkMenu === t)) {
+      await replyMessage(replyToken, [getMenuMessage()])
+      return
+    }
 
     const startTime = Date.now()
     console.log(`[ช่างเบน AI] กำลังประมวลผลข้อความ: "${strippedText}" (จาก: ${chatSourceId})`)
