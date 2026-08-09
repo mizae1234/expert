@@ -133,9 +133,13 @@ async function handleWebhookEvent(event: any) {
     if (!shouldProcess || !strippedText) return
 
     // ตรวจสอบเมนูคำสั่งเพื่อตอบกลับด้วย Flex Message Carousel
-    const checkMenu = strippedText.toLowerCase()
-    const menuTriggers = ['เมนู', 'menu', 'help', 'ช่วย', 'คำสั่ง', 'ทำอะไรได้บ้าง']
-    if (menuTriggers.some((t) => checkMenu === t)) {
+    const checkMenu = strippedText.toLowerCase().replace(/\s+/g, '')
+    const menuTriggers = [
+      'เมนู', 'menu', 'help', 'คู่มือ', 
+      'วิธีใช้งาน', 'แนะนำวิธีใช้งาน', 'แนะนำการใช้งาน', 
+      'ทำอะไรได้บ้าง', 'ใช้งานยังไง', 'คำสั่ง'
+    ]
+    if (menuTriggers.some((t) => checkMenu.includes(t))) {
       await replyMessage(replyToken, [getMenuMessage()])
       return
     }
