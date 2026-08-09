@@ -669,6 +669,7 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  lineUsers LineUser[]
 }
 
 model Customer {
@@ -782,4 +783,49 @@ model ServiceLog {
   createdAt      DateTime     @default(now())
 
   @@index([serviceOrderId])
+}
+
+model LineUser {
+  id             String   @id @default(cuid())
+  lineUserId     String   @unique @map("line_user_id") @db.VarChar(50)
+  displayName    String?  @map("display_name") @db.VarChar(255)
+  pictureUrl     String?  @map("picture_url") @db.Text
+  statusMessage  String?  @map("status_message") @db.VarChar(255)
+  system         String   @default("EXPERT") @map("system") @db.VarChar(50)
+  isActive       Boolean  @default(true) @map("is_active")
+  role           String   @default("USER") @map("role") @db.VarChar(20)
+  userId         String?  @map("user_id")
+  user           User?    @relation(fields: [userId], references: [id])
+  registeredAt   DateTime @default(now()) @map("registered_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("line_users")
+}
+
+model LineGroup {
+  id             String   @id @default(cuid())
+  groupId        String   @unique @map("group_id") @db.VarChar(50)
+  groupName      String?  @map("group_name") @db.VarChar(255)
+  groupType      String   @default("group") @map("group_type") @db.VarChar(20)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("line_groups")
+}
+
+model ChatLog {
+  id             String   @id @default(cuid())
+  sourceType     String   @map("source_type") @db.VarChar(20)
+  sourceId       String?  @map("source_id") @db.VarChar(50)
+  userName       String?  @map("user_name") @db.VarChar(255)
+  userMessage    String   @map("user_message") @db.Text
+  botReply       String   @map("bot_reply") @db.Text
+  inputTokens    Int?     @map("input_tokens")
+  outputTokens   Int?     @map("output_tokens")
+  modelName      String?  @map("model_name") @db.VarChar(50)
+  responseTimeMs Int?     @map("response_time_ms")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("chat_logs")
 }
