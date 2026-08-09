@@ -324,34 +324,6 @@ export function getMenuMessage() {
                 type: 'box',
                 layout: 'horizontal',
                 action: {
-                  type: 'uri',
-                  label: 'ประวัติล็อกการคุย',
-                  uri: `${liffUrl}?path=${encodeURIComponent('/chatlogs')}`
-                },
-                contents: [
-                  {
-                    type: 'text',
-                    text: '4. ประวัติล็อกการคุย',
-                    size: 'xs',
-                    weight: 'bold',
-                    color: '#1d4ed8',
-                    flex: 5
-                  },
-                  {
-                    type: 'text',
-                    text: 'ดูตารางแชทบอทระบบ AI',
-                    size: 'xs',
-                    color: '#64748b',
-                    flex: 5,
-                    align: 'end'
-                  }
-                ]
-              },
-              // ข้อ 5
-              {
-                type: 'box',
-                layout: 'horizontal',
-                action: {
                   type: 'message',
                   label: 'ค้นหาทะเบียนรถ',
                   text: 'ช่างเบน ช่วยค้นหาทะเบียนรถหน่อยครับ'
@@ -359,7 +331,7 @@ export function getMenuMessage() {
                 contents: [
                   {
                     type: 'text',
-                    text: '5. ค้นหาทะเบียน [ทะเบียน]',
+                    text: '4. ค้นหาทะเบียน [ทะเบียน]',
                     size: 'xs',
                     weight: 'bold',
                     color: '#1d4ed8',
@@ -375,7 +347,7 @@ export function getMenuMessage() {
                   }
                 ]
               },
-              // ข้อ 6
+              // ข้อ 5
               {
                 type: 'box',
                 layout: 'horizontal',
@@ -387,7 +359,7 @@ export function getMenuMessage() {
                 contents: [
                   {
                     type: 'text',
-                    text: '6. เปิดดูแดชบอร์ด',
+                    text: '5. เปิดดูแดชบอร์ด',
                     size: 'xs',
                     weight: 'bold',
                     color: '#1d4ed8',
