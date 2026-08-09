@@ -81,6 +81,48 @@ export async function replyText(replyToken: string, text: string) {
 }
 
 /**
+ * ─── pushMessage ───
+ * ส่งชุดข้อความดิบ (เช่น Text, Flex, Carousel) ไปยังผู้ใช้หรือกลุ่มเป้าหมาย (ไม่ต้องใช้ replyToken)
+ */
+export async function pushMessage(to: string, messages: any[]) {
+  if (!lineConfig.channelAccessToken) {
+    console.error('[LINE pushMessage] Access Token missing')
+    return
+  }
+  try {
+    const res = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${lineConfig.channelAccessToken}`,
+      },
+      body: JSON.stringify({
+        to,
+        messages,
+      }),
+    })
+    if (!res.ok) {
+      const errText = await res.text()
+      console.error('[LINE pushMessage failed]', errText)
+    }
+  } catch (err: any) {
+    console.error('[LINE pushMessage Error]', err.message)
+  }
+}
+
+/**
+ * ─── pushText ───
+ * ส่งข้อความธรรมดา (Text) พร้อมเมนูลัดไปยังปลายทาง
+ */
+export async function pushText(to: string, text: string) {
+  await pushMessage(to, [{
+    type: 'text',
+    text,
+    quickReply: quickReplyItems,
+  }])
+}
+
+/**
  * ─── getMenuMessage ───
  * คอนฟิกโครงสร้าง Flex Carousel เมนูคำสั่งของช่างเบน
  */

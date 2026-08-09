@@ -6,6 +6,7 @@ import {
   lineConfig,
   replyText,
   replyMessage,
+  pushText,
   getMenuMessage,
   getProfile,
   saveGroupToDb,
@@ -177,8 +178,8 @@ async function handleWebhookEvent(event: any) {
       // ถามบอทช่างเบนผ่าน Gemini
       const aiResult = await askBen(strippedText, history, userContext)
 
-      // ส่งผลลัพธ์ตอบกลับไปยัง LINE
-      await replyText(replyToken, aiResult.text)
+      // ส่งผลลัพธ์ตอบกลับไปยัง LINE ด้วย Push Message เพื่อป้องกันปัญหา Timeout (5 วินาที) ของ Reply Token
+      await pushText(chatSourceId, aiResult.text)
 
       const responseTimeMs = Date.now() - startTime
 
@@ -200,7 +201,7 @@ async function handleWebhookEvent(event: any) {
       console.log(`[ช่างเบน AI] ตอบกลับผู้ใช้เสร็จสิ้นภายใน ${responseTimeMs}ms (Tokens: ${aiResult.inputTokens + aiResult.outputTokens})`)
     } catch (err: any) {
       console.error('[ช่างเบน AI] เกิดข้อผิดพลาดในการรันบอท:', err.message)
-      await replyText(replyToken, `ขออภัยครับช่างเบนเกิดข้อผิดพลาดเล็กน้อย: ${err.message} รบกวนลองใหม่อีกครั้งนะครับ 🔧`)
+      await pushText(chatSourceId, `ขออภัยครับช่างเบนเกิดข้อผิดพลาดเล็กน้อย: ${err.message} รบกวนลองใหม่อีกครั้งนะครับ 🔧`)
     }
   }
 }
