@@ -31,6 +31,15 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text()
     const signature = req.headers.get('x-line-signature') ?? ''
 
+    console.log('[LINE Webhook Debug]', {
+      hasSecret: !!lineConfig.channelSecret,
+      secretLength: lineConfig.channelSecret?.length,
+      hasToken: !!lineConfig.channelAccessToken,
+      signature: signature,
+      rawBodyLength: rawBody?.length,
+      rawBodyPreview: rawBody?.substring(0, 150)
+    })
+
     // ตรวจสอบความถูกต้องของข้อมููลทางความปลอดภัย
     if (!verifySignature(rawBody, signature)) {
       console.warn('[LINE Webhook] Invalid Signature received.')
