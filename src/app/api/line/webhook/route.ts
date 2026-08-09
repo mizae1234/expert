@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import fs from 'fs'
+import path from 'path'
 import prisma from '@/lib/prisma'
 import { askBen } from '@/lib/gemini'
 import {
@@ -33,6 +35,14 @@ export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text()
     const signature = req.headers.get('x-line-signature') ?? ''
+
+    // บันทึก Log การยิง Webhook ขาเข้าลงไฟล์ในเครื่องเพื่อดีบั๊ก
+    try {
+      const logMsg = `${new Date().toISOString()} | Webhook Received | Signature: ${signature.substring(0, 10)}... | Body Length: ${rawBody.length}\n`
+      fs.appendFileSync(path.join(process.cwd(), 'webhook_debug.log'), logMsg)
+    } catch (err) {
+      console.error('[LINE Webhook] Failed to write webhook_debug.log:', err)
+    }
 
     // ตรวจสอบความถูกต้องของข้อมููลทางความปลอดภัย
     if (!verifySignature(rawBody, signature)) {
@@ -182,10 +192,15 @@ async function handleWebhookEvent(event: any) {
       // ถามบอทช่างเบนผ่าน Gemini
       const aiResult = await askBen(strippedText, history, userContext)
 
-      // ส่งผลลัพธ์ตอบกลับไปยัง LINE ด้วย Push Message เพื่อป้องกันปัญหา Timeout (5 วินาที) ของ Reply Token
-      await pushText(chatSourceId, aiResult.text)
-
       const responseTimeMs = Date.now() - startTime
+
+      // หากตอบกลับเร็ว (ต่ำกว่า 4.5 วินาที) ให้ใช้ replyText ทันทีเพื่อไม่กินโควต้า Push Message และเพื่อความเสถียร
+      // หากคิวรี่ช้ากว่านั้น ให้ใช้ pushText เพื่อเลี่ยงปัญหาหมดอายุของ Reply Token ของ LINE (5 วินาที)
+      if (responseTimeMs < 4500) {
+        await replyText(replyToken, aiResult.text)
+      } else {
+        await pushText(chatSourceId, aiResult.text)
+      }
 
       // บันทึกประวัติลง ChatLog
       await prisma.chatLog.create({
@@ -205,7 +220,12 @@ async function handleWebhookEvent(event: any) {
       console.log(`[ช่างเบน AI] ตอบกลับผู้ใช้เสร็จสิ้นภายใน ${responseTimeMs}ms (Tokens: ${aiResult.inputTokens + aiResult.outputTokens})`)
     } catch (err: any) {
       console.error('[ช่างเบน AI] เกิดข้อผิดพลาดในการรันบอท:', err.message)
-      await pushText(chatSourceId, `ขออภัยครับช่างเบนเกิดข้อผิดพลาดเล็กน้อย: ${err.message} รบกวนลองใหม่อีกครั้งนะครับ 🔧`)
+      const responseTimeMs = Date.now() - startTime
+      if (responseTimeMs < 4500) {
+        await replyText(replyToken, `ขออภัยครับช่างเบนเกิดข้อผิดพลาดเล็กน้อย: ${err.message} รบกวนลองใหม่อีกครั้งนะครับ 🔧`)
+      } else {
+        await pushText(chatSourceId, `ขออภัยครับช่างเบนเกิดข้อผิดพลาดเล็กน้อย: ${err.message} รบกวนลองใหม่อีกครั้งนะครับ 🔧`)
+      }
     }
   }
 }
