@@ -48,16 +48,40 @@ export async function runCustomQuery(params: { sqlQuery: string }) {
     
     // จำกัดจำนวนผลลัพธ์ไม่เกิน 20 แถว เพื่อป้องกันปัญหา Token บวม
     const rows = result.slice(0, 20)
+    const sanitizedRows = sanitizeBigInt(rows)
 
     return {
       rowCount: result.length,
       shownRows: rows.length,
-      data: rows,
+      data: sanitizedRows,
     }
   } catch (err: any) {
     console.error('[runCustomQuery] DB Error:', err.message)
     return { error: `เกิดข้อผิดพลาดในการดึงข้อมูลจาก DB: ${err.message}` }
   }
+}
+
+/**
+ * ฟังก์ชันแปลงค่า BigInt เป็น Number ป้องกันความผิดพลาดในการแปลงเป็น JSON
+ */
+function sanitizeBigInt(obj: any): any {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj === 'bigint') {
+    return Number(obj)
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeBigInt)
+  }
+  if (typeof obj === 'object') {
+    const res: Record<string, any> = {}
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        res[key] = sanitizeBigInt(obj[key])
+      }
+    }
+    return res
+  }
+  return obj
 }
 
 /**
