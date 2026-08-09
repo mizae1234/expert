@@ -254,6 +254,104 @@ export async function getServiceJobsSummaryReport() {
   }
 }
 
+/**
+ * ─── getSalesReport ───
+ * สรุปรายงานยอดขายรวม แบ่งเป็นยอดงานเคลมประกัน และยอดงานบริการทั่วไป (คิวรี่ตรงจากเซิร์ฟเวอร์ความเร็วสูง)
+ */
+export async function getSalesReport(type: 'today' | 'all') {
+  try {
+    let dateFilter = {}
+    if (type === 'today') {
+      const now = new Date()
+      // BKK timezone offset (เซ็ตเริ่มและสิ้นสุดวันในไทย)
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+      
+      // แปลงเวลาให้เทียบกับ UTC ใน database (หักลบเวลา +7 ชั่วโมง)
+      const utcStart = new Date(startOfDay.getTime() - 7 * 60 * 60 * 1000)
+      const utcEnd = new Date(endOfDay.getTime() - 7 * 60 * 60 * 1000)
+      
+      dateFilter = {
+        createdAt: {
+          gte: utcStart,
+          lte: utcEnd
+        }
+      }
+    }
+
+    // 1. งานบริการทั่วไป (ServiceOrder)
+    const serviceOrders = await prisma.serviceOrder.findMany({
+      where: dateFilter,
+      select: { grandTotal: true }
+    })
+    const serviceOrdersCount = serviceOrders.length
+    const serviceOrdersSum = serviceOrders.reduce((sum, item) => sum + item.grandTotal, 0)
+
+    // 2. งานเคลมประกัน (Claim)
+    const claims = await prisma.claim.findMany({
+      where: dateFilter,
+      select: { id: true }
+    })
+    const claimsCount = claims.length
+    
+    // ดึงยอดอนุมัติของใบเคลมเหล่านี้
+    let claimsSum = 0
+    if (claimsCount > 0) {
+      const claimIds = claims.map(c => c.id)
+      
+      // ดึงข้อมูล ClaimPart ของเคลมกลุ่มนี้
+      const parts = await prisma.claimPart.findMany({
+        where: {
+          claimId: { in: claimIds },
+          status: 'approved'
+        },
+        select: { priceApprove: true, quantity: true }
+      })
+      const partsAmt = parts.reduce((sum, p) => sum + (p.priceApprove * p.quantity), 0)
+
+      // ดึงข้อมูล ClaimLabor ของเคลมกลุ่มนี้
+      const labors = await prisma.claimLabor.findMany({
+        where: {
+          claimId: { in: claimIds },
+          status: 'approved'
+        },
+        select: { priceApprove: true }
+      })
+      const laborAmt = labors.reduce((sum, l) => sum + l.priceApprove, 0)
+      
+      claimsSum = partsAmt + laborAmt
+    }
+
+    const totalSales = serviceOrdersSum + claimsSum
+    const totalBills = serviceOrdersCount + claimsCount
+    const averagePerBill = totalBills > 0 ? Math.round(totalSales / totalBills) : 0
+
+    return {
+      type,
+      totalSales,
+      totalBills,
+      averagePerBill,
+      claimsSum,
+      claimsCount,
+      serviceOrdersSum,
+      serviceOrdersCount
+    }
+  } catch (err: any) {
+    console.error('[getSalesReport] Error:', err.message)
+    return {
+      type,
+      totalSales: 0,
+      totalBills: 0,
+      averagePerBill: 0,
+      claimsSum: 0,
+      claimsCount: 0,
+      serviceOrdersSum: 0,
+      serviceOrdersCount: 0,
+      error: err.message
+    }
+  }
+}
+
 // แผนที่จับคู่งานสำหรับเรียกใช้ใน Gemini AI
 export const botFunctions: Record<string, (params: Record<string, any>) => Promise<any>> = {
   runCustomQuery: (p) => runCustomQuery(p as { sqlQuery: string }),
@@ -261,4 +359,5 @@ export const botFunctions: Record<string, (params: Record<string, any>) => Promi
   searchServiceOrder: (p) => searchServiceOrder(p as { keyword: string }),
   getClaimsSummaryReport: () => getClaimsSummaryReport(),
   getServiceJobsSummaryReport: () => getServiceJobsSummaryReport(),
+  getSalesReport: (p) => getSalesReport(p.type as 'today' | 'all'),
 }

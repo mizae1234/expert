@@ -13,9 +13,10 @@ import {
   getProfile,
   saveGroupToDb,
   deactivateGroupInDb,
-  handleFollow
+  handleFollow,
+  getSalesReportMessage
 } from '@/lib/line'
-import { getClaimsSummaryReport, getServiceJobsSummaryReport } from '@/lib/bot-queries'
+import { getClaimsSummaryReport, getServiceJobsSummaryReport, getSalesReport } from '@/lib/bot-queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -193,6 +194,36 @@ async function handleWebhookEvent(event: any) {
       chatSourceId,
     }
 
+    // ตรวจจับคำถามเกี่ยวกับ "ยอดขายวันนี้" เพื่อส่ง Flex Message สวยงามทันที (เหมือน Saran Bot)
+    const checkSales = strippedText.toLowerCase().replace(/\s+/g, '')
+    if (checkSales.includes('ยอดขายวันนี้') || checkSales === 'ยอดขายวันนี้') {
+      try {
+        console.log(`[ช่างเบน AI] ตรวจพบแพทเทิร์นขอยอดขายวันนี้ -> เริ่มจัดเตรียมข้อมูล...`)
+        const salesData = await getSalesReport('today')
+        const flexMessage = getSalesReportMessage(salesData)
+        await replyMessage(replyToken, [flexMessage])
+        
+        // บันทึกประวัติลง ChatLog
+        const responseTimeMs = Date.now() - startTime
+        await prisma.chatLog.create({
+          data: {
+            sourceType,
+            sourceId: chatSourceId,
+            userName,
+            userMessage: strippedText.substring(0, 1000),
+            botReply: `📊 สรุปยอดขายวันนี้: ยอดขายรวม ฿ ${salesData.totalSales.toLocaleString('th-TH')}`,
+            inputTokens: 0,
+            outputTokens: 0,
+            modelName: 'flex-message',
+            responseTimeMs,
+          },
+        })
+        return
+      } catch (err: any) {
+        console.error('[ช่างเบน AI] ประมวลผลยอดขายวันนี้ล้มเหลว:', err.message)
+      }
+    }
+
     // ตรวจสอบแพทเทิร์นรายงานคำสั่งหลักเพื่อดึงข้อมูลล่วงหน้า (Pre-fetched Context) เพิ่มความเร็วการตอบกลับจาก ~15 วิ เหลือ ~2 วิ
     let queryContext = ''
     if (strippedText.includes('สรุปสถิติเคลม')) {
@@ -214,6 +245,14 @@ async function handleWebhookEvent(event: any) {
         queryContext = `\n\n[ข้อมูลเสริมคิวรี่จ๊อบงานซ่อมค้างที่ระบบดึงมาล่วงหน้าเพื่อประกอบคำตอบทันที]:\n${JSON.stringify(stats)}`
       } catch (err: any) {
         console.error('[ช่างเบน AI] ดึงข้อมูลงานซ่อมค้างล่วงหน้าผิดพลาด:', err.message)
+      }
+    } else if (strippedText.includes('ยอดขายทั้งหมด')) {
+      try {
+        console.log('[ช่างเบน AI] ตรวจพบแพทเทิร์นขอยอดขายทั้งหมด -> ดึงข้อมูลยอดขายล่วงหน้า...')
+        const sales = await getSalesReport('all')
+        queryContext = `\n\n[ข้อมูลเสริมคิวรี่ยอดขายรวมทั้งหมดของระบบที่ดึงมาล่วงหน้าเพื่อประกอบคำตอบทันที]:\n${JSON.stringify(sales)}`
+      } catch (err: any) {
+        console.error('[ช่างเบน AI] ดึงข้อมูลยอดขายทั้งหมดล่วงหน้าผิดพลาด:', err.message)
       }
     }
 

@@ -467,3 +467,203 @@ export async function handleFollow(lineUserId: string) {
     console.error('[handleFollow Error]', err.message)
   }
 }
+
+/**
+ * ─── getSalesReportMessage ───
+ * แปลงข้อมูลยอดขายดิบให้เป็น Flex Message รูปแบบสวยงาม Premium (เหมือนสไตล์ Saran Bot)
+ */
+export function getSalesReportMessage(salesData: any) {
+  const liffId = '2011035347-GgEDwCEI'
+  const liffUrl = `https://liff.line.me/${liffId}`
+  
+  const title = salesData.type === 'today' ? '📊 สรุปยอดขายวันนี้' : '📊 สรุปยอดขายทั้งหมด'
+  const totalSalesStr = salesData.totalSales.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const avgSalesStr = salesData.averagePerBill.toLocaleString('th-TH')
+  const claimsSumStr = salesData.claimsSum.toLocaleString('th-TH')
+  const serviceOrdersSumStr = salesData.serviceOrdersSum.toLocaleString('th-TH')
+
+  return {
+    type: 'flex',
+    altText: title,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: title,
+            weight: 'bold',
+            size: 'lg',
+            color: '#ffffff'
+          }
+        ],
+        backgroundColor: '#1d4ed8',
+        paddingAll: 'lg'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'lg',
+        contents: [
+          // ยอดขายรวม
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            contents: [
+              {
+                type: 'text',
+                text: 'ยอดขายรวม',
+                size: 'sm',
+                color: '#64748b'
+              },
+              {
+                type: 'text',
+                text: `฿ ${totalSalesStr}`,
+                weight: 'bold',
+                size: 'xxl',
+                color: '#1e293b'
+              }
+            ]
+          },
+          {
+            type: 'separator'
+          },
+          // Grid: จำนวนบิล / เฉลี่ย
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'xs',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'จำนวนบิล',
+                    size: 'xs',
+                    color: '#64748b'
+                  },
+                  {
+                    type: 'text',
+                    text: `${salesData.totalBills} บิล`,
+                    weight: 'bold',
+                    size: 'md',
+                    color: '#1e293b'
+                  }
+                ],
+                flex: 1
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'xs',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'เฉลี่ย/บิล',
+                    size: 'xs',
+                    color: '#64748b'
+                  },
+                  {
+                    type: 'text',
+                    text: `฿ ${avgSalesStr}`,
+                    weight: 'bold',
+                    size: 'md',
+                    color: '#1e293b'
+                  }
+                ],
+                flex: 1
+              }
+            ]
+          },
+          {
+            type: 'separator'
+          },
+          // ประเภทรายได้
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: 'ช่องทางรายได้',
+                size: 'xs',
+                color: '#64748b',
+                weight: 'bold'
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '🚗 งานเคลมประกัน',
+                    size: 'xs',
+                    color: '#475569',
+                    flex: 7
+                  },
+                  {
+                    type: 'text',
+                    text: `฿ ${claimsSumStr}`,
+                    size: 'xs',
+                    color: '#1e293b',
+                    weight: 'bold',
+                    align: 'end',
+                    flex: 3
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '🔧 งานบริการทั่วไป',
+                    size: 'xs',
+                    color: '#475569',
+                    flex: 7
+                  },
+                  {
+                    type: 'text',
+                    text: `฿ ${serviceOrdersSumStr}`,
+                    size: 'xs',
+                    color: '#1e293b',
+                    weight: 'bold',
+                    align: 'end',
+                    flex: 3
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        paddingAll: 'lg'
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: 'lg',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#1d4ed8',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: 'ดูรายละเอียดเพิ่มเติม (LIFF)',
+              uri: `${liffUrl}?path=${encodeURIComponent('/dashboard')}`
+            }
+          }
+        ]
+      }
+    }
+  }
+}
