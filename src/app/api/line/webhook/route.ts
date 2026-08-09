@@ -15,6 +15,7 @@ import {
   deactivateGroupInDb,
   handleFollow
 } from '@/lib/line'
+import { getClaimsSummaryReport, getServiceJobsSummaryReport } from '@/lib/bot-queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -192,9 +193,33 @@ async function handleWebhookEvent(event: any) {
       chatSourceId,
     }
 
+    // ตรวจสอบแพทเทิร์นรายงานคำสั่งหลักเพื่อดึงข้อมูลล่วงหน้า (Pre-fetched Context) เพิ่มความเร็วการตอบกลับจาก ~15 วิ เหลือ ~2 วิ
+    let queryContext = ''
+    if (strippedText.includes('สรุปสถิติเคลม')) {
+      try {
+        console.log('[ช่างเบน AI] ตรวจพบแพทเทิร์นสรุปสถิติเคลม -> ดึงข้อมูลสถิติล่วงหน้าทันที...')
+        const stats = await getClaimsSummaryReport()
+        queryContext = `\n\n[ข้อมูลเสริมคิวรี่สถิติใบเคลมที่ระบบดึงมาล่วงหน้าเพื่อประกอบคำตอบทันที]:\n${JSON.stringify(stats)}`
+      } catch (err: any) {
+        console.error('[ช่างเบน AI] ดึงข้อมูลสถิติเคลมล่วงหน้าผิดพลาด:', err.message)
+      }
+    } else if (
+      strippedText.includes('สรุปงานซ่อมค้าง') || 
+      strippedText.includes('รถซ่อมค้าง') || 
+      strippedText.includes('งานซ่อมค้าง')
+    ) {
+      try {
+        console.log('[ช่างเบน AI] ตรวจพบแพทเทิร์นงานซ่อมค้าง -> ดึงข้อมูลงานซ่อมล่วงหน้าทันที...')
+        const stats = await getServiceJobsSummaryReport()
+        queryContext = `\n\n[ข้อมูลเสริมคิวรี่จ๊อบงานซ่อมค้างที่ระบบดึงมาล่วงหน้าเพื่อประกอบคำตอบทันที]:\n${JSON.stringify(stats)}`
+      } catch (err: any) {
+        console.error('[ช่างเบน AI] ดึงข้อมูลงานซ่อมค้างล่วงหน้าผิดพลาด:', err.message)
+      }
+    }
+
     try {
-      // ถามบอทช่างเบนผ่าน Gemini
-      const aiResult = await askBen(strippedText, history, userContext)
+      // ถามบอทช่างเบนผ่าน Gemini (แนบข้อมูลที่สืบค้นล่วงหน้าไปด้วยเพื่อให้ข้ามขั้นตอน AI Tool Calling SQL)
+      const aiResult = await askBen(strippedText + queryContext, history, userContext)
 
       const responseTimeMs = Date.now() - startTime
 

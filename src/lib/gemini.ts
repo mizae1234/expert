@@ -143,6 +143,22 @@ export async function askBen(
             },
             required: ['keyword']
           }
+        },
+        {
+          name: 'getClaimsSummaryReport',
+          description: 'ดึงข้อมูลสรุปสถิติใบเคลมประกันภัยและยอดเงินอนุมัติรวมทั้งหมด (ใช้อันนี้เมื่อต้องการสรุปสถิติเคลมรวม)',
+          parameters: {
+            type: SchemaType.OBJECT,
+            properties: {}
+          }
+        },
+        {
+          name: 'getServiceJobsSummaryReport',
+          description: 'ดึงข้อมูลสรุปจ๊อบงานซ่อมค้างทั้งหมดและยอดเงิน (ใช้อันนี้เมื่อต้องการสรุปงานซ่อมค้าง)',
+          parameters: {
+            type: SchemaType.OBJECT,
+            properties: {}
+          }
         }
       ]
     }]

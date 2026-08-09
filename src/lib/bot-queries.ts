@@ -146,9 +146,119 @@ export async function searchServiceOrder(params: { keyword: string }) {
   }
 }
 
+/**
+ * ─── getClaimsSummaryReport ───
+ * ดึงรายงานสรุปสถิติใบเคลมประกันภัย ยอดอนุมัติค่าอะไหล่/ค่าแรง (คิวรี่ตรงจากเซิร์ฟเวอร์เพื่อความเร็วสูง)
+ */
+export async function getClaimsSummaryReport() {
+  try {
+    // 1. นับจำนวนใบเคลมประกันภัยทั้งหมด
+    const totalClaims = await prisma.claim.count()
+
+    // 2. แยกตามสถานะใบเคลม
+    const statusCounts = await prisma.claim.groupBy({
+      by: ['status'],
+      _count: { id: true }
+    })
+
+    // 3. แยกจำนวนตามบริษัทประกันภัย (Top 10)
+    const insuranceCounts = await prisma.claim.groupBy({
+      by: ['insuranceId'],
+      _count: { id: true }
+    })
+
+    const insurances = await prisma.insurance.findMany({
+      select: { id: true, name: true }
+    })
+    const insuranceMap = new Map(insurances.map(i => [i.id, i.name]))
+    const insuranceStats = insuranceCounts.map(item => ({
+      name: insuranceMap.get(item.insuranceId) || 'ไม่ทราบชื่อประกัน',
+      count: item._count.id
+    })).sort((a, b) => b.count - a.count)
+
+    // 4. สรุปยอดเงินอนุมัติค่าอะไหล่ (จาก ClaimPart)
+    const partsSum = await prisma.$queryRawUnsafe(`
+      SELECT SUM("priceApprove" * "quantity") as total_parts 
+      FROM "ClaimPart" 
+      WHERE "status" = 'approved'
+    `) as any[]
+
+    // 5. สรุปยอดเงินอนุมัติค่าแรง (จาก ClaimLabor)
+    const laborSum = await prisma.$queryRawUnsafe(`
+      SELECT SUM("priceApprove") as total_labor 
+      FROM "ClaimLabor" 
+      WHERE "status" = 'approved'
+    `) as any[]
+
+    const totalPartsAmt = Number(partsSum[0]?.total_parts || 0)
+    const totalLaborAmt = Number(laborSum[0]?.total_labor || 0)
+    const totalAmt = totalPartsAmt + totalLaborAmt
+
+    return {
+      totalClaims,
+      statusStats: statusCounts.map(item => ({ status: item.status, count: item._count.id })),
+      insuranceStats: insuranceStats.slice(0, 10),
+      approvedPartsAmount: totalPartsAmt,
+      approvedLaborAmount: totalLaborAmt,
+      totalApprovedAmount: totalAmt
+    }
+  } catch (err: any) {
+    console.error('[getClaimsSummaryReport] Error:', err.message)
+    return { error: `ไม่สามารถดึงข้อมูลสถิติเคลมได้: ${err.message}` }
+  }
+}
+
+/**
+ * ─── getServiceJobsSummaryReport ───
+ * ดึงรายงานสรุปสถิติจ๊อบงานซ่อมค้างทั้งหมด (คิวรี่ตรงจากเซิร์ฟเวอร์เพื่อความเร็วสูง)
+ */
+export async function getServiceJobsSummaryReport() {
+  try {
+    // 1. นับจำนวนงานซ่อมแยกตามสถานะบริการ (ServiceStatus)
+    const statusCounts = await prisma.serviceOrder.groupBy({
+      by: ['status'],
+      _count: { id: true }
+    })
+
+    // 2. ดึงรายการงานที่ค้างซ่อม (PENDING และ IN_PROGRESS) ล่าสุด 15 รายการ
+    const pendingOrders = await prisma.serviceOrder.findMany({
+      where: {
+        status: { in: ['PENDING', 'IN_PROGRESS'] }
+      },
+      include: {
+        customer: { select: { name: true } },
+        vehicles: { select: { carPlate: true, carBrand: true, carModel: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 15
+    })
+
+    const pendingJobsCount = pendingOrders.length
+
+    return {
+      statusStats: statusCounts.map(item => ({ status: item.status, count: item._count.id })),
+      pendingJobsCount,
+      pendingJobsList: pendingOrders.map(item => ({
+        orderNo: item.orderNo,
+        customerName: item.customer?.name || 'ไม่ระบุ',
+        carPlate: item.vehicles?.[0]?.carPlate || 'ไม่ระบุ',
+        carBrandModel: item.vehicles?.[0] ? `${item.vehicles[0].carBrand} ${item.vehicles[0].carModel}` : 'ไม่ระบุ',
+        status: item.status,
+        grandTotal: item.grandTotal,
+        createdAt: item.createdAt.toISOString()
+      }))
+    }
+  } catch (err: any) {
+    console.error('[getServiceJobsSummaryReport] Error:', err.message)
+    return { error: `ไม่สามารถดึงสถิติจ๊อบงานซ่อมได้: ${err.message}` }
+  }
+}
+
 // แผนที่จับคู่งานสำหรับเรียกใช้ใน Gemini AI
 export const botFunctions: Record<string, (params: Record<string, any>) => Promise<any>> = {
   runCustomQuery: (p) => runCustomQuery(p as { sqlQuery: string }),
   searchClaim: (p) => searchClaim(p as { keyword: string }),
   searchServiceOrder: (p) => searchServiceOrder(p as { keyword: string }),
+  getClaimsSummaryReport: () => getClaimsSummaryReport(),
+  getServiceJobsSummaryReport: () => getServiceJobsSummaryReport(),
 }
