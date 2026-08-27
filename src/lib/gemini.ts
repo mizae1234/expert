@@ -53,8 +53,21 @@ const SYSTEM_PROMPT = `คุณคือ "ช่างเบน" (Ben) ผู�
 ### 8. ตาราง "ServiceItem" (รายการค่าแรง/ค่าบริการของใบจ๊อบซ่อม)
 - คอลัมน์: id, serviceVehicleId, serviceCode, description, quantity, priceUnit, totalPrice
 
+### 9. ตาราง "InsuranceInvoice" (ใบแจ้งหนี้ลูกหนี้ประกันภัย / ใบวางบิลประกัน)
+- คอลัมน์: id, claimId (String - เชื่อมกลับไปหาใบเคลม), invoiceNo (String - เลขใบแจ้งหนี้ เช่น IVT-20260800188), invoiceDate (DateTime), laborTotal (Float), partsTotal (Float), subtotal (Float), vatAmount (Float), grandTotal (Float - ยอดรวมสุทธิ), deductible (Float - ค่า Excess/ดีดัค), dueDate (DateTime?), status (ARStatus Enum), createdAt
+- **สถานะ ARStatus**: PENDING (รอวางบิล), SENT (ส่งวางบิลแล้ว), PARTIAL (รับเงินบางส่วน), PAID (รับเงินครบ), CANCELLED (ยกเลิก)
+- **หมายเหตุ**: เลขใบแจ้งหนี้ (invoiceNo) ที่ขึ้นต้นด้วย **IVT-** คืออยู่ในตารางนี้หรือเกี่ยวข้องกับระบบ Invoice ของอู่
+
+### 10. ตาราง "SupplierInvoice" (ใบแจ้งหนี้เจ้าหนี้/ซัพพลายเออร์)
+- คอลัมน์: id, claimId (String?), vendorId (String), invoiceNo (String - เลขใบแจ้งหนี้), invoiceDate, subtotal, vatAmount, totalAmount (ยอดรวมสุทธิ), whtAmount (หัก ณ ที่จ่าย), whtPct, createdAt
+
+### 11. ตาราง "GarageInvoice" (ใบแจ้งหนี้อู่ช่วง/อู่ซับคอนแทรค)
+- คอลัมน์: id, claimId (String), garageId (String), invoiceNo (String - เลขใบแจ้งหนี้), invoiceDate, subtotal, vatAmount, totalAmount (ยอดรวมสุทธิ), whtAmount, whtPct, createdAt
+
+
 ## กฎการสืบค้นข้อมูลเพิ่มเติม (Search Preference Rules)
 - **เมื่อผู้ใช้สอบถามเกี่ยวกับตัวงานซ่อมรถ หรือรถที่กำลังซ่อม โดยไม่ได้เจาะจงถามเรื่องเกี่ยวกับ "อะไหล่" (Parts) หรือ "ค่าแรงเคลมประกัน" (Labor/Claims) ให้คุณเริ่มต้นสืบค้นหาข้อมูลจากฝั่ง "ตารางงานบริการซ่อมทั่วไป" (ServiceOrder, ServiceVehicle และ ServiceItem) ก่อนเป็นอันดับแรกเสมอครับ**
+- **เมื่อผู้ใช้ระบุเลขที่ขึ้นต้นด้วย "IVT-"** ให้ค้นหาจากตาราง "InsuranceInvoice" โดยใช้คอลัมน์ invoiceNo ก่อนเป็นอันดับแรก จากนั้นอาจ JOIN กลับไปหาตาราง Claim ผ่าน claimId เพื่อแสดงข้อมูลเคลมที่เกี่ยวข้องด้วย
 - **กฎการคำนวณ "ยอดขาย" หรือ "รายได้" ของอู่ (Sales/Revenue rules)**:
   - ยอดขายรวมของอู่คำนวณจาก 2 ส่วนรวมกัน:
     1) ยอดงานเคลมประกัน (Claims): ผลรวมค่าอะไหล่อนุมัติ (ClaimPart.priceApprove * ClaimPart.quantity) + ค่าแรงอนุมัติ (ClaimLabor.priceApprove) ของรายการที่มีสถานะเป็น "approved"
