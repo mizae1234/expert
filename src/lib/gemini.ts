@@ -228,8 +228,19 @@ export async function askBen(
 
   const usage = response.response.usageMetadata
 
+  // ป้องกัน .text() throw error เมื่อ response สุดท้ายมีแต่ functionCall parts ไม่มี text part
+  let resultText = ''
+  try {
+    resultText = response.response.text() || ''
+  } catch (err: any) {
+    console.error(`[AI ช่างเบน] ⚠️ response.text() throw: ${err.message}, iterations=${iterations}`)
+    resultText = ''
+  }
+
+  console.log(`[AI ช่างเบน] Loop จบ iterations=${iterations}, text length=${resultText?.length || 0}, tokens: in=${usage?.promptTokenCount || 0} out=${usage?.candidatesTokenCount || 0}`)
+
   return {
-    text: response.response.text(),
+    text: resultText,
     inputTokens: usage?.promptTokenCount || 0,
     outputTokens: usage?.candidatesTokenCount || 0,
     modelName: 'gemini-3-flash-preview'

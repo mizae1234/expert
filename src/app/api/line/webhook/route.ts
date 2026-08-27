@@ -158,10 +158,13 @@ async function handleWebhookEvent(event: any) {
         take: 5,
       })
       const chronological = [...logs].reverse()
-      history = chronological.flatMap((log) => [
-        { role: 'user', parts: [{ text: log.userMessage }] },
-        { role: 'model', parts: [{ text: log.botReply }] },
-      ])
+      // กรอง log ที่ botReply ว่างออก เพื่อป้องกัน AI สับสนจาก history เสีย
+      history = chronological
+        .filter((log) => log.botReply && log.botReply.trim() !== '')
+        .flatMap((log) => [
+          { role: 'user', parts: [{ text: log.userMessage }] },
+          { role: 'model', parts: [{ text: log.botReply }] },
+        ])
     } catch (err: any) {
       console.error('[ช่างเบน AI] ดึงประวัติแชทผิดพลาด:', err.message)
     }
@@ -259,6 +262,12 @@ async function handleWebhookEvent(event: any) {
     try {
       // ถามบอทช่างเบนผ่าน Gemini (แนบข้อมูลที่สืบค้นล่วงหน้าไปด้วยเพื่อให้ข้ามขั้นตอน AI Tool Calling SQL)
       const aiResult = await askBen(strippedText + queryContext, history, userContext)
+
+      // ป้องกัน AI ตอบกลับเป็นค่าว่าง — ใส่ fallback message แทน
+      if (!aiResult.text || aiResult.text.trim() === '') {
+        console.warn(`[ช่างเบน AI] ⚠️ botReply ว่างเปล่า สำหรับข้อความ: "${strippedText}"`)
+        aiResult.text = 'ขออภัยครับ ช่างเบนประมวลผลไม่สำเร็จในขณะนี้ กรุณาลองถามใหม่อีกครั้งนะครับ 🔧'
+      }
 
       const responseTimeMs = Date.now() - startTime
 
