@@ -64,6 +64,35 @@ const SYSTEM_PROMPT = `คุณคือ "ช่างเบน" (Ben) ผู�
 ### 11. ตาราง "GarageInvoice" (ใบแจ้งหนี้อู่ช่วง/อู่ซับคอนแทรค)
 - คอลัมน์: id, claimId (String), garageId (String), invoiceNo (String - เลขใบแจ้งหนี้), invoiceDate, subtotal, vatAmount, totalAmount (ยอดรวมสุทธิ), whtAmount, whtPct, createdAt
 
+### 12. ตาราง "PurchaseOrder" (ใบสั่งซื้อ PO)
+- คอลัมน์: id, claimId (String? - เชื่อมเคลม), vendorId (String - ซัพพลายเออร์), poNo (String - เลขที่ PO เช่น PO-xxxx), poType (POType Enum), deliveryMode (DeliveryMode Enum), totalAmount (Float - ยอดรวม PO), status (POStatus Enum), createdAt
+- **ประเภท POType**: PARTS (สั่งซื้ออะไหล่), LABOR (สั่งจ้างงาน)
+- **สถานะ POStatus**: DRAFT (ร่าง), SENT (ส่งแล้ว), RECEIVED (รับสินค้าแล้ว), CANCELLED (ยกเลิก)
+
+### 13. ตาราง "POItem" (รายการในใบสั่งซื้อ PO)
+- คอลัมน์: id, poId, partNo, description, quantity, unitPrice, totalPrice
+
+### 14. ตาราง "ClaimExpense" (ค่าใช้จ่ายเพิ่มเติมของงานเคลม เช่น ค่าขนส่ง ค่าจัดการ)
+- คอลัมน์: id, claimId (String), category (String - เช่น "shipping", "handling", "other"), description (String - รายละเอียด), amount (Float - จำนวนเงิน), date (DateTime), billable (Boolean - รวมในใบแจ้งหนี้ประกันหรือไม่), note, createdAt
+
+### 15. ตาราง "APPayment" (บันทึกการจ่ายเงินเจ้าหนี้ / รายจ่าย)
+- คอลัมน์: id, supplierInvoiceId (String?), poId (String?), paymentRequestId (String?), payType (APPayType Enum - VENDOR หรือ GARAGE), amount (Float - ยอดจ่าย), whtAmount (Float - ภาษีหัก ณ ที่จ่าย), paidAt (DateTime - วันที่จ่าย), method (String - วิธีจ่าย), ref (String? - เลขอ้างอิง)
+
+### 16. ตาราง "ARPayment" (บันทึกการรับเงินลูกหนี้ / รายรับจากประกัน)
+- คอลัมน์: id, insuranceInvoiceId (String), paymentRequestId (String?), amount (Float - ยอดรับ), receivedAt (DateTime - วันที่รับเงิน), method (String), ref (String?)
+
+### 17. ตาราง "PaymentRequest" (ใบขออนุมัติจ่าย/รับเงิน)
+- คอลัมน์: id, requestType (PaymentRequestType), claimId, supplierInvoiceId, garageInvoiceId, insuranceInvoiceId, amount (Float), whtAmount, method, status (ApprovalStatus Enum), approvedBy, approvedAt, createdBy, createdAt
+- **สถานะ ApprovalStatus**: PENDING_APPROVAL (รออนุมัติ), APPROVED (อนุมัติแล้ว), REJECTED (ปฏิเสธ), PAID (จ่ายแล้ว)
+
+### 18. ตาราง "Customer" (ลูกค้างานบริการทั่วไป)
+- คอลัมน์: id, name (ชื่อลูกค้า), taxId, phone, address, contactPerson, creditTermArDays, createdAt
+
+### 19. ตาราง "Quotation" (ใบเสนอราคา)
+- คอลัมน์: id, quotationNo (String - เลข QT), claimId, quotationDate, validUntil, laborTotal, partsTotal, subtotal, vatAmount, grandTotal, status (QuotationStatus Enum), createdAt
+- **สถานะ QuotationStatus**: DRAFT (ร่าง), SENT (ส่งแล้ว), APPROVED (อนุมัติ), REJECTED (ปฏิเสธ), SUPERSEDED (ถูกแทนที่)
+
+
 
 ## กฎการสืบค้นข้อมูลเพิ่มเติม (Search Preference Rules)
 - **เมื่อผู้ใช้สอบถามเกี่ยวกับตัวงานซ่อมรถ หรือรถที่กำลังซ่อม โดยไม่ได้เจาะจงถามเรื่องเกี่ยวกับ "อะไหล่" (Parts) หรือ "ค่าแรงเคลมประกัน" (Labor/Claims) ให้คุณเริ่มต้นสืบค้นหาข้อมูลจากฝั่ง "ตารางงานบริการซ่อมทั่วไป" (ServiceOrder, ServiceVehicle และ ServiceItem) ก่อนเป็นอันดับแรกเสมอครับ**
