@@ -147,6 +147,7 @@ export default function ServiceJobsReportPage() {
     if (!data?.orders) return []
     return data.orders.map((order: any, idx: number) => {
       const plates = order.vehicles?.map((v: any) => v.carPlate).filter(Boolean).join(', ') || '-'
+      const vins = order.vehicles?.map((v: any) => v.carVin).filter(Boolean).join(', ') || '-'
       return {
         'ลำดับ': idx + 1,
         'เลขที่สั่งงาน': order.orderNo,
@@ -155,6 +156,7 @@ export default function ServiceJobsReportPage() {
         'ชื่อลูกค้า': order.customer?.name || '-',
         'เลขประจำตัวผู้เสียภาษี': order.customer?.taxId || '-',
         'จำนวนรถ (คัน)': order.vehicles?.length || 0,
+        'เลขตัวถัง (VIN ทั้งหมด)': vins,
         'ทะเบียนรถทั้งหมด': plates,
         'ยอดก่อนภาษี (บาท)': order.subtotal || 0,
         'ภาษีมูลค่าเพิ่ม 7% (บาท)': order.vatAmount || 0,
@@ -179,14 +181,14 @@ export default function ServiceJobsReportPage() {
             v.items.forEach((item: any) => {
               rows.push({
                 'ลำดับ': seq++,
-                'เลขที่สั่งงาน': order.orderNo,
-                'วันที่ปฏิบัติงาน': order.operationDate ? formatDate(order.operationDate) : formatDate(order.createdAt),
-                'ชื่อลูกค้า': order.customer?.name || '-',
+                'เลขตัวถัง (VIN)': v.carVin || '-',
                 'ทะเบียนรถ': v.carPlate || '-',
                 'จังหวัด': v.carProvince || '-',
                 'ยี่ห้อ': v.carBrand || '-',
                 'รุ่น': v.carModel || '-',
-                'เลขตัวถัง (VIN)': v.carVin || '-',
+                'เลขที่สั่งงาน': order.orderNo,
+                'วันที่ปฏิบัติงาน': order.operationDate ? formatDate(order.operationDate) : formatDate(order.createdAt),
+                'ชื่อลูกค้า': order.customer?.name || '-',
                 'รหัสบริการ': item.serviceCode || '-',
                 'รายการบริการ': item.description || '-',
                 'จำนวน': item.quantity || 1,
@@ -201,14 +203,14 @@ export default function ServiceJobsReportPage() {
             // Vehicle without items
             rows.push({
               'ลำดับ': seq++,
-              'เลขที่สั่งงาน': order.orderNo,
-              'วันที่ปฏิบัติงาน': order.operationDate ? formatDate(order.operationDate) : formatDate(order.createdAt),
-              'ชื่อลูกค้า': order.customer?.name || '-',
+              'เลขตัวถัง (VIN)': v.carVin || '-',
               'ทะเบียนรถ': v.carPlate || '-',
               'จังหวัด': v.carProvince || '-',
               'ยี่ห้อ': v.carBrand || '-',
               'รุ่น': v.carModel || '-',
-              'เลขตัวถัง (VIN)': v.carVin || '-',
+              'เลขที่สั่งงาน': order.orderNo,
+              'วันที่ปฏิบัติงาน': order.operationDate ? formatDate(order.operationDate) : formatDate(order.createdAt),
+              'ชื่อลูกค้า': order.customer?.name || '-',
               'รหัสบริการ': '-',
               'รายการบริการ': '-',
               'จำนวน': 0,
@@ -231,15 +233,15 @@ export default function ServiceJobsReportPage() {
       const XLSX = await import('xlsx')
       const wb = XLSX.utils.book_new()
 
-      // Sheet 1: Orders Summary
+      // Sheet 1: Vehicles & Items Detail (VIN & License Plate - Open First!)
+      const vehiclesData = getVehiclesSheetData()
+      const wsVehicles = XLSX.utils.json_to_sheet(vehiclesData)
+      XLSX.utils.book_append_sheet(wb, wsVehicles, 'รายละเอียดรถ (VIN & ทะเบียน)')
+
+      // Sheet 2: Orders Summary
       const ordersData = getOrdersSheetData()
       const wsOrders = XLSX.utils.json_to_sheet(ordersData)
       XLSX.utils.book_append_sheet(wb, wsOrders, 'สรุปใบสั่งงาน')
-
-      // Sheet 2: Vehicles & Items Detail
-      const vehiclesData = getVehiclesSheetData()
-      const wsVehicles = XLSX.utils.json_to_sheet(vehiclesData)
-      XLSX.utils.book_append_sheet(wb, wsVehicles, 'รายละเอียดรถและบริการ')
 
       const filename = `JobService_Report_Full_${dateFrom}_${dateTo}.xlsx`
       XLSX.writeFile(wb, filename)
@@ -275,8 +277,8 @@ export default function ServiceJobsReportPage() {
       const wb = XLSX.utils.book_new()
       const vehiclesData = getVehiclesSheetData()
       const ws = XLSX.utils.json_to_sheet(vehiclesData)
-      XLSX.utils.book_append_sheet(wb, ws, 'รายละเอียดรถและบริการ')
-      XLSX.writeFile(wb, `JobService_Vehicles_${dateFrom}_${dateTo}.xlsx`)
+      XLSX.utils.book_append_sheet(wb, ws, 'รายละเอียดรถ (VIN & ทะเบียน)')
+      XLSX.writeFile(wb, `JobService_Detail_VIN_Plate_${dateFrom}_${dateTo}.xlsx`)
       setExportMenuOpen(false)
     } catch (err) {
       console.error('Export error:', err)
@@ -333,16 +335,27 @@ export default function ServiceJobsReportPage() {
             </Button>
           </Link>
 
-          {/* Export Dropdown */}
+          {/* Direct 1-Click Export: Detail with VIN & Plate */}
+          <Button
+            onClick={exportVehiclesDetailExcel}
+            disabled={exporting || loading || !data?.orders?.length}
+            className="gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-semibold"
+          >
+            <Car className="w-4 h-4" />
+            Export รายละเอียด (VIN &amp; ทะเบียน)
+          </Button>
+
+          {/* Export Dropdown for Full 2-Sheets or Summary */}
           <div className="relative">
             <Button
               onClick={() => setExportMenuOpen(!exportMenuOpen)}
               disabled={exporting || loading || !data?.orders?.length}
-              className="gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+              variant="outline"
+              className="gap-1.5 text-xs border-emerald-300 text-emerald-800 hover:bg-emerald-50 shadow-sm"
             >
-              <Download className="w-4 h-4" />
-              {exporting ? 'กำลังส่งออก...' : 'Export Excel'}
-              <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
+              <Download className="w-4 h-4 text-emerald-600" />
+              {exporting ? 'กำลังส่งออก...' : 'ตัวเลือก Export'}
+              <ChevronDown className="w-3.5 h-3.5 text-emerald-600 ml-0.5" />
             </Button>
 
             {exportMenuOpen && (
@@ -786,9 +799,9 @@ export default function ServiceJobsReportPage() {
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 สรุปตามใบสั่งงาน ({data?.orders?.length || 0})
               </TabsTrigger>
-              <TabsTrigger value="vehicles" className="text-xs gap-2 py-1.5">
-                <Car className="w-3.5 h-3.5" />
-                แจกแจงรายคันและบริการ ({vehicleRows.length})
+              <TabsTrigger value="vehicles" className="text-xs gap-2 py-1.5 font-medium">
+                <Car className="w-3.5 h-3.5 text-blue-600" />
+                แจกแจงรายคัน (VIN &amp; ทะเบียน) ({vehicleRows.length})
               </TabsTrigger>
             </TabsList>
 
@@ -800,7 +813,7 @@ export default function ServiceJobsReportPage() {
                 className="h-8 text-xs gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
               >
                 <Download className="w-3.5 h-3.5 text-emerald-600" />
-                Export ตารางนี้ ({activeTab === 'orders' ? 'Orders' : 'Vehicles'})
+                Export ตารางนี้ ({activeTab === 'orders' ? 'สรุปงาน' : 'รายคัน VIN & ทะเบียน'})
               </Button>
             </div>
           </div>
@@ -931,12 +944,12 @@ export default function ServiceJobsReportPage() {
                 <TableHeader className="bg-gray-50">
                   <TableRow>
                     <TableHead className="w-10 text-center text-[11px] font-semibold text-gray-500 py-2.5">#</TableHead>
+                    <TableHead className="text-[11px] font-bold text-blue-700 py-2.5">เลขตัวถัง (VIN)</TableHead>
+                    <TableHead className="text-[11px] font-bold text-gray-900 py-2.5">ทะเบียนรถ</TableHead>
+                    <TableHead className="text-[11px] font-semibold text-gray-500 py-2.5">ยี่ห้อ / รุ่น</TableHead>
                     <TableHead className="text-[11px] font-semibold text-gray-500 py-2.5">เลขที่สั่งงาน</TableHead>
                     <TableHead className="text-[11px] font-semibold text-gray-500 py-2.5">วันที่ปฏิบัติงาน</TableHead>
                     <TableHead className="text-[11px] font-semibold text-gray-500 py-2.5">ลูกค้า</TableHead>
-                    <TableHead className="text-[11px] font-semibold text-gray-500 py-2.5">ทะเบียนรถ</TableHead>
-                    <TableHead className="text-[11px] font-semibold text-gray-500 py-2.5">ยี่ห้อ / รุ่น</TableHead>
-                    <TableHead className="text-[11px] font-semibold text-gray-500 py-2.5">เลขตัวถัง (VIN)</TableHead>
                     <TableHead className="text-[11px] font-semibold text-gray-500 py-2.5">รายการบริการ (ชิ้นงาน)</TableHead>
                     <TableHead className="text-right text-[11px] font-semibold text-gray-500 py-2.5">รวมค่าบริการรถ</TableHead>
                     <TableHead className="text-center text-[11px] font-semibold text-gray-500 py-2.5">สถานะรถ</TableHead>
@@ -961,26 +974,28 @@ export default function ServiceJobsReportPage() {
                           <TableCell className="text-center text-[11px] text-gray-400 py-2 px-2">
                             {idx + 1}
                           </TableCell>
-                          <TableCell className="font-mono font-semibold text-[11px] text-blue-700 py-2">
-                            <Link href={`/service-jobs/${v.orderId}`} className="hover:underline">
+                          <TableCell className="text-[11px] font-mono font-bold text-blue-700 py-2">
+                            <span className="bg-blue-50/80 px-2 py-0.5 rounded border border-blue-200">
+                              {v.carVin || '-'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-[11px] font-bold text-gray-900 py-2 whitespace-nowrap">
+                            {v.carPlate}
+                            {v.carProvince && <span className="text-[10px] text-gray-400 font-normal ml-1">({v.carProvince})</span>}
+                          </TableCell>
+                          <TableCell className="text-[11px] text-gray-700 py-2 whitespace-nowrap">
+                            {v.carBrand} {v.carModel}
+                          </TableCell>
+                          <TableCell className="font-mono font-semibold text-[11px] text-gray-700 py-2">
+                            <Link href={`/service-jobs/${v.orderId}`} className="hover:underline hover:text-blue-600">
                               {v.orderNo}
                             </Link>
                           </TableCell>
                           <TableCell className="text-[11px] text-gray-600 py-2">
                             {v.operationDate ? formatDateShort(v.operationDate) : formatDateShort(v.createdAt)}
                           </TableCell>
-                          <TableCell className="text-[11px] text-gray-800 font-medium py-2">
+                          <TableCell className="text-[11px] text-gray-800 font-medium py-2 max-w-[140px] truncate">
                             {v.customerName}
-                          </TableCell>
-                          <TableCell className="text-[11px] font-bold text-gray-900 py-2">
-                            {v.carPlate}
-                            {v.carProvince && <span className="text-[10px] text-gray-400 font-normal ml-1">({v.carProvince})</span>}
-                          </TableCell>
-                          <TableCell className="text-[11px] text-gray-700 py-2">
-                            {v.carBrand} {v.carModel}
-                          </TableCell>
-                          <TableCell className="text-[11px] font-mono text-gray-500 py-2">
-                            {v.carVin || '-'}
                           </TableCell>
                           <TableCell className="text-[11px] text-gray-700 py-2 max-w-[220px]">
                             {v.items && v.items.length > 0 ? (
