@@ -427,6 +427,11 @@ export default function ServiceJobDetailPage() {
       return
     }
 
+    const activeVehicles = order.vehicles?.filter((v: any) => v.status !== 'CANCELLED') || []
+    const activeSubtotal = activeVehicles.flatMap((v: any) => v.items || []).reduce((sum: number, item: any) => sum + (item.totalPrice || (item.quantity || 1) * (item.priceUnit || 0)), 0)
+    const activeVat = Math.round(activeSubtotal * 0.07 * 100) / 100
+    const activeGrandTotal = Math.round((activeSubtotal + activeVat) * 100) / 100
+
     setConfirmConfig({
       isOpen: true,
       title: 'ตรวจสอบและยืนยันการออกใบวางบิล',
@@ -441,25 +446,25 @@ export default function ServiceJobDetailPage() {
               <span className="font-bold">{order.customer?.name}</span>
             </div>
             <div className="flex justify-between border-t border-gray-200/60 pt-2">
-              <span className="text-gray-400">จำนวนรถทั้งหมด:</span>
-              <span className="font-semibold">{order.vehicles?.length || 0} คัน</span>
+              <span className="text-gray-400">จำนวนรถที่เรียกเก็บ:</span>
+              <span className="font-semibold">{activeVehicles.length} คัน</span>
             </div>
             <div className="flex justify-between border-t border-gray-200/60 pt-2">
               <span className="text-gray-400">ราคารวม (Subtotal):</span>
-              <span className="font-semibold">฿{formatCurrency(order.subtotal)}</span>
+              <span className="font-semibold">฿{formatCurrency(activeSubtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">ภาษีมูลค่าเพิ่ม (VAT 7%):</span>
-              <span className="font-semibold text-gray-500">฿{formatCurrency(order.vatAmount)}</span>
+              <span className="font-semibold text-gray-500">฿{formatCurrency(activeVat)}</span>
             </div>
             <div className="flex justify-between border-t border-gray-200 pt-2 font-bold text-sm text-[#0f172a]">
               <span>ยอดรวมสุทธิ (Grand Total):</span>
-              <span className="text-[#1d4ed8]">฿{formatCurrency(order.grandTotal)}</span>
+              <span className="text-[#1d4ed8]">฿{formatCurrency(activeGrandTotal)}</span>
             </div>
           </div>
           <div className="max-h-[120px] overflow-y-auto border border-dashed rounded-lg p-2 bg-gray-50/30 text-[10px] space-y-1">
-            <span className="font-semibold text-gray-500 block mb-1">รายชื่อรถยนต์ในเอกสาร:</span>
-            {order.vehicles?.map((v: any, index: number) => (
+            <span className="font-semibold text-gray-500 block mb-1">รายชื่อรถยนต์ในเอกสาร ({activeVehicles.length} คัน):</span>
+            {activeVehicles.map((v: any, index: number) => (
               <div key={v.id} className="flex justify-between text-gray-600">
                 <span>{index + 1}. {v.carPlate} - {v.carBrand} {v.carModel}</span>
                 <span className="font-mono text-gray-400">{v.carVin}</span>
@@ -662,7 +667,14 @@ export default function ServiceJobDetailPage() {
           {/* List of Vehicles Cards */}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/50 p-4 rounded-xl border border-gray-150">
-              <h2 className="text-base font-bold text-[#0f172a]">รายการรถยนต์ ({order.vehicles?.length || 0} คัน)</h2>
+              <h2 className="text-base font-bold text-[#0f172a]">
+                รายการรถยนต์ ({order.vehicles?.filter((v: any) => v.status !== 'CANCELLED').length || 0} คัน
+                {order.vehicles?.some((v: any) => v.status === 'CANCELLED') && (
+                  <span className="text-sm font-normal text-red-500 ml-1">
+                    (ยกเลิก {order.vehicles.filter((v: any) => v.status === 'CANCELLED').length} คัน)
+                  </span>
+                )})
+              </h2>
               
               <div className="flex flex-wrap items-center gap-3">
                 {/* Batch Actions when selected */}

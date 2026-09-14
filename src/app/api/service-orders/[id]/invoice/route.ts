@@ -63,13 +63,26 @@ export async function POST(
     const dueDate = new Date()
     dueDate.setDate(dueDate.getDate() + creditTermDays)
 
+    // Recalculate totals for active vehicles
+    const activeVehicles = order.vehicles.filter((v: any) => v.status !== 'CANCELLED')
+    const activeVehicleIds = activeVehicles.map((v: any) => v.id)
+    const activeItems = await prisma.serviceItem.findMany({
+      where: { serviceVehicleId: { in: activeVehicleIds } }
+    })
+    const subtotal = activeItems.reduce((sum, item) => sum + (item.totalPrice || item.quantity * item.priceUnit), 0)
+    const vatAmount = Math.round(subtotal * 0.07 * 100) / 100
+    const grandTotal = Math.round((subtotal + vatAmount) * 100) / 100
+
     const updated = await prisma.serviceOrder.update({
       where: { id: params.id },
       data: {
         invoiceNo,
         invoiceDate,
         dueDate,
-        status: 'COMPLETED'
+        status: 'COMPLETED',
+        subtotal,
+        vatAmount,
+        grandTotal
       },
       include: {
         customer: true,

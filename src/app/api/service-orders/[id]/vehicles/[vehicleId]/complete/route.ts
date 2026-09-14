@@ -90,13 +90,25 @@ export async function POST(
       const cancelledCount = allVehicles.filter(v => v.status === 'CANCELLED').length
 
       let nextOrderStatus = 'PENDING'
-      if (completedCount === totalCount - cancelledCount && totalCount > 0) {
+      if (cancelledCount === totalCount && totalCount > 0) {
+        nextOrderStatus = 'CANCELLED'
+      } else if (completedCount === totalCount - cancelledCount && (totalCount - cancelledCount) > 0) {
         nextOrderStatus = 'COMPLETED'
       } else if (completedCount > 0) {
         nextOrderStatus = 'IN_PROGRESS'
       } else {
         nextOrderStatus = 'PENDING'
       }
+
+      // Recalculate totals based on active vehicles
+      const activeVehicles = allVehicles.filter(v => v.status !== 'CANCELLED')
+      const activeIds = activeVehicles.map(v => v.id)
+      const activeItems = await tx.serviceItem.findMany({
+        where: { serviceVehicleId: { in: activeIds } }
+      })
+      const subtotal = activeItems.reduce((sum, item) => sum + (item.totalPrice || item.quantity * item.priceUnit), 0)
+      const vatAmount = Math.round(subtotal * 0.07 * 100) / 100
+      const grandTotal = Math.round((subtotal + vatAmount) * 100) / 100
 
       // Log status change
       const hasPlate = vehicle.carPlate && vehicle.carPlate !== '-'
@@ -113,11 +125,14 @@ export async function POST(
         }
       })
 
-      // 4. Update parent order status
+      // 4. Update parent order status and totals
       return await tx.serviceOrder.update({
         where: { id: orderId },
         data: {
-          status: nextOrderStatus as any
+          status: nextOrderStatus as any,
+          subtotal,
+          vatAmount,
+          grandTotal
         },
         include: {
           customer: true,

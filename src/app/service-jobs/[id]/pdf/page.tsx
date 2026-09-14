@@ -144,9 +144,16 @@ export default function ServiceJobPdfPage() {
     company.postalCode
   ].filter(Boolean).join(' ').trim() || company.address || '-'
 
+  const activeVehicles = order.vehicles?.filter((v: any) => v.status !== 'CANCELLED') || []
+  const printableVehicles = activeVehicles.length > 0 ? activeVehicles : (order.vehicles || [])
+
   // If type=invoice requested, render the exact unified premium invoice template (same as claims PDF)
   if (isInvoice) {
-    const carPlates = order.vehicles?.map((v: any) => `${v.carPlate} ${v.carProvince || ''}`).join(', ') || '-'
+    const carPlates = printableVehicles.map((v: any) => `${v.carPlate} ${v.carProvince || ''}`).join(', ') || '-'
+    const calculatedSubtotal = printableVehicles.flatMap((v: any) => v.items || []).reduce((sum: number, item: any) => sum + (item.totalPrice || (item.quantity || 1) * (item.priceUnit || 0)), 0)
+    const invoiceSubtotal = activeVehicles.length > 0 ? calculatedSubtotal : (order.subtotal || 0)
+    const invoiceVat = Math.round(invoiceSubtotal * 0.07 * 100) / 100
+    const invoiceGrandTotal = Math.round((invoiceSubtotal + invoiceVat) * 100) / 100
 
     return (
       <div className="print-container bg-white min-h-screen text-black p-8 max-w-4xl mx-auto print:p-0 text-xs">
@@ -288,12 +295,15 @@ export default function ServiceJobPdfPage() {
             </tr>
           </thead>
           <tbody>
-            {order.vehicles?.map((vehicle: any, vIdx: number) => (
+            {printableVehicles.map((vehicle: any, vIdx: number) => (
               <Fragment key={vehicle.id}>
                 {/* Header Row for Vehicle */}
                 <tr className="bg-slate-50/50 border-b border-slate-200">
                   <td colSpan={6} className="py-2 px-3 font-semibold text-blue-700 text-[10px]">
                     คันที่ {vIdx + 1}: {vehicle.carPlate} {vehicle.carProvince ? `(${vehicle.carProvince})` : ''} - {vehicle.carBrand} {vehicle.carModel} (VIN: {vehicle.carVin})
+                    {vehicle.status === 'CANCELLED' && (
+                      <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-bold">ยกเลิก</span>
+                    )}
                   </td>
                 </tr>
                 {vehicle.items?.map((item: any) => (
@@ -320,15 +330,15 @@ export default function ServiceJobPdfPage() {
             </div>
             <div className="flex justify-between text-slate-600">
               <span>มูลค่าที่คำนวณภาษี 7%</span>
-              <span className="font-semibold text-slate-800">{formatCurrency(order.subtotal)} บาท</span>
+              <span className="font-semibold text-slate-800">{formatCurrency(invoiceSubtotal)} บาท</span>
             </div>
             <div className="flex justify-between text-slate-600">
               <span>ภาษีมูลค่าเพิ่ม 7%</span>
-              <span className="font-semibold text-slate-800">{formatCurrency(order.vatAmount)} บาท</span>
+              <span className="font-semibold text-slate-800">{formatCurrency(invoiceVat)} บาท</span>
             </div>
             <div className="flex justify-between border-t border-slate-100 pt-2 font-medium">
               <span className="text-slate-650">จำนวนเงินทั้งสิ้น</span>
-              <span className="text-slate-600 italic">({bahtText(order.grandTotal)})</span>
+              <span className="text-slate-600 italic">({bahtText(invoiceGrandTotal)})</span>
             </div>
           </div>
 
@@ -336,7 +346,7 @@ export default function ServiceJobPdfPage() {
           <div className="bg-[#eef2ff] border border-blue-100 rounded-lg p-4 space-y-2.5">
             <div className="flex justify-between items-center">
               <span className="text-slate-600 font-semibold">จำนวนเงินทั้งสิ้น</span>
-              <span className="text-sm font-bold text-blue-900">{formatCurrency(order.grandTotal)} บาท</span>
+              <span className="text-sm font-bold text-blue-900">{formatCurrency(invoiceGrandTotal)} บาท</span>
             </div>
             <div className="flex justify-between border-t border-blue-50 pt-2">
               <span className="text-slate-500 font-medium">จำนวนเงินที่ถูกหัก ณ ที่จ่าย</span>
@@ -344,7 +354,7 @@ export default function ServiceJobPdfPage() {
             </div>
             <div className="flex justify-between font-bold text-blue-950 border-t border-blue-100 pt-2 text-xs">
               <span>จำนวนเงินที่ชำระ</span>
-              <span>{formatCurrency(order.grandTotal)} บาท</span>
+              <span>{formatCurrency(invoiceGrandTotal)} บาท</span>
             </div>
           </div>
         </div>
@@ -452,7 +462,7 @@ export default function ServiceJobPdfPage() {
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-500">
-              จำนวนรถทั้งหมด: {order.vehicles?.length || 0} คัน
+              จำนวนรถทั้งหมด: {printableVehicles.length} คัน
             </p>
           </div>
         </div>
@@ -467,12 +477,15 @@ export default function ServiceJobPdfPage() {
             </tr>
           </thead>
           <tbody>
-            {order.vehicles?.map((vehicle: any, vIdx: number) => (
+            {printableVehicles.map((vehicle: any, vIdx: number) => (
               <Fragment key={vehicle.id}>
                 {/* Header Row for Vehicle */}
                 <tr className="bg-gray-50/40 border-b border-gray-200">
                   <td colSpan={3} className="py-2 px-3 font-semibold text-[#1d4ed8] text-xs">
                     คันที่ {vIdx + 1}: {vehicle.carPlate} {vehicle.carProvince ? `(${vehicle.carProvince})` : ''} - {vehicle.carBrand} {vehicle.carModel} (VIN: {vehicle.carVin})
+                    {vehicle.status === 'CANCELLED' && (
+                      <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-bold">ยกเลิก</span>
+                    )}
                   </td>
                 </tr>
                 {vehicle.items?.map((item: any, idx: number) => (

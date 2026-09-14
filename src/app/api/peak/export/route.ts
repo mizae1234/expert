@@ -135,7 +135,8 @@ export async function POST(req: NextRequest) {
       for (const order of serviceOrders) {
         if (!order.invoiceNo || !order.invoiceDate) continue
         let hasAdded = false
-        for (const vehicle of order.vehicles) {
+        const activeVehicles = order.vehicles.filter((v: any) => v.status !== 'CANCELLED')
+        for (const vehicle of activeVehicles) {
           const remark = `งานบริการทั่วไป|ทะเบียน:${vehicle.carPlate}|VIN:${vehicle.carVin}`
           for (const item of vehicle.items) {
             rows.push({
