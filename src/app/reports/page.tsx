@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Select } from '@/components/ui/select'
-import { TrendingUp, Clock, Users, BarChart3, Download, Search, Filter, FileSpreadsheet } from 'lucide-react'
+import Link from 'next/link'
+import { TrendingUp, Clock, Users, BarChart3, Download, Search, Filter, FileSpreadsheet, Wrench } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { formatDate } from '@/lib/date'
 import { Skeleton, SkeletonTableRows } from '@/components/ui/skeleton'
@@ -162,10 +163,18 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#0f172a]">Reports</h1>
-          <p className="text-sm text-[#94a3b8] mt-1">รายงานสรุปการเงินและผลประกอบการ</p>
+          <p className="text-sm text-[#94a3b8] mt-1">รายงานสรุปการเงินและผลประกอบการ (เคลม &amp; P&amp;L)</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/reports/service-jobs">
+            <Button variant="outline" size="sm" className="gap-2 text-xs border-blue-200 text-blue-700 hover:bg-blue-50">
+              <Wrench className="w-4 h-4 text-blue-600" />
+              รายงานงานบริการ (Service Jobs)
+            </Button>
+          </Link>
         </div>
       </div>
 

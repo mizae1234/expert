@@ -11,6 +11,9 @@ const breadcrumbMap: Record<string, string> = {
   '/vendors': 'Vendors',
   '/insurances': 'Insurances',
   '/reports': 'Reports',
+  '/reports/service-jobs': 'รายงานงานบริการ (Service Jobs)',
+  '/service-jobs': 'งานบริการทั่วไป',
+  '/service-jobs/new': 'สร้างใบสั่งงานบริการ',
   '/invoices': 'Invoices (AR)',
   '/settings': 'ตั้งค่าระบบ',
 }
