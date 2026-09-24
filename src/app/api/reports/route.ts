@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const insuranceId = searchParams.get('insuranceId') || undefined
     const vendorId = searchParams.get('vendorId') || undefined
+    const billingStatus = searchParams.get('billingStatus') || undefined // 'billed' | 'unbilled' | 'all'
 
     // Date range filter — defaults to last 3 months if not provided
     const now = new Date()
@@ -20,38 +21,7 @@ export async function GET(request: NextRequest) {
     }
     if (insuranceId) claimFilter.insuranceId = insuranceId
 
-    // 1. Get database-level aggregations for Supplier Invoices and Garage Invoices by Claim
-    const supplierInvoiceSums = await prisma.supplierInvoice.groupBy({
-      by: ['claimId'],
-      where: {
-        claim: claimFilter,
-      },
-      _sum: {
-        totalAmount: true,
-      },
-    })
-    const supplierInvoiceSumsMap: Record<string, number> = {}
-    supplierInvoiceSums.forEach(s => {
-      if (s.claimId) {
-        supplierInvoiceSumsMap[s.claimId] = s._sum.totalAmount || 0
-      }
-    })
-
-    const garageInvoiceSums = await prisma.garageInvoice.groupBy({
-      by: ['claimId'],
-      where: {
-        claim: claimFilter,
-      },
-      _sum: {
-        totalAmount: true,
-      },
-    })
-    const garageInvoiceSumsMap: Record<string, number> = {}
-    garageInvoiceSums.forEach(g => {
-      garageInvoiceSumsMap[g.claimId] = g._sum.totalAmount || 0
-    })
-
-    // 2. Fetch only required claim fields
+    // 1. Fetch claims matching filter
     const claims = await prisma.claim.findMany({
       where: claimFilter,
       select: {
@@ -59,6 +29,7 @@ export async function GET(request: NextRequest) {
         claimNo: true,
         carPlate: true,
         createdAt: true,
+        insuranceId: true,
         insurance: {
           select: {
             name: true,
@@ -68,41 +39,153 @@ export async function GET(request: NextRequest) {
           select: {
             grandTotal: true,
             invoiceNo: true,
+            invoiceDate: true,
             status: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const claimIds = claims.map(c => c.id)
+
+    // 2. Fetch Supplier Invoices with items and vendor for actual expense breakdown
+    const supplierFilter: any = { claimId: { in: claimIds } }
+    if (vendorId) supplierFilter.vendorId = vendorId
+
+    const supplierInvoices = await prisma.supplierInvoice.findMany({
+      where: supplierFilter,
+      include: {
+        items: true,
+        vendor: {
+          select: {
+            name: true,
+            vendorType: true,
           },
         },
       },
     })
 
-    // P&L by Month — group by YYYY-MM to support cross-year ranges
+    // Fetch any garage invoices (for backward compatibility if any exist)
+    const garageInvoices = await prisma.garageInvoice.findMany({
+      where: { claimId: { in: claimIds } },
+      select: {
+        claimId: true,
+        totalAmount: true,
+      },
+    })
+
+    // Fetch claim expenses (if any)
+    const claimExpenses = await prisma.claimExpense.findMany({
+      where: { claimId: { in: claimIds } },
+      select: {
+        claimId: true,
+        amount: true,
+        category: true,
+      },
+    })
+
+    // 3. Map actual parts and labor expenses per claim
+    const partsMap: Record<string, number> = {}
+    const laborMap: Record<string, number> = {}
+
+    supplierInvoices.forEach(si => {
+      const cid = si.claimId
+      if (!cid) return
+      if (!partsMap[cid]) partsMap[cid] = 0
+      if (!laborMap[cid]) laborMap[cid] = 0
+
+      if (si.items && si.items.length > 0) {
+        let invParts = 0
+        let invLabor = 0
+        si.items.forEach(item => {
+          const isLabor = Boolean(item.claimLaborId || (item.description && item.description.includes('ค่าแรง')))
+          if (isLabor) {
+            invLabor += item.totalPrice
+          } else {
+            invParts += item.totalPrice
+          }
+        })
+
+        // Allocate totalAmount proportionately if total differs from subtotal (due to VAT / WHT)
+        const itemsSum = invParts + invLabor
+        if (itemsSum > 0 && Math.abs(si.totalAmount - itemsSum) > 0.5) {
+          const ratio = si.totalAmount / itemsSum
+          partsMap[cid] += invParts * ratio
+          laborMap[cid] += invLabor * ratio
+        } else {
+          partsMap[cid] += invParts
+          laborMap[cid] += invLabor
+        }
+      } else {
+        // If invoice has no items, check vendor type
+        if (si.vendor?.vendorType === 'GARAGE') {
+          laborMap[cid] += si.totalAmount
+        } else {
+          partsMap[cid] += si.totalAmount
+        }
+      }
+    })
+
+    // Add garage invoices to laborMap
+    garageInvoices.forEach(gi => {
+      if (gi.claimId) {
+        laborMap[gi.claimId] = (laborMap[gi.claimId] || 0) + gi.totalAmount
+      }
+    })
+
+    // Add claimExpenses to appropriate map
+    claimExpenses.forEach(exp => {
+      if (exp.category === 'labor') {
+        laborMap[exp.claimId] = (laborMap[exp.claimId] || 0) + exp.amount
+      } else {
+        partsMap[exp.claimId] = (partsMap[exp.claimId] || 0) + exp.amount
+      }
+    })
+
+    // 4. P&L by Month — based on actual billed revenue (SENT/PAID) and actual expenses
     const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-    const pnlMap: Record<string, { month: string, ar: number, ap: number, profit: number, margin: number, claims: number }> = {}
+    const pnlMap: Record<string, { month: string, ar: number, pendingAr: number, ap: number, profit: number, margin: number, claims: number }> = {}
 
     claims.forEach(c => {
       const d = new Date(c.createdAt)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      if (!pnlMap[key]) pnlMap[key] = { month: `${monthNames[d.getMonth()]} ${d.getFullYear() + 543}`, ar: 0, ap: 0, profit: 0, margin: 0, claims: 0 }
+      if (!pnlMap[key]) {
+        pnlMap[key] = { month: `${monthNames[d.getMonth()]} ${d.getFullYear() + 543}`, ar: 0, pendingAr: 0, ap: 0, profit: 0, margin: 0, claims: 0 }
+      }
       pnlMap[key].claims += 1
-      pnlMap[key].ar += c.insuranceInvoice?.grandTotal || 0
-      pnlMap[key].ap += (supplierInvoiceSumsMap[c.id] || 0) + (garageInvoiceSumsMap[c.id] || 0)
+
+      const inv = c.insuranceInvoice
+      const isBilled = Boolean(inv && ['SENT', 'PAID', 'PARTIAL'].includes(inv.status))
+      if (isBilled) {
+        pnlMap[key].ar += inv?.grandTotal || 0
+      } else if (inv) {
+        pnlMap[key].pendingAr += inv.grandTotal || 0
+      }
+
+      const claimAP = (partsMap[c.id] || 0) + (laborMap[c.id] || 0)
+      pnlMap[key].ap += claimAP
     })
 
     const pnlByMonth = Object.entries(pnlMap)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, v]) => {
-        v.profit = v.ar - v.ap
+        v.profit = Math.round((v.ar - v.ap) * 100) / 100
         v.margin = v.ar > 0 ? (v.profit / v.ar) * 100 : 0
+        v.ar = Math.round(v.ar * 100) / 100
+        v.pendingAr = Math.round(v.pendingAr * 100) / 100
+        v.ap = Math.round(v.ap * 100) / 100
         return v
       })
 
     if (pnlByMonth.length === 0) {
-      pnlByMonth.push({ month: `${monthNames[new Date().getMonth()]} ${new Date().getFullYear() + 543}`, ar: 0, ap: 0, profit: 0, margin: 0, claims: 0 })
+      pnlByMonth.push({ month: `${monthNames[new Date().getMonth()]} ${new Date().getFullYear() + 543}`, ar: 0, pendingAr: 0, ap: 0, profit: 0, margin: 0, claims: 0 })
     }
 
-    // AR Aging — Detailed list of unpaid invoices using selective fields
+    // 5. AR Aging — Only invoices that have been issued/sent to insurance (SENT / PARTIAL)
     const arInvoices = await prisma.insuranceInvoice.findMany({
       where: {
-        status: { in: ['PENDING', 'SENT'] },
+        status: { in: ['SENT', 'PARTIAL'] },
         claim: claimFilter
       },
       select: {
@@ -140,10 +223,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // AP Outstanding — Detailed list of unpaid vendor/garage invoices using selective fields
-    const supplierFilter: any = {}
-    if (vendorId) supplierFilter.vendorId = vendorId
-
+    // 6. AP Outstanding — Detailed list of unpaid vendor invoices
     const apInvoices = await prisma.supplierInvoice.findMany({
       where: {
         ...supplierFilter,
@@ -158,6 +238,7 @@ export async function GET(request: NextRequest) {
         vendor: {
           select: {
             name: true,
+            vendorType: true,
           },
         },
         claim: {
@@ -166,56 +247,43 @@ export async function GET(request: NextRequest) {
             carPlate: true,
           },
         },
-      },
-    })
-
-    const garageInvoices = await prisma.garageInvoice.findMany({
-      where: {
-        claim: claimFilter,
-      },
-      select: {
-        createdAt: true,
-        invoiceNo: true,
-        totalAmount: true,
-        garageId: true,
-        garage: {
+        items: {
           select: {
-            name: true,
-          },
-        },
-        claim: {
-          select: {
-            claimNo: true,
-            carPlate: true,
+            claimLaborId: true,
+            description: true,
           },
         },
       },
     })
 
     const apOutstanding = [
-      ...apInvoices.map(inv => ({
-        vendor: inv.vendor.name,
-        vendorId: inv.vendorId,
-        type: 'อะไหล่',
-        invoiceNo: inv.invoiceNo || '-',
-        claimNo: inv.claim?.claimNo || 'ทั่วไป',
-        carPlate: inv.claim?.carPlate || 'ทั่วไป',
-        invoiceDate: inv.createdAt,
-        amount: inv.totalAmount
-      })),
+      ...apInvoices.map(inv => {
+        const hasLabor = inv.items?.some(i => i.claimLaborId || (i.description && i.description.includes('ค่าแรง')))
+        const isGarage = inv.vendor?.vendorType === 'GARAGE'
+        return {
+          vendor: inv.vendor?.name || 'คู่ค้า',
+          vendorId: inv.vendorId,
+          type: (hasLabor || isGarage) ? 'ค่าแรง' : 'อะไหล่',
+          invoiceNo: inv.invoiceNo || '-',
+          claimNo: inv.claim?.claimNo || 'ทั่วไป',
+          carPlate: inv.claim?.carPlate || 'ทั่วไป',
+          invoiceDate: inv.createdAt,
+          amount: inv.totalAmount
+        }
+      }),
       ...garageInvoices.map(inv => ({
-        vendor: inv.garage?.name || 'อู่ซ่อม',
-        vendorId: inv.garageId || '',
+        vendor: 'อู่ซ่อม',
+        vendorId: '',
         type: 'ค่าแรง',
-        invoiceNo: inv.invoiceNo || '-',
-        claimNo: inv.claim.claimNo,
-        carPlate: inv.claim.carPlate,
-        invoiceDate: inv.createdAt,
+        invoiceNo: '-',
+        claimNo: claims.find(c => c.id === inv.claimId)?.claimNo || '-',
+        carPlate: claims.find(c => c.id === inv.claimId)?.carPlate || '-',
+        invoiceDate: new Date(),
         amount: inv.totalAmount
       }))
     ].sort((a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime())
 
-    // Vendor Performance — real PO data aggregated in DB
+    // 7. Vendor Performance — real PO data aggregated in DB
     const poGroups = await prisma.purchaseOrder.groupBy({
       by: ['vendorId'],
       where: {
@@ -258,27 +326,50 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Income / Expense Detail — line-item breakdown per claim
-    const incomeExpense = claims.map(c => {
-      const arTotal = c.insuranceInvoice?.grandTotal || 0
-      const apParts = supplierInvoiceSumsMap[c.id] || 0
-      const apLabor = garageInvoiceSumsMap[c.id] || 0
-      const apTotal = apParts + apLabor
+    // 8. Income / Expense Detail — line-item breakdown per claim
+    // Revenue is strictly from actual billed amount (SENT/PAID). Unbilled draft amounts are tracked in pendingAR.
+    // Expenses are strictly actual parts and labor from supplier invoices.
+    let incomeExpense = claims.map(c => {
+      const inv = c.insuranceInvoice
+      const isBilled = Boolean(inv && ['SENT', 'PAID', 'PARTIAL'].includes(inv.status))
+      const arTotal = isBilled ? (inv?.grandTotal || 0) : 0
+      const pendingAR = (!isBilled && inv) ? (inv?.grandTotal || 0) : 0
+
+      const apParts = Math.round((partsMap[c.id] || 0) * 100) / 100
+      const apLabor = Math.round((laborMap[c.id] || 0) * 100) / 100
+      const apTotal = Math.round((apParts + apLabor) * 100) / 100
+
+      // Profit calculation:
+      // If billed: profit = billed revenue - actual expenses
+      // If not billed: profit = 0 - actual expenses (shows negative expense until billed, or 0 if no expense)
+      const profit = Math.round((arTotal - apTotal) * 100) / 100
+
       return {
         claimId: c.id,
         claimNo: c.claimNo,
         insurance: c.insurance?.name || '-',
         carPlate: c.carPlate || '-',
         date: c.createdAt,
+        isBilled,
         arTotal,
+        pendingAR,
         apParts,
         apLabor,
         apTotal,
-        profit: arTotal - apTotal,
-        invoiceNo: c.insuranceInvoice?.invoiceNo || '-',
-        invoiceStatus: c.insuranceInvoice?.status || 'NONE',
+        profit,
+        invoiceNo: inv?.invoiceNo || '-',
+        invoiceStatus: inv?.status || 'NONE',
       }
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    })
+
+    // Filter by billing status if requested
+    if (billingStatus === 'billed') {
+      incomeExpense = incomeExpense.filter(ie => ie.isBilled)
+    } else if (billingStatus === 'unbilled') {
+      incomeExpense = incomeExpense.filter(ie => !ie.isBilled)
+    }
+
+    incomeExpense.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
     return NextResponse.json({
       pnlByMonth,

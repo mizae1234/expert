@@ -24,6 +24,7 @@ export default function ReportsPage() {
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
   const [insuranceId, setInsuranceId] = useState('')
   const [vendorId, setVendorId] = useState('')
+  const [billingStatus, setBillingStatus] = useState('')
   const [insurances, setInsurances] = useState<any[]>([])
   const [vendors, setVendors] = useState<any[]>([])
 
@@ -52,6 +53,7 @@ export default function ReportsPage() {
     if (dateTo) params.set('dateTo', dateTo)
     if (insuranceId) params.set('insuranceId', insuranceId)
     if (vendorId) params.set('vendorId', vendorId)
+    if (billingStatus) params.set('billingStatus', billingStatus)
 
     fetch(`/api/reports?${params}`)
       .then(res => res.json())
@@ -63,7 +65,7 @@ export default function ReportsPage() {
         console.error(err)
         setLoading(false)
       })
-  }, [dateFrom, dateTo, insuranceId, vendorId])
+  }, [dateFrom, dateTo, insuranceId, vendorId, billingStatus])
 
   useEffect(() => {
     fetchReport()
@@ -204,8 +206,13 @@ export default function ReportsPage() {
                 <option key={v.id} value={v.id}>{v.name}</option>
               ))}
             </Select>
-            {(insuranceId || vendorId) && (
-              <Button variant="ghost" size="sm" onClick={() => { setInsuranceId(''); setVendorId('') }}>
+            <Select value={billingStatus} onChange={e => setBillingStatus(e.target.value)} className="w-52">
+              <option value="">ทุกสถานะวางบิล</option>
+              <option value="billed">เฉพาะที่วางบิลแล้ว (SENT / PAID)</option>
+              <option value="unbilled">ยังไม่วางบิล (PENDING)</option>
+            </Select>
+            {(insuranceId || vendorId || billingStatus) && (
+              <Button variant="ghost" size="sm" onClick={() => { setInsuranceId(''); setVendorId(''); setBillingStatus('') }}>
                 ล้างตัวกรอง
               </Button>
             )}
@@ -554,8 +561,10 @@ export default function ReportsPage() {
                       'ทะเบียน': ie.carPlate,
                       'บ.ประกัน': ie.insurance,
                       'วันที่': formatDate(ie.date),
+                      'สถานะวางบิล': ie.invoiceStatus === 'PAID' ? 'ชำระแล้ว' : ie.invoiceStatus === 'SENT' ? 'วางบิลแล้ว' : ie.invoiceStatus === 'PARTIAL' ? 'ชำระบางส่วน' : ie.invoiceStatus === 'PENDING' ? 'ยังไม่วางบิล' : 'ไม่มีบิล',
                       'เลขที่ Invoice': ie.invoiceNo,
-                      'รายรับ (AR)': ie.arTotal,
+                      'รายรับที่วางบิลจริง (AR)': ie.arTotal,
+                      'ยอดรอวางบิล': ie.pendingAR || 0,
                       'ค่าอะไหล่ (AP)': ie.apParts,
                       'ค่าแรง (AP)': ie.apLabor,
                       'รวมรายจ่าย (AP)': ie.apTotal,
@@ -567,12 +576,14 @@ export default function ReportsPage() {
                       'ทะเบียน': '',
                       'บ.ประกัน': `${filteredIE.length} เคลม`,
                       'วันที่': '',
+                      'สถานะวางบิล': '',
                       'เลขที่ Invoice': '',
-                      'รายรับ (AR)': filteredIE.reduce((s, ie) => s + ie.arTotal, 0),
-                      'ค่าอะไหล่ (AP)': filteredIE.reduce((s, ie) => s + ie.apParts, 0),
-                      'ค่าแรง (AP)': filteredIE.reduce((s, ie) => s + ie.apLabor, 0),
-                      'รวมรายจ่าย (AP)': filteredIE.reduce((s, ie) => s + ie.apTotal, 0),
-                      'กำไร/ขาดทุน': filteredIE.reduce((s, ie) => s + ie.profit, 0),
+                      'รายรับที่วางบิลจริง (AR)': filteredIE.reduce((s, ie) => s + (ie.arTotal || 0), 0),
+                      'ยอดรอวางบิล': filteredIE.reduce((s, ie) => s + (ie.pendingAR || 0), 0),
+                      'ค่าอะไหล่ (AP)': filteredIE.reduce((s, ie) => s + (ie.apParts || 0), 0),
+                      'ค่าแรง (AP)': filteredIE.reduce((s, ie) => s + (ie.apLabor || 0), 0),
+                      'รวมรายจ่าย (AP)': filteredIE.reduce((s, ie) => s + (ie.apTotal || 0), 0),
+                      'กำไร/ขาดทุน': filteredIE.reduce((s, ie) => s + (ie.profit || 0), 0),
                     }
                     rows.push(totalRow as any)
                     exportToExcel(rows, `Income_Expense_${dateFrom}_${dateTo}.xlsx`)
@@ -586,14 +597,21 @@ export default function ReportsPage() {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                   {[
                     { label: 'จำนวนเคลม', value: filteredIE.length, format: false, color: 'text-[#0f172a]' },
-                    { label: 'รวมรายรับ (AR)', value: filteredIE.reduce((s, ie) => s + ie.arTotal, 0), format: true, color: 'text-green-600' },
-                    { label: 'รวมค่าอะไหล่ (AP)', value: filteredIE.reduce((s, ie) => s + ie.apParts, 0), format: true, color: 'text-red-500' },
-                    { label: 'รวมค่าแรง (AP)', value: filteredIE.reduce((s, ie) => s + ie.apLabor, 0), format: true, color: 'text-red-500' },
-                    { label: 'กำไรสุทธิ', value: filteredIE.reduce((s, ie) => s + ie.profit, 0), format: true, color: filteredIE.reduce((s, ie) => s + ie.profit, 0) >= 0 ? 'text-green-600' : 'text-red-500' },
+                    { 
+                      label: 'รวมรายรับ (AR)', 
+                      value: filteredIE.reduce((s, ie) => s + (ie.arTotal || 0), 0), 
+                      subtext: filteredIE.some(ie => (ie.pendingAR || 0) > 0) ? `รอวางบิล: ฿${formatCurrency(filteredIE.reduce((s, ie) => s + (ie.pendingAR || 0), 0))}` : undefined,
+                      format: true, 
+                      color: 'text-green-600' 
+                    },
+                    { label: 'รวมค่าอะไหล่ (AP)', value: filteredIE.reduce((s, ie) => s + (ie.apParts || 0), 0), format: true, color: 'text-red-500' },
+                    { label: 'รวมค่าแรง (AP)', value: filteredIE.reduce((s, ie) => s + (ie.apLabor || 0), 0), format: true, color: 'text-red-500' },
+                    { label: 'กำไรสุทธิ', value: filteredIE.reduce((s, ie) => s + (ie.profit || 0), 0), format: true, color: filteredIE.reduce((s, ie) => s + (ie.profit || 0), 0) >= 0 ? 'text-green-600' : 'text-red-500' },
                   ].map(s => (
                     <div key={s.label} className="bg-[#f8faff] rounded-lg p-3 text-center">
                       <p className="text-xs text-[#94a3b8]">{s.label}</p>
                       <p className={`text-lg font-bold mt-1 ${s.color}`}>{s.format ? `฿${formatCurrency(s.value)}` : s.value}</p>
+                      {s.subtext && <p className="text-[10px] text-gray-500 mt-1">{s.subtext}</p>}
                     </div>
                   ))}
                 </div>
@@ -625,14 +643,33 @@ export default function ReportsPage() {
                           <TableCell className="text-xs">{ie.carPlate}</TableCell>
                           <TableCell className="text-xs">{ie.insurance}</TableCell>
                           <TableCell className="text-xs">{formatDate(ie.date)}</TableCell>
-                          <TableCell className="text-right text-xs font-semibold text-green-600">{ie.arTotal > 0 ? `฿${formatCurrency(ie.arTotal)}` : '-'}</TableCell>
+                          <TableCell className="text-right text-xs">
+                            {ie.arTotal > 0 ? (
+                              <span className="font-semibold text-green-600">฿{formatCurrency(ie.arTotal)}</span>
+                            ) : ie.pendingAR > 0 ? (
+                              <span className="text-gray-400" title={`รอวางบิล: ฿${formatCurrency(ie.pendingAR)}`}>-</span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right text-xs">{ie.apParts > 0 ? `฿${formatCurrency(ie.apParts)}` : '-'}</TableCell>
                           <TableCell className="text-right text-xs">{ie.apLabor > 0 ? `฿${formatCurrency(ie.apLabor)}` : '-'}</TableCell>
                           <TableCell className="text-right text-xs font-semibold text-red-500">{ie.apTotal > 0 ? `฿${formatCurrency(ie.apTotal)}` : '-'}</TableCell>
-                          <TableCell className={`text-right text-xs font-bold ${ie.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>฿{formatCurrency(ie.profit)}</TableCell>
+                          <TableCell className={`text-right text-xs font-bold ${!ie.isBilled && ie.apTotal === 0 ? 'text-gray-400' : ie.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {!ie.isBilled && ie.apTotal === 0 ? '-' : `฿${formatCurrency(ie.profit)}`}
+                          </TableCell>
                           <TableCell className="text-center">
-                            <Badge className={`border-none text-[9px] ${ie.invoiceStatus === 'PAID' ? 'bg-green-100 text-green-700' : ie.invoiceStatus === 'SENT' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
-                              {ie.invoiceStatus === 'PAID' ? 'ชำระแล้ว' : ie.invoiceStatus === 'SENT' ? 'วางบิลแล้ว' : ie.invoiceStatus === 'NONE' ? 'ยังไม่วางบิล' : ie.invoiceStatus}
+                            <Badge className={`border-none text-[9px] ${
+                              ie.invoiceStatus === 'PAID' ? 'bg-green-100 text-green-700' :
+                              ie.invoiceStatus === 'SENT' ? 'bg-purple-100 text-purple-700' :
+                              ie.invoiceStatus === 'PARTIAL' ? 'bg-amber-100 text-amber-700' :
+                              ie.invoiceStatus === 'PENDING' ? 'bg-gray-100 text-gray-600' :
+                              'bg-gray-50 text-gray-400'
+                            }`}>
+                              {ie.invoiceStatus === 'PAID' ? 'ชำระแล้ว' :
+                               ie.invoiceStatus === 'SENT' ? 'วางบิลแล้ว' :
+                               ie.invoiceStatus === 'PARTIAL' ? 'ชำระบางส่วน' :
+                               ie.invoiceStatus === 'PENDING' ? 'ยังไม่วางบิล' : 'ไม่มีบิล'}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -644,11 +681,13 @@ export default function ReportsPage() {
                         <TableCell></TableCell>
                         <TableCell className="text-xs">{filteredIE.length} เคลม</TableCell>
                         <TableCell></TableCell>
-                        <TableCell className="text-right text-xs text-green-600">฿{formatCurrency(filteredIE.reduce((s, ie) => s + ie.arTotal, 0))}</TableCell>
-                        <TableCell className="text-right text-xs">฿{formatCurrency(filteredIE.reduce((s, ie) => s + ie.apParts, 0))}</TableCell>
-                        <TableCell className="text-right text-xs">฿{formatCurrency(filteredIE.reduce((s, ie) => s + ie.apLabor, 0))}</TableCell>
-                        <TableCell className="text-right text-xs text-red-500">฿{formatCurrency(filteredIE.reduce((s, ie) => s + ie.apTotal, 0))}</TableCell>
-                        <TableCell className={`text-right text-xs font-bold ${filteredIE.reduce((s, ie) => s + ie.profit, 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>฿{formatCurrency(filteredIE.reduce((s, ie) => s + ie.profit, 0))}</TableCell>
+                        <TableCell className="text-right text-xs text-green-600">฿{formatCurrency(filteredIE.reduce((s, ie) => s + (ie.arTotal || 0), 0))}</TableCell>
+                        <TableCell className="text-right text-xs">฿{formatCurrency(filteredIE.reduce((s, ie) => s + (ie.apParts || 0), 0))}</TableCell>
+                        <TableCell className="text-right text-xs">฿{formatCurrency(filteredIE.reduce((s, ie) => s + (ie.apLabor || 0), 0))}</TableCell>
+                        <TableCell className="text-right text-xs text-red-500">฿{formatCurrency(filteredIE.reduce((s, ie) => s + (ie.apTotal || 0), 0))}</TableCell>
+                        <TableCell className={`text-right text-xs font-bold ${filteredIE.reduce((s, ie) => s + (ie.profit || 0), 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          ฿{formatCurrency(filteredIE.reduce((s, ie) => s + (ie.profit || 0), 0))}
+                        </TableCell>
                         <TableCell></TableCell>
                       </TableRow>
                     </TableBody>
